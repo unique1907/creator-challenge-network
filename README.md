@@ -25,6 +25,14 @@ Sprint 1 prepares the repository for long-term development:
 - Clear app, feature, service, hook, utility, and type boundaries.
 - Updated documentation for contributors and hackathon reviewers.
 
+Sprint 2 creates the first public product experience:
+
+- Premium dark landing page for the DeFi / Programmable Money track.
+- Public challenge listing route with realistic mock brand challenges.
+- Public challenge detail route with reward, deadline, usage-rights, submissions, status, and Arc escrow context.
+- Responsive header and footer for the public experience.
+- Mock data only; no database, authentication, wallet calls, smart contracts, or secrets.
+
 ## Tech Stack
 
 - Next.js 16 App Router
@@ -98,13 +106,14 @@ Circle API keys, Entity Secrets, wallet IDs, and operational credentials must st
 ## Roadmap
 
 1. Foundation architecture and contributor-ready repository
-2. Challenge brief domain model
-3. Creator submission workflow
-4. Reviewer scoring and approval workflow
-5. Sponsor payout review
-6. Circle Wallets payout orchestration
-7. Public challenge pages and creator reputation profiles
-8. Production hardening, audit trail, and deployment
+2. Public challenge discovery and detail pages
+3. Challenge brief domain model
+4. Creator submission workflow
+5. Blind brand review and winner selection
+6. Sponsor payout review
+7. Circle Wallets payout orchestration
+8. Public creator reputation profiles
+9. Production hardening, audit trail, and deployment
 
 ## Repository
 

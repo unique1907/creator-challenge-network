@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { SiteHeader } from "@/components/layout/site-header";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Creator Challenge Network",
   description:
-    "A creator challenge platform for proof-based rewards and Arc testnet USDC settlement with Circle Wallets.",
+    "A creative competition platform where brands fund challenges and reward one winning submission with USDC secured on Arc.",
   metadataBase: new URL("https://creator-challenge-network.vercel.app"),
   openGraph: {
     title: "Creator Challenge Network",
     description:
-      "Launch creator challenges, validate submissions, and prepare wallet-native rewards.",
+      "Funded creative competitions, blind brand review, and Arc-secured USDC rewards.",
     type: "website",
   },
 };
@@ -21,7 +23,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <SiteHeader />
+        {children}
+        <SiteFooter />
+      </body>
     </html>
   );
 }

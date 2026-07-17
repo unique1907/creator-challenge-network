@@ -27,20 +27,20 @@ export const challengeTracks: ChallengeTrack[] = [
   {
     title: "Create",
     description:
-      "Creators publish verifiable challenge outputs, attach proof, and earn a visible reputation trail.",
-    reward: "Submission rewards",
+      "Creators submit completed campaign work against a funded brand brief before the deadline.",
+    reward: "Completed work",
   },
   {
     title: "Review",
     description:
-      "Curators and sponsors score work against transparent criteria before rewards are released.",
-    reward: "Reviewer incentives",
+      "The brand reviews submissions blindly and selects a single winner against public criteria.",
+    reward: "Blind review",
   },
   {
     title: "Settle",
     description:
-      "Approved challenge rewards are prepared for wallet-native USDC settlement on Arc.",
-    reward: "Programmable payouts",
+      "The winning creator receives the Arc-secured USDC reward and transfers the predefined usage rights.",
+    reward: "Winner payout",
   },
 ];
 
@@ -48,28 +48,28 @@ export const workflowSteps: WorkflowStep[] = [
   {
     title: "Challenge brief",
     description:
-      "Sponsors define the goal, eligibility rules, payout budget, and acceptance criteria.",
+      "Brands define the creative goal, reward, submission deadline, and exact usage-rights terms.",
   },
   {
     title: "Creator submission",
     description:
-      "Participants submit deliverables with links, notes, wallet identity, and review metadata.",
+      "Creators submit finished work, supporting notes, and required deliverables before review.",
   },
   {
     title: "Validation panel",
     description:
-      "Reviewers triage submissions, resolve disputes, and prepare a final payout roster.",
+      "The brand reviews submissions blindly and selects one winning entry.",
   },
   {
     title: "Wallet settlement",
     description:
-      "Circle-controlled wallets execute testnet payouts before production release hardening.",
+      "The predefined USDC reward moves to the winner after usage-rights transfer conditions are satisfied.",
   },
 ];
 
 export const validationItems: ValidationItem[] = [
   { label: "Circle Wallets bootstrap", status: "ready" },
   { label: "Arc Testnet USDC transfer", status: "ready" },
-  { label: "Creator challenge workspace", status: "in-progress" },
-  { label: "Sponsor admin console", status: "planned" },
+  { label: "Public challenge experience", status: "in-progress" },
+  { label: "Blind review workflow", status: "planned" },
 ];
