@@ -1,4 +1,4 @@
-import { statusClassName, statusLabel } from "@/lib/status";
+import { statusClassName, statusLabel } from "@/utils/status";
 import type { ValidationItem } from "@/types/ccn";
 
 type StatusPillProps = {

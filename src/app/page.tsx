@@ -1,7 +1,11 @@
-import { MetricCard } from "@/components/metric-card";
-import { NetworkPanel } from "@/components/network-panel";
-import { SectionHeader } from "@/components/section-header";
-import { challengeTracks, platformStats, workflowSteps } from "@/data/site";
+import { SectionHeader } from "@/components/ui/section-header";
+import {
+  challengeTracks,
+  MetricCard,
+  NetworkPanel,
+  platformStats,
+  workflowSteps,
+} from "@/features/landing";
 
 export default function Home() {
   return (

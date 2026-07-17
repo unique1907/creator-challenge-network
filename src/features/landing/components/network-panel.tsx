@@ -1,5 +1,5 @@
-import { validationItems } from "@/data/site";
-import { StatusPill } from "./status-pill";
+import { StatusPill } from "@/components/ui/status-pill";
+import { validationItems } from "@/features/landing/data/site";
 
 export function NetworkPanel() {
   return (
