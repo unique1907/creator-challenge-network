@@ -6,12 +6,12 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Creator Challenge Network",
   description:
-    "A creative competition platform where brands fund challenges and reward one winning submission with USDC secured on Arc.",
+    "Programmable creative competitions where brands fund challenges, creators submit anonymously, and winners receive USDC payouts on Arc.",
   metadataBase: new URL("https://creator-challenge-network.vercel.app"),
   openGraph: {
     title: "Creator Challenge Network",
     description:
-      "Funded creative competitions, blind brand review, and Arc-secured USDC rewards.",
+      "Funded creative competitions, blind brand review, and programmable USDC payouts on Arc.",
     type: "website",
   },
 };
