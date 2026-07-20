@@ -5,8 +5,7 @@ import { CCNEscrow } from "../src/CCNEscrow.sol";
 
 interface Vm {
     function envAddress(string calldata name) external view returns (address);
-    function envUint(string calldata name) external view returns (uint256);
-    function startBroadcast(uint256 privateKey) external;
+    function startBroadcast() external;
     function stopBroadcast() external;
 }
 
@@ -27,9 +26,8 @@ contract DeployCCNEscrow {
         address admin = vm.envAddress("CCN_ADMIN_ADDRESS");
         address resolver = vm.envAddress("CCN_RESOLVER_ADDRESS");
         address pauser = vm.envAddress("CCN_PAUSER_ADDRESS");
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
         escrow = new CCNEscrow(usdc, treasury, admin, resolver, pauser);
         vm.stopBroadcast();
     }

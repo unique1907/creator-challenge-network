@@ -10,11 +10,11 @@ import type {
 } from "@/types/wallet-spike";
 import { getStoredWallet, upsertStoredWallet } from "./wallet-spike-store.server";
 
-const CIRCLE_BASE_URL = "https://api.circle.com";
+export const CIRCLE_BASE_URL = "https://api.circle.com";
 const REQUEST_TIMEOUT_MS = 20_000;
-const BLOCKCHAIN = "ARC-TESTNET";
-const ACCOUNT_TYPE = "SCA";
-const ARC_TESTNET_USDC_CONTRACT =
+export const USER_WALLET_BLOCKCHAIN = "ARC-TESTNET";
+export const USER_WALLET_ACCOUNT_TYPE = "SCA";
+export const ARC_TESTNET_USDC_CONTRACT =
   "0x3600000000000000000000000000000000000000";
 const CIRCLE_FAUCET_URL = "https://faucet-v2.circle.com/";
 const ARC_EXPLORER_URL = "https://testnet.arcscan.app";
@@ -141,7 +141,7 @@ function stableIdempotencyKey(scope: string, seed: string) {
   ].join("-");
 }
 
-async function circleFetch<T>({
+export async function circleFetch<T>({
   endpoint,
   method,
   body,
@@ -261,8 +261,8 @@ export async function initializeUserWallet(input: {
     userToken: input.userToken,
     body: {
       idempotencyKey: stableIdempotencyKey("initialize", internalUserId),
-      blockchains: [BLOCKCHAIN],
-      accountType: ACCOUNT_TYPE,
+      blockchains: [USER_WALLET_BLOCKCHAIN],
+      accountType: USER_WALLET_ACCOUNT_TYPE,
       metadata: [
         {
           name: "CCN Internal Spike Wallet",
@@ -299,14 +299,19 @@ export async function listWallets(input: {
     userToken: input.userToken,
   });
   const wallet = (data.wallets ?? []).find(
-    (item) => item.blockchain === BLOCKCHAIN && item.accountType === ACCOUNT_TYPE,
+    (item) =>
+      item.blockchain === USER_WALLET_BLOCKCHAIN &&
+      item.accountType === USER_WALLET_ACCOUNT_TYPE,
   );
 
   if (!wallet?.id || !wallet.address) {
     return null;
   }
 
-  if (wallet.blockchain !== BLOCKCHAIN || wallet.accountType !== ACCOUNT_TYPE) {
+  if (
+    wallet.blockchain !== USER_WALLET_BLOCKCHAIN ||
+    wallet.accountType !== USER_WALLET_ACCOUNT_TYPE
+  ) {
     throw new CircleSpikeError({
       message: "Circle returned a wallet on the wrong blockchain or account type.",
     });
@@ -320,8 +325,8 @@ export async function listWallets(input: {
     authProvider: input.authProvider,
     walletId: wallet.id,
     walletAddress: wallet.address,
-    blockchain: BLOCKCHAIN,
-    accountType: ACCOUNT_TYPE,
+    blockchain: USER_WALLET_BLOCKCHAIN,
+    accountType: USER_WALLET_ACCOUNT_TYPE,
     creationStatus: wallet.state === "LIVE" ? "live" : "challenge-created",
     createDate: wallet.createDate ?? now,
     updateDate: wallet.updateDate ?? now,
@@ -353,12 +358,12 @@ export async function getWalletBalances(input: {
   });
 
   const balances: SpikeTokenBalance[] = (data.tokenBalances ?? [])
-    .filter((balance) => balance.token.blockchain === BLOCKCHAIN)
+    .filter((balance) => balance.token.blockchain === USER_WALLET_BLOCKCHAIN)
     .map((balance) => {
       const tokenAddress = balance.token.tokenAddress ?? "";
       return {
         amount: balance.amount,
-        blockchain: BLOCKCHAIN,
+        blockchain: USER_WALLET_BLOCKCHAIN,
         decimals: balance.token.decimals,
         isNative: balance.token.isNative,
         name: balance.token.name,

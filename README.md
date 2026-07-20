@@ -33,6 +33,30 @@ Sprint 2 creates the first public product experience:
 - Responsive header and footer for the public experience.
 - Mock data only; no database, authentication, wallet calls, smart contracts, or secrets.
 
+Sprint 3 and Sprint 4 validate the wallet-native funding path:
+
+- Internal-only Circle User-Controlled Wallet spike completed for a CCN-authenticated test account.
+- Arc Testnet balance verification and official test USDC detection completed.
+- Single non-upgradeable `CCNEscrow` contract deployed to Arc Testnet.
+- First real Brand funding flow verified with exact USDC approval and escrow funding.
+
+## Arc Testnet Verification
+
+- Chain ID: `5042002`
+- Official Arc Testnet USDC: `0x3600000000000000000000000000000000000000`
+- CCNEscrow contract: `0x571470097882848441f8d7FD3D0A37B1b726eBF6`
+- Deployment transaction: `0xfd01e623896253221bc4724b42fb26d6d041dac41f25b47520d53bbd5c02b4a7`
+- First verified approval transaction: `0xbdbedd9348982017207f2727451cc9119f4e092fbec864fd0c7752ba9fea6e23`
+- First verified funding transaction: `0x1f2ffbe8b5166dc7a472fba5fbd7c61f2c5921bc6ca310d1f38466d162b52c74`
+- Prize pool locked: `10` test USDC
+- Platform fee locked: `0.10` test USDC
+- Total locked: `10.10` test USDC
+
+These values are public testnet facts only. Operational wallet identifiers,
+Circle user identifiers, local funding intent IDs, API keys, Entity Secrets,
+PINs, recovery data, and local state are intentionally excluded from this
+repository.
+
 ## Tech Stack
 
 - Next.js 16 App Router
