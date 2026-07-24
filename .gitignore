@@ -29,6 +29,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 .dev-server.*.log
+.dev-server-*.log
 
 # local spike state
 .local/

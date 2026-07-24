@@ -6,11 +6,20 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:payment-wallet-ui": "node scripts/verify-payment-wallet-ui.mjs",
+    "test:circle-id-resolution": "node scripts/verify-circle-transaction-id-resolution.mjs",
+    "test:create-challenge-payment-engine": "node scripts/verify-create-challenge-payment-engine.mjs",
+    "test:create-challenge-store-safety": "node scripts/verify-create-challenge-store-safety.mjs",
+    "test:create-challenge-publish-frontend": "node scripts/verify-create-challenge-publish-frontend.mjs",
+    "test:create-challenge-publish-verification": "node scripts/verify-create-challenge-publish-verification.mjs",
+    "test:creator-foundation-phase1": "node scripts/verify-creator-foundation-phase1.mjs"
   },
   "dependencies": {
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
     "@openzeppelin/contracts": "5.6.1",
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "^2.110.8",
     "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4"
