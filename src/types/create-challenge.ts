@@ -3,7 +3,7 @@ export type CreateChallengeStepId =
   | "prize-pool"
   | "review-rules"
   | "funding"
-  | "deploy";
+  | "publish";
 
 export type CreateChallengeStep = {
   id: CreateChallengeStepId;
@@ -12,14 +12,21 @@ export type CreateChallengeStep = {
 };
 
 export type ChallengeDraft = {
+  id?: string;
+  slug?: string;
+  challengeId?: `0x${string}`;
   title: string;
   brandName: string;
   category: string;
   market: string;
+  summary: string;
   description: string;
+  primaryDeliverable: string;
+  supportingDeliverables: string[];
   referenceLinks: string[];
   attachments: string[];
   deadline: string;
+  usageRightsAcknowledged: boolean;
 };
 
 export type PrizeDistribution = {
@@ -28,14 +35,23 @@ export type PrizeDistribution = {
   currency: "test USDC";
 };
 
+export type PrizeDistributionMode = "recommended" | "equal" | "custom";
+
 export type PrizePool = {
   totalAmount: number;
   currency: "test USDC";
-  winnerCount: number;
+  winnerCount: 1 | 3;
+  distributionMode: PrizeDistributionMode;
   prizeDistribution: PrizeDistribution[];
   platformFee: number;
   estimatedGas: number;
   totalRequired: number;
+  prizePoolUnits: string;
+  distributionUnits: string[];
+  platformFeeUnits: string;
+  totalRequiredUnits: string;
+  allocatedUnits: string;
+  remainingUnits: string;
 };
 
 export type ReviewRules = {
@@ -44,6 +60,11 @@ export type ReviewRules = {
   aiAllowed: boolean;
   allowedFormats: string[];
   usageRights: string;
+  submissionDeadline: string;
+  reviewDeadline: string;
+  judgingCriteria: string[];
+  creatorAcknowledgement: boolean;
+  cancellationAcknowledgement: boolean;
 };
 
 export type FundingState = {
@@ -51,10 +72,25 @@ export type FundingState = {
   walletId: string;
   walletAddress: string;
   availableBalance: number;
-  fundingStatus: "demo-ready" | "not-started" | "pending" | "funded";
-  escrowStatus: "demo-only" | "not-created" | "pending" | "locked";
+  fundingStatus:
+    | "not-started"
+    | "ready"
+    | "approval-pending"
+    | "approved"
+    | "funding-pending"
+    | "funded"
+    | "live";
+  escrowStatus: "not-created" | "pending" | "locked" | "verified";
   transactionId: string;
   transactionHash: string;
+  fundingChallengeId?: string;
+  fundingBlockNumber?: string;
+  fundingLogIndex?: string;
+  eventVerified?: boolean;
+  approvalTransactionId: string;
+  approvalTransactionHash: string;
+  fundingIntentId: string;
+  lastBalanceRefreshAt: string;
 };
 
 export type DeploymentState = {
@@ -62,6 +98,7 @@ export type DeploymentState = {
   currentStep: CreateChallengeStepId;
   errorMessage: string;
   challengeId: string;
+  publicationStatus: "draft" | "ready-to-publish" | "live";
 };
 
 export type CreateChallengeDraftState = {
@@ -70,4 +107,32 @@ export type CreateChallengeDraftState = {
   reviewRules: ReviewRules;
   funding: FundingState;
   deployment: DeploymentState;
+  updatedAt?: string;
+};
+
+export type CreateChallengeValidation = {
+  step: CreateChallengeStepId;
+  valid: boolean;
+  errors: string[];
+};
+
+export type CreateChallengePaymentState =
+  | "NOT_STARTED"
+  | "ACCOUNT_LOADING"
+  | "BALANCE_LOADING"
+  | "BALANCE_READY"
+  | "INSUFFICIENT_BALANCE"
+  | "READY_FOR_APPROVAL"
+  | "APPROVAL_PENDING"
+  | "APPROVED"
+  | "FUNDING_PENDING"
+  | "RECONCILING"
+  | "FUNDED_VERIFIED"
+  | "PUBLISHED"
+  | "RECOVERABLE_ERROR"
+  | "FATAL_ERROR";
+
+export type CreateChallengePaymentProgressItem = {
+  label: string;
+  status: "done" | "active" | "pending" | "warning";
 };

@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
-import { CreateChallengePlaceholder } from "@/features/create-challenge";
+import { CreateChallengeWizard } from "@/features/create-challenge";
 
 export const metadata: Metadata = {
   title: "Create Challenge | Creator Challenge Network",
   description:
-    "Foundation shell for creating funded creative competitions on CCN.",
+    "Create a funded creative competition with test USDC secured on Arc Testnet.",
 };
 
 export default function CreateChallengePage() {
-  return <CreateChallengePlaceholder />;
+  return (
+    <CreateChallengeWizard
+      appId={process.env.NEXT_PUBLIC_CIRCLE_APP_ID ?? ""}
+    />
+  );
 }

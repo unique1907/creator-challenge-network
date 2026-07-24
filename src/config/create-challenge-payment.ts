@@ -1,0 +1,1 @@
+export const CREATE_CHALLENGE_BALANCE_TTL_MS = 30_000;

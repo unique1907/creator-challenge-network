@@ -18,7 +18,7 @@ export function CreateChallengeSuccessPlaceholder() {
           performed here.
         </p>
         <Link
-          href="/create-challenge"
+          href="/create-challenge?new=1"
           className="mt-8 inline-flex h-11 items-center justify-center rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-5 text-sm font-bold text-white transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-200"
         >
           Back to Create Challenge

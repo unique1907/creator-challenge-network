@@ -2,13 +2,22 @@ import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
 import type {
+  ScopedWalletMapping,
   SpikeBalanceSnapshot,
   SafeCircleError,
   SpikeAppSession,
   SpikeTokenBalance,
   SpikeWalletRecord,
+  WalletPurpose,
+  WalletRole,
 } from "@/types/wallet-spike";
-import { getStoredWallet, upsertStoredWallet } from "./wallet-spike-store.server";
+import {
+  getScopedStoredWallet,
+  getStoredWallet,
+  migrateLegacyStoredWallet,
+  upsertScopedStoredWallet,
+  upsertStoredWallet,
+} from "./wallet-spike-store.server";
 
 export const CIRCLE_BASE_URL = "https://api.circle.com";
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -195,6 +204,82 @@ export async function circleFetch<T>({
   }
 }
 
+function assertWalletRole(value: unknown): asserts value is WalletRole {
+  if (value !== "BRAND" && value !== "CREATOR") {
+    throw new CircleSpikeError({ message: "Unsupported wallet role." });
+  }
+}
+
+function assertWalletPurpose(value: unknown): asserts value is WalletPurpose {
+  if (value !== "PAYMENT" && value !== "PAYOUT") {
+    throw new CircleSpikeError({ message: "Unsupported wallet purpose." });
+  }
+}
+
+function toSpikeWalletRecord(input: {
+  internalUserId: string;
+  ccnAccountId: string;
+  authProvider: "google" | "apple" | "email";
+  wallet: WalletResponse;
+}) {
+  const now = new Date().toISOString();
+  return {
+    internalUserId: input.internalUserId,
+    circleUserId: input.wallet.userId ?? input.ccnAccountId,
+    ccnAccountId: input.ccnAccountId,
+    authProvider: input.authProvider,
+    walletId: input.wallet.id,
+    walletAddress: input.wallet.address,
+    blockchain: USER_WALLET_BLOCKCHAIN,
+    accountType: USER_WALLET_ACCOUNT_TYPE,
+    creationStatus: input.wallet.state === "LIVE" ? "live" : "challenge-created",
+    createDate: input.wallet.createDate ?? now,
+    updateDate: input.wallet.updateDate ?? now,
+  } satisfies SpikeWalletRecord;
+}
+
+function scopedMappingFromWallet(input: {
+  ccnAccountId: string;
+  role: WalletRole;
+  purpose: WalletPurpose;
+  wallet: WalletResponse;
+}) {
+  const now = new Date().toISOString();
+  return {
+    ccnAccountId: input.ccnAccountId,
+    role: input.role,
+    purpose: input.purpose,
+    circleUserId: input.wallet.userId ?? input.ccnAccountId,
+    walletId: input.wallet.id,
+    walletAddress: input.wallet.address,
+    blockchain: USER_WALLET_BLOCKCHAIN,
+    accountType: USER_WALLET_ACCOUNT_TYPE,
+    walletState: input.wallet.state === "LIVE" ? "live" : "challenge-created",
+    createdAt: input.wallet.createDate ?? now,
+    updatedAt: input.wallet.updateDate ?? now,
+  } satisfies ScopedWalletMapping;
+}
+
+async function fetchCircleWallets(userToken: string) {
+  const data = await circleFetch<WalletListResponse>({
+    endpoint: "/v1/w3s/wallets",
+    method: "GET",
+    userToken,
+  });
+  return data.wallets ?? [];
+}
+
+function usableArcScaWallets(wallets: WalletResponse[]) {
+  return wallets.filter(
+    (item) =>
+      item.id &&
+      item.address &&
+      item.blockchain === USER_WALLET_BLOCKCHAIN &&
+      item.accountType === USER_WALLET_ACCOUNT_TYPE &&
+      item.state === "LIVE",
+  );
+}
+
 export async function createOrFetchCircleUser(input: {
   ccnAccountId: unknown;
   authProvider: unknown;
@@ -279,6 +364,145 @@ export async function initializeUserWallet(input: {
   };
 }
 
+export async function getScopedWallet(input: {
+  ccnAccountId: unknown;
+  authProvider: unknown;
+  userToken: unknown;
+  role: unknown;
+  purpose: unknown;
+  expectedWalletAddress?: string;
+}) {
+  assertAppAccountId(input.ccnAccountId);
+  assertAuthProvider(input.authProvider);
+  assertToken(input.userToken, "userToken");
+  assertWalletRole(input.role);
+  assertWalletPurpose(input.purpose);
+
+  const scoped = await getScopedStoredWallet({
+    ccnAccountId: input.ccnAccountId,
+    role: input.role,
+    purpose: input.purpose,
+  });
+  if (scoped) {
+    if (input.expectedWalletAddress && scoped.walletAddress.toLowerCase() !== input.expectedWalletAddress.toLowerCase()) {
+      throw new CircleSpikeError({ message: "Scoped wallet mapping does not match the expected product wallet." });
+    }
+    if (scoped.blockchain !== USER_WALLET_BLOCKCHAIN || scoped.accountType !== USER_WALLET_ACCOUNT_TYPE) {
+      throw new CircleSpikeError({ message: "Scoped wallet mapping is not an Arc Testnet SCA wallet." });
+    }
+    if (scoped.walletState !== "live") {
+      throw new CircleSpikeError({ message: "Scoped wallet mapping is not live." });
+    }
+    return scoped;
+  }
+
+  const internalUserId = stableInternalUserId(input.ccnAccountId);
+  const wallets = usableArcScaWallets(await fetchCircleWallets(input.userToken));
+  const verifiedWallet = input.expectedWalletAddress
+    ? wallets.find((wallet) => wallet.address.toLowerCase() === input.expectedWalletAddress?.toLowerCase())
+    : wallets.length === 1
+      ? wallets[0]
+      : null;
+
+  if (!verifiedWallet) {
+    const legacy = await getStoredWallet(internalUserId);
+    if (legacy) {
+      await migrateLegacyStoredWallet({
+        legacyInternalUserId: internalUserId,
+        ccnAccountId: input.ccnAccountId,
+        role: input.role,
+        purpose: input.purpose,
+        expectedWalletAddress: input.expectedWalletAddress,
+        verifiedWallet: {
+          circleUserId: legacy.circleUserId,
+          walletId: legacy.walletId,
+          walletAddress: legacy.walletAddress,
+          blockchain: USER_WALLET_BLOCKCHAIN,
+          accountType: USER_WALLET_ACCOUNT_TYPE,
+          walletState: legacy.creationStatus,
+          createdAt: legacy.createDate,
+          updatedAt: legacy.updateDate,
+        },
+      });
+    }
+    throw new CircleSpikeError({ message: "AMBIGUOUS_LEGACY_WALLET_MAPPING" });
+  }
+
+  const migration = await migrateLegacyStoredWallet({
+    legacyInternalUserId: internalUserId,
+    ccnAccountId: input.ccnAccountId,
+    role: input.role,
+    purpose: input.purpose,
+    expectedWalletAddress: input.expectedWalletAddress,
+    verifiedWallet: {
+      circleUserId: verifiedWallet.userId ?? input.ccnAccountId,
+      walletId: verifiedWallet.id,
+      walletAddress: verifiedWallet.address,
+      blockchain: USER_WALLET_BLOCKCHAIN,
+      accountType: USER_WALLET_ACCOUNT_TYPE,
+      walletState: verifiedWallet.state === "LIVE" ? "live" : "challenge-created",
+      createdAt: verifiedWallet.createDate,
+      updatedAt: verifiedWallet.updateDate,
+    },
+  });
+
+  if (migration.mapping) return migration.mapping;
+
+  return upsertScopedStoredWallet(scopedMappingFromWallet({
+    ccnAccountId: input.ccnAccountId,
+    role: input.role,
+    purpose: input.purpose,
+    wallet: verifiedWallet,
+  }));
+}
+
+export async function initializeScopedUserWallet(input: {
+  ccnAccountId: unknown;
+  authProvider: unknown;
+  userToken: unknown;
+  role: unknown;
+  purpose: unknown;
+}) {
+  assertAppAccountId(input.ccnAccountId);
+  assertAuthProvider(input.authProvider);
+  assertToken(input.userToken, "userToken");
+  assertWalletRole(input.role);
+  assertWalletPurpose(input.purpose);
+
+  const existing = await getScopedStoredWallet({
+    ccnAccountId: input.ccnAccountId,
+    role: input.role,
+    purpose: input.purpose,
+  });
+  if (existing?.walletId) {
+    return { alreadyMapped: true, wallet: existing };
+  }
+
+  const internalUserId = stableInternalUserId(input.ccnAccountId);
+  const data = await circleFetch<InitializeResponse>({
+    endpoint: "/v1/w3s/user/initialize",
+    method: "POST",
+    userToken: input.userToken,
+    body: {
+      idempotencyKey: stableIdempotencyKey("initialize", [input.ccnAccountId, input.role, input.purpose].join(":")),
+      blockchains: [USER_WALLET_BLOCKCHAIN],
+      accountType: USER_WALLET_ACCOUNT_TYPE,
+      metadata: [
+        {
+          name: "CCN " + input.role + " " + input.purpose + " Wallet",
+          refId: [input.ccnAccountId, input.role, input.purpose].join(":"),
+        },
+      ],
+    },
+  });
+
+  return {
+    alreadyMapped: false,
+    internalUserId,
+    challengeId: data.challengeId ?? "",
+  };
+}
+
 export async function listWallets(input: {
   ccnAccountId: unknown;
   authProvider: unknown;
@@ -317,20 +541,12 @@ export async function listWallets(input: {
     });
   }
 
-  const now = new Date().toISOString();
-  const record: SpikeWalletRecord = {
+  const record = toSpikeWalletRecord({
     internalUserId,
-    circleUserId: wallet.userId ?? input.ccnAccountId,
     ccnAccountId: input.ccnAccountId,
     authProvider: input.authProvider,
-    walletId: wallet.id,
-    walletAddress: wallet.address,
-    blockchain: USER_WALLET_BLOCKCHAIN,
-    accountType: USER_WALLET_ACCOUNT_TYPE,
-    creationStatus: wallet.state === "LIVE" ? "live" : "challenge-created",
-    createDate: wallet.createDate ?? now,
-    updateDate: wallet.updateDate ?? now,
-  };
+    wallet,
+  });
 
   return upsertStoredWallet(record);
 }

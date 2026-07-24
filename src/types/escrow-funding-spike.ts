@@ -61,6 +61,13 @@ export type EscrowPreflightSnapshot = {
     brandNativeWei: string;
     escrowUsdc: string;
   };
+  balanceSource: {
+    address: `0x${string}`;
+    source: string;
+    timestamp: string;
+    network: "ARC-TESTNET";
+    chainId: number;
+  };
   escrow: {
     bytecodeExists: boolean;
     usdc: `0x${string}`;
@@ -86,6 +93,13 @@ export type EscrowTransactionSnapshot = {
 };
 
 export type EscrowFundingVerification = {
+  walletBalance: string;
+  approvalTx: `0x${string}` | null;
+  fundingTx: `0x${string}` | null;
+  receipt: { status?: string; blockNumber?: string; transactionHash?: `0x${string}` } | null;
+  challengeFundedEvent: { transactionHash: `0x${string}`; blockNumber: string; logIndex: string } | null;
+  blockNumber: string | null;
+  challengeVerified: boolean;
   isFunded: boolean;
   challenge: {
     sponsor: `0x${string}`;

@@ -1,4 +1,5 @@
 export { CreateChallengePlaceholder } from "./components/create-challenge-placeholder";
+export { CreateChallengeWizard } from "./components/real-flow/create-challenge-wizard";
 export { CreateChallengeSuccessPlaceholder } from "./components/create-challenge-success-placeholder";
 export { ChallengeLivePreview } from "./components/challenge-live-preview";
 export { NetworkStatusCard } from "./components/network-status-card";

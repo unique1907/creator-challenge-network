@@ -32,3 +32,8 @@ body {
 a {
   text-decoration: none;
 }
+
+body.ccn-app-shell > header,
+body.ccn-app-shell > footer {
+  display: none;
+}

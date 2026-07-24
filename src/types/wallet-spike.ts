@@ -60,3 +60,21 @@ export type SafeCircleError = {
   code?: string | number;
   endpoint?: string;
 };
+
+export type WalletRole = "BRAND" | "CREATOR";
+
+export type WalletPurpose = "PAYMENT" | "PAYOUT";
+
+export type ScopedWalletMapping = {
+  ccnAccountId: string;
+  role: WalletRole;
+  purpose: WalletPurpose;
+  circleUserId: string;
+  walletId: string;
+  walletAddress: string;
+  blockchain: "ARC-TESTNET";
+  accountType: "SCA" | "EOA" | "MSCA";
+  walletState: string;
+  createdAt: string;
+  updatedAt: string;
+};

@@ -41,7 +41,7 @@ export function FinalLandingPage() {
             </p>
             <div className="mt-6 flex flex-col gap-4 sm:flex-row">
               <Link
-                href="/create-challenge"
+                href="/create-challenge?new=1"
                 className="inline-flex h-14 items-center justify-center gap-3 rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-7 text-sm font-bold text-white shadow-xl shadow-blue-950/30 transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-200"
               >
                 Launch a Challenge
@@ -72,7 +72,7 @@ export function FinalLandingPage() {
             Active Challenges
           </h2>
           <Link
-            href="/create-challenge"
+            href="/create-challenge?new=1"
             className="inline-flex items-center gap-2 text-sm font-semibold text-violet-700 transition hover:text-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-400"
           >
             View all challenges

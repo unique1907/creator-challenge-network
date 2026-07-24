@@ -41,4 +41,8 @@ export type Challenge = {
   evaluation: string[];
   audience: string;
   accent: "blue" | "purple" | "teal";
+  winnerModel?: string;
+  prizeDistribution?: string[];
+  fundingTransactionHash?: string;
+  escrowContractAddress?: string;
 };

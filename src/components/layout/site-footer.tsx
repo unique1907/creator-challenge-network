@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const footerColumns = [
   {
@@ -11,7 +12,7 @@ const footerColumns = [
   {
     title: "For Brands",
     links: [
-      { label: "Launch a Challenge", href: "/create-challenge" },
+      { label: "Launch a Challenge", href: "/create-challenge?new=1" },
       { label: "Brand Resources", href: "/challenges" },
     ],
   },
@@ -38,9 +39,15 @@ export function SiteFooter() {
         <div>
           <Link
             href="/"
-            className="inline-flex h-[52px] w-[52px] items-center justify-center rounded-lg border border-violet-500 text-lg font-bold text-white focus:outline-none focus:ring-2 focus:ring-cyan-200"
+            className="inline-flex rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-200"
           >
-            CCN
+            <Image
+              src="/brand/ccn-logo.png"
+              alt="Creator Challenge Network"
+              width={126}
+              height={40}
+              className="h-10 w-auto object-contain"
+            />
           </Link>
           <p className="mt-4 text-sm font-semibold text-white">
             Creator Challenge Network

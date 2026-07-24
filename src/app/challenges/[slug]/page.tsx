@@ -5,6 +5,7 @@ import {
   challenges,
   getChallengeBySlug,
 } from "@/features/challenges";
+import { getPublishedCreateChallenge } from "@/services/create-challenge/published-challenge.server";
 
 type ChallengePageProps = {
   params: Promise<{ slug: string }>;
@@ -18,7 +19,10 @@ export async function generateMetadata({
   params,
 }: ChallengePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const challenge = getChallengeBySlug(slug);
+  const published = await getPublishedCreateChallenge();
+  const challenge =
+    getChallengeBySlug(slug) ??
+    (published?.slug === slug ? published : undefined);
 
   if (!challenge) {
     return {
@@ -34,7 +38,10 @@ export async function generateMetadata({
 
 export default async function Page({ params }: ChallengePageProps) {
   const { slug } = await params;
-  const challenge = getChallengeBySlug(slug);
+  const published = await getPublishedCreateChallenge();
+  const challenge =
+    getChallengeBySlug(slug) ??
+    (published?.slug === slug ? published : undefined);
 
   if (!challenge) {
     notFound();
