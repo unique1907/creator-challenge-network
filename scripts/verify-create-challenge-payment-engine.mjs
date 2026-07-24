@@ -8,6 +8,17 @@ function read(rel) {
   return fs.readFileSync(path.join(root, rel), "utf8");
 }
 
+const revenueConfig = read("src/config/create-challenge-payment.ts");
+assert.ok(revenueConfig.includes('feeType: "PERCENT"'), "revenue model v1 must use percent fees");
+assert.ok(revenueConfig.includes("feeValue: 10"), "revenue model v1 must use a 10 percent fee");
+assert.ok(revenueConfig.includes('feePayer: "BRAND"'), "revenue model v1 must be paid by the Brand");
+assert.ok(revenueConfig.includes("calculatePlatformFeeUnits"), "platform fee calculation must live in the canonical config module");
+
+const finance = read("src/utils/create-challenge-finance.ts");
+assert.ok(finance.includes("calculatePlatformFeeUnits(prizePoolUnits)"), "prize math must use the canonical revenue engine");
+assert.ok(!finance.includes("PLATFORM_FEE_BPS"), "prize math must not define a duplicate platform fee percentage");
+assert.ok(!finance.includes("BigInt(100)"), "prize math must not hardcode the old 1 percent fee");
+
 const store = read("src/services/create-challenge/create-challenge-store.server.ts");
 assert.ok(store.includes("CREATE_CHALLENGE_STORE_PATH"), "store must use an explicit configured path");
 assert.ok(!store.includes('const STORE_PATH = join(process.cwd()'), "store path must not depend on process.cwd()");

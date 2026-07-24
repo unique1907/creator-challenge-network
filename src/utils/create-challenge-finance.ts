@@ -3,10 +3,10 @@ import type {
   PrizeDistributionMode,
   PrizePool,
 } from "@/types/create-challenge";
+import { calculatePlatformFeeUnits } from "@/config/create-challenge-payment";
 
 const USDC_DECIMALS = 6;
 const USDC_BASE = BigInt(1_000_000);
-const PLATFORM_FEE_BPS = BigInt(100);
 const BPS_BASE = BigInt(10_000);
 const PLACES = ["1st", "2nd", "3rd"] as const;
 
@@ -45,10 +45,6 @@ export function formatUsdcUnits(units: string | bigint) {
   const whole = value / USDC_BASE;
   const fraction = (value % USDC_BASE).toString().padStart(USDC_DECIMALS, "0");
   return `${whole}.${fraction}`.replace(/\.?0+$/, "");
-}
-
-function feeUnitsCeil(prizePoolUnits: bigint) {
-  return (prizePoolUnits * PLATFORM_FEE_BPS + BPS_BASE - BigInt(1)) / BPS_BASE;
 }
 
 function recommendedUnits(total: bigint) {
@@ -102,7 +98,7 @@ export function calculatePrizePool(input: {
     errors.push("Prize distribution must equal the total prize pool.");
   }
 
-  const platformFeeUnits = feeUnitsCeil(prizePoolUnits);
+  const platformFeeUnits = calculatePlatformFeeUnits(prizePoolUnits);
   const totalRequiredUnits = prizePoolUnits + platformFeeUnits;
 
   return {
