@@ -149,11 +149,13 @@ Live payout evidence is included only for the FAT-01 challenge where the reposit
 | Runtime treasury | `0x6d2ca88a7bDA59280D9ad0E41aA87C9acF24Aa1A` |
 | PAYMENT wallet | `0xB1E2700290381396BC2A85bb6C286EaD5e80A5dd` |
 | PAYOUT wallet | `0x37e30Fe02f1f0a7d46ea7CD254398830bE8C30b9` |
-| Verified funding transaction | [`0xb0840e9d…5e5e249`](https://testnet.arcscan.app/tx/0xb0840e9dcd4509c054e7397641df04d82318838f034e2c8f5355dd1495e5e249) |
+| Verified funding transaction | `0xb0840e9dcd4509c054e7397641df04d82318838f034e2c8f5355dd1495e5e249` |
 | Funded challenge ID | `0xc71562ffa5142a1e1d071cd8107b59591901cd993787b19397c1d8ceba7d294b` |
 | Verified payout transaction | [`0x2d11480d…9b38199d`](https://testnet.arcscan.app/tx/0x2d11480d5929d501736fbc976395b9a213f8a79ed711ea2e9447133a9b38199d) |
 | Payout challenge ID | `0x98a03a73cab4f10049f2269c348b69031aa78484b15c9098943e5cea07bcbdd9` |
 | Payout block | `53726923` |
+
+Funding was verified directly through the Arc Testnet RPC. Arcscan currently does not index this transaction, although the successful receipt, USDC transfer and matching ChallengeFunded event are present on-chain.
 
 The funding transaction emitted `ChallengeFunded` on the runtime contract and moved the canonical campaign into verified funded state.
 
