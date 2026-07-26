@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2300" viewBox="0 0 1600 2300" role="img" aria-labelledby="title desc">
+  <title id="title">CCN Campaign Workflow</title>
+  <desc id="desc">A nine-step vertical workflow from campaign creation to blockchain verification.</desc>
+
+  <defs>
+    <filter id="cardShadow" x="-10%" y="-20%" width="120%" height="150%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#0F172A" flood-opacity="0.055"/>
+    </filter>
+
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M1 1 L7 4 L1 7" fill="none" stroke="#CBD5E1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+
+    <style>
+      .title { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 54px; font-weight: 700; fill: #0F172A; letter-spacing: -1.4px; }
+      .subtitle { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 24px; font-weight: 400; fill: #64748B; }
+      .step { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; font-weight: 600; fill: #5B5CF6; letter-spacing: 1.5px; }
+      .card-title { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 27px; font-weight: 600; fill: #0F172A; letter-spacing: -0.25px; }
+      .card-desc { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 19px; font-weight: 400; fill: #64748B; }
+      .footer-main { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 21px; font-weight: 500; fill: #0F172A; }
+      .footer-sub { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 18px; font-weight: 500; fill: #5B5CF6; letter-spacing: .2px; }
+      .icon { fill: none; stroke: #5B5CF6; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="2300" fill="#FFFFFF"/>
+
+  <!-- Header -->
+  <text x="800" y="112" text-anchor="middle" class="title">CCN Campaign Workflow</text>
+  <text x="800" y="162" text-anchor="middle" class="subtitle">A transparent lifecycle from campaign creation to programmable settlement.</text>
+
+  <!-- Connectors -->
+  <g stroke="#CBD5E1" stroke-width="2" fill="none" stroke-linecap="round">
+    <line x1="800" y1="440" x2="800" y2="492" marker-end="url(#arrow)"/>
+    <line x1="800" y1="645" x2="800" y2="697" marker-end="url(#arrow)"/>
+    <line x1="800" y1="850" x2="800" y2="902" marker-end="url(#arrow)"/>
+    <line x1="800" y1="1055" x2="800" y2="1107" marker-end="url(#arrow)"/>
+    <line x1="800" y1="1260" x2="800" y2="1312" marker-end="url(#arrow)"/>
+    <line x1="800" y1="1465" x2="800" y2="1517" marker-end="url(#arrow)"/>
+    <line x1="800" y1="1670" x2="800" y2="1722" marker-end="url(#arrow)"/>
+    <line x1="800" y1="1875" x2="800" y2="1927" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Card 1 -->
+  <g filter="url(#cardShadow)">
+    <rect x="420" y="300" width="760" height="140" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+  </g>
+  <g transform="translate(456 336)">
+    <rect width="68" height="68" rx="14" fill="#5B5CF6" fill-opacity=".08"/>
+    <g class="icon" transform="translate(18 18)">
+      <path d="M10 8V6.5A4.5 4.5 0 0 1 14.5 2h5A4.5 4.5 0 0 1 24 6.5V8"/>
+      <rect x="3" y="8" width="28" height="22" rx="4"/>
+      <path d="M3 17h28M13 17v3h8v-3"/>
+    </g>
+  </g>
+  <text x="552" y="333" class="step">STEP 01</text>
+  <text x="552" y="373" class="card-title">Brand Creates Campaign</text>
+  <text x="552" y="407" class="card-desc">Brief, timeline, prize structure and evaluation criteria.</text>
+
+  <!-- Card 2 -->
+  <g filter="url(#cardShadow)">
+    <rect x="420" y="505" width="760" height="140" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+    <path d="M436 506 H1164" stroke="#5B5CF6" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(456 541)">
+    <rect width="68" height="68" rx="14" fill="#5B5CF6" fill-opacity=".08"/>
+    <g class="icon" transform="translate(18 18)">
+      <path d="M5 8h22a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a5 5 0 0 1 5-5h17"/>
+      <path d="M24 16h7v8h-7a4 4 0 0 1 0-8Z"/>
+      <circle cx="24.5" cy="20" r="1"/>
+    </g>
+  </g>
+  <text x="552" y="538" class="step">STEP 02</text>
+  <text x="552" y="578" class="card-title">Prize Pool Funding</text>
+  <text x="552" y="612" class="card-desc">Rewards are committed before submissions begin.</text>
+
+  <!-- Card 3 -->
+  <g filter="url(#cardShadow)">
+    <rect x="420" y="710" width="760" height="140" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+  </g>
+  <g transform="translate(456 746)">
+    <rect width="68" height="68" rx="14" fill="#5B5CF6" fill-opacity=".08"/>
+    <g class="icon" transform="translate(18 18)">
+      <path d="M18 3c6 2 10 6 12 12l-8 8-10-10 6-10Z"/>
+      <path d="M12 13 7 14l-4 6 8 1M22 23l-1 8 6-4 1-5"/>
+      <circle cx="21" cy="12" r="2.5"/>
+      <path d="M8 25 3 30M12 27l-2 4"/>
+    </g>
+  </g>
+  <text x="552" y="743" class="step">STEP 03</text>
+  <text x="552" y="783" class="card-title">Campaign Goes Live</text>
+  <text x="552" y="817" class="card-desc">The opportunity opens to the global creator network.</text>
+
+  <!-- Card 4 -->
+  <g filter="url(#cardShadow)">
+    <rect x="420" y="915" width="760" height="140" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+  </g>
+  <g transform="translate(456 951)">
+    <rect width="68" height="68" rx="14" fill="#5B5CF6" fill-opacity=".08"/>
+    <g class="icon" transform="translate(18 18)">
+      <path d="M17 24V4M10 11l7-7 7 7"/>
+      <path d="M6 20H4a3 3 0 0 0-3 3v5a3 3 0 0 0 3 3h26a3 3 0 0 0 3-3v-5a3 3 0 0 0-3-3h-2"/>
+    </g>
+  </g>
+  <text x="552" y="948" class="step">STEP 04</text>
+  <text x="552" y="988" class="card-title">Creator Submissions</text>
+  <text x="552" y="1022" class="card-desc">Creators submit original work through a structured flow.</text>
+
+  <!-- Card 5 -->
+  <g filter="url(#cardShadow)">
+    <rect x="420" y="1120" width="760" height="140" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+    <path d="M436 1121 H1164" stroke="#5B5CF6" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(456 1156)">
+    <rect width="68" height="68" rx="14" fill="#5B5CF6" fill-opacity=".08"/>
+    <g class="icon" transform="translate(18 18)">
+      <path d="M4 4l26 26"/>
+      <path d="M14 8.5A16.8 16.8 0 0 1 17 8c8 0 14 9 14 9a25 25 0 0 1-4.3 5.1"/>
+      <path d="M22 22a7 7 0 0 1-10-9.7M7.4 11.5C4.6 13.8 3 17 3 17s6 9 14 9c1.7 0 3.3-.4 4.8-1"/>
+    </g>
+  </g>
+  <text x="552" y="1153" class="step">STEP 05</text>
+  <text x="552" y="1193" class="card-title">Blind Review</text>
+  <text x="552" y="1227" class="card-desc">Creator identity is hidden so the work can stand on its own.</text>
+
+  <!-- Card 6 -->
+  <g filter="url(#cardShadow)">
+    <rect x="420" y="1325" width="760" height="140" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+  </g>
+  <g transform="translate(456 1361)">
+    <rect width="68" height="68" rx="14" fill="#5B5CF6" fill-opacity=".08"/>
+    <g class="icon" transform="translate(18 18)">
+      <path d="M10 4h14v5c0 7-4 12-7 12s-7-5-7-12V4Z"/>
+      <path d="M10 7H5v3c0 5 3 8 7 8M24 7h5v3c0 5-3 8-7 8"/>
+      <path d="M17 21v6M11 31h12M13 27h8"/>
+    </g>
+  </g>
+  <text x="552" y="1358" class="step">STEP 06</text>
+  <text x="552" y="1398" class="card-title">Winner Finalized</text>
+  <text x="552" y="1432" class="card-desc">The outcome is finalized according to campaign rules.</text>
+
+  <!-- Card 7 -->
+  <g filter="url(#cardShadow)">
+    <rect x="420" y="1530" width="760" height="140" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+  </g>
+  <g transform="translate(456 1566)">
+    <rect width="68" height="68" rx="14" fill="#5B5CF6" fill-opacity=".08"/>
+    <g class="icon" transform="translate(18 18)">
+      <path d="M17 3 29 8v8c0 8-5 13-12 16C10 29 5 24 5 16V8l12-5Z"/>
+      <path d="m11 17 4 4 8-9"/>
+    </g>
+  </g>
+  <text x="552" y="1563" class="step">STEP 07</text>
+  <text x="552" y="1603" class="card-title">Circle Hosted Approval</text>
+  <text x="552" y="1637" class="card-desc">A controlled approval authorizes the prepared settlement.</text>
+
+  <!-- Card 8 -->
+  <g filter="url(#cardShadow)">
+    <rect x="420" y="1735" width="760" height="140" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+    <path d="M436 1736 H1164" stroke="#5B5CF6" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(456 1771)">
+    <rect width="68" height="68" rx="14" fill="#5B5CF6" fill-opacity=".08"/>
+    <g class="icon" transform="translate(18 18)">
+      <ellipse cx="12" cy="11" rx="8" ry="4"/>
+      <path d="M4 11v6c0 2.2 3.6 4 8 4 1.1 0 2.2-.1 3.1-.3M4 17v6c0 2.2 3.6 4 8 4"/>
+      <ellipse cx="23" cy="19" rx="8" ry="4"/>
+      <path d="M15 19v6c0 2.2 3.6 4 8 4s8-1.8 8-4v-6M15 25v4c0 2.2 3.6 4 8 4s8-1.8 8-4v-4"/>
+    </g>
+  </g>
+  <text x="552" y="1768" class="step">STEP 08</text>
+  <text x="552" y="1808" class="card-title">USDC Settlement on Arc</text>
+  <text x="552" y="1842" class="card-desc">The smart contract releases the winner payout on-chain.</text>
+
+  <!-- Card 9 -->
+  <g filter="url(#cardShadow)">
+    <rect x="420" y="1940" width="760" height="140" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+  </g>
+  <g transform="translate(456 1976)">
+    <rect width="68" height="68" rx="14" fill="#5B5CF6" fill-opacity=".08"/>
+    <g class="icon" transform="translate(18 18)">
+      <path d="M17 3 21 6l5-.3 1.6 4.7 4 3-2 4.6.7 5-4.5 2.3-2.3 4.5-5-.7-4.6 2-3-4-4.7-1.6.3-5L3 17l3-4-.3-5 5-.7L13 3l4 .0Z"/>
+      <path d="m11 17 4 4 8-9"/>
+    </g>
+  </g>
+  <text x="552" y="1973" class="step">STEP 09</text>
+  <text x="552" y="2013" class="card-title">Blockchain Verification</text>
+  <text x="552" y="2047" class="card-desc">Funding, settlement and completion remain independently verifiable.</text>
+
+  <!-- Footer -->
+  <text x="800" y="2190" text-anchor="middle" class="footer-main">Every campaign follows the same transparent lifecycle.</text>
+  <text x="800" y="2233" text-anchor="middle" class="footer-sub">Funding → Review → Settlement → Verification</text>
+</svg>
