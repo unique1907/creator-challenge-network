@@ -57,7 +57,7 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
         <SignUpEntry initialRole={role} nextPath={nextPath} />
         <div className="mt-8 flex flex-col gap-3 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
           <Link href={signInPath({ role, nextPath })} className="text-blue-300 hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200">
-            Already have an account? Sign In
+            Already have an account? Log in
           </Link>
           <Link href="/" className="text-slate-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200">
             Back to home

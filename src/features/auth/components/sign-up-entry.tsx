@@ -40,40 +40,15 @@ function safeRoleNextPath(role: AuthIntentRole, nextPath?: string | null) {
 
 export function SignUpEntry({ initialRole, nextPath }: { initialRole: AuthIntentRole | null; nextPath?: string | null }) {
   const [selectedRole, setSelectedRole] = useState<AuthIntentRole | null>(initialRole);
-  const [step, setStep] = useState<"role" | "auth">(initialRole ? "auth" : "role");
   const selected = useMemo(
     () => roles.find((role) => role.id === selectedRole) ?? null,
     [selectedRole],
   );
 
-  if (step === "auth" && selected) {
-    return (
-      <section className="mt-7" aria-labelledby="auth-method-title">
-        <button
-          type="button"
-          onClick={() => setStep("role")}
-          className="mb-5 rounded-md text-sm font-semibold text-blue-300 transition hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200"
-        >
-          Back to role selection
-        </button>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">Selected workspace</p>
-          <h1 id="auth-method-title" className="mt-2 text-3xl font-semibold text-white">
-            {titleForRole(selected.id)}
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-slate-300">
-            {selected.description} This becomes the primary role for this account after onboarding. Use a separate sign-in for the other role.
-          </p>
-        </div>
-        <AuthActions mode="sign-up" roleIntent={selected.id} nextPath={safeRoleNextPath(selected.id, nextPath)} />
-      </section>
-    );
-  }
-
   return (
     <section className="mt-7" aria-labelledby="role-selection-title">
       <h1 id="role-selection-title" className="text-3xl font-semibold text-white">
-        How will you use CCN?
+        Create your account
       </h1>
       <p className="mt-3 text-slate-300">
         Choose one primary role for this account. Use a separate sign-in for the other role.
@@ -108,14 +83,22 @@ export function SignUpEntry({ initialRole, nextPath }: { initialRole: AuthIntent
           );
         })}
       </div>
-      <button
-        type="button"
-        disabled={!selectedRole}
-        onClick={() => selectedRole && setStep("auth")}
-        className="mt-6 inline-flex h-12 min-w-44 items-center justify-center rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-6 text-sm font-bold text-white shadow-lg shadow-blue-950/25 transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Continue
-      </button>
+      {selected ? (
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">Selected workspace</p>
+          <h2 className="mt-2 text-2xl font-semibold text-white">
+            {titleForRole(selected.id)}
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-slate-300">
+            {selected.description} This becomes the primary role for this account after onboarding. Use a separate sign-in for the other role.
+          </p>
+        </div>
+      ) : null}
+      <AuthActions
+        mode="sign-up"
+        roleIntent={selected?.id ?? null}
+        nextPath={selected ? safeRoleNextPath(selected.id, nextPath) : null}
+      />
     </section>
   );
 }

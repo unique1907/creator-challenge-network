@@ -81,7 +81,8 @@
     "test:p0-creator-profile-avatar-persistence-runtime": "node scripts/verify-p0-creator-profile-avatar-persistence-runtime.mjs"
     ,
     "test:p0-production-blocker-closure": "node scripts/verify-p0-production-blocker-closure.mjs",
-    "test:p0-vercel-production-env-package": "node scripts/verify-p0-vercel-production-env-package.mjs"
+    "test:p0-vercel-production-env-package": "node scripts/verify-p0-vercel-production-env-package.mjs",
+    "test:p0-password-auth": "node scripts/verify-p0-password-auth.mjs"
   },
   "dependencies": {
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",

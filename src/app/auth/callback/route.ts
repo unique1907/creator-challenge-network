@@ -14,6 +14,10 @@ function safeRole(value: string | null): IntentRole | null {
   return value === "brand" || value === "creator" ? value : null;
 }
 
+function safeCallbackType(value: string | null) {
+  return value === "recovery" ? value : null;
+}
+
 function setupPath(role: IntentRole | null) {
   const params = new URLSearchParams();
   if (role) params.set("role", role);
@@ -89,10 +93,12 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const next = safePath(url.searchParams.get("next"));
   const roleIntent = safeRole(url.searchParams.get("role"));
+  const callbackType = safeCallbackType(url.searchParams.get("type"));
   traceCallback("reached", {
     codePresent: Boolean(code),
     nextPresent: Boolean(next),
     roleIntent: roleIntent ?? "none",
+    callbackType: callbackType ?? "auth",
   });
 
   try {
@@ -116,6 +122,12 @@ export async function GET(request: Request) {
     traceCallback("session-check", { sessionPresent: Boolean(data.user) });
     if (!data.user) throw new Error("Auth session was not created.");
 
+    if (callbackType === "recovery") {
+      const destination = next === "/auth/update-password" ? next : "/auth/update-password";
+      traceCallback("final-redirect", { destination, callbackType });
+      return NextResponse.redirect(new URL(destination, redirectOrigin));
+    }
+
     const account = await resolveOrCreateCcnAccount(data.user);
     if (roleIntent === "brand" && !account.is_creator && !brandOnboardingComplete(account)) {
       traceCallback("final-redirect", { destination: "/auth/onboarding/brand" });
@@ -135,6 +147,9 @@ export async function GET(request: Request) {
     const category = exchangeFailureCategory(error);
     traceCallback("callback-error", { category });
     const params = new URLSearchParams({ error: category === "expired" ? "callback_expired" : "callback" });
+    if (callbackType === "recovery") {
+      return NextResponse.redirect(new URL(`/auth/update-password?${params.toString()}`, redirectOrigin));
+    }
     return NextResponse.redirect(new URL(`/auth/sign-in?${params.toString()}`, redirectOrigin));
   }
 }

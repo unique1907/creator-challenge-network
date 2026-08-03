@@ -33,8 +33,8 @@ function signUpPath(input: { role: "brand" | "creator" | null; nextPath?: string
 }
 
 function authErrorMessage(code?: string) {
-  if (code === "callback_expired") return "That sign-in link expired or was already used. Please request a new secure link.";
-  if (code === "callback") return "Sign-in could not be completed. Please request a new secure link.";
+  if (code === "callback_expired") return "That email link expired or was already used. Log in with your password or request a reset.";
+  if (code === "callback") return "Email callback could not be completed. Log in with your password or request a reset.";
   if (code === "session") return "Your session could not be restored. Please sign in again.";
   return "";
 }
@@ -57,7 +57,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         <AuthActions mode="sign-in" roleIntent={role} nextPath={nextPath} />
         <div className="mt-6 flex flex-col gap-3 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
           <Link href={signUpPath({ role, nextPath })} className="text-blue-300 hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200">
-            New to CCN? Create an account
+            Create account
           </Link>
           <Link href="/" className="text-slate-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200">
             Back to home

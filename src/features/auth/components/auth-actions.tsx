@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import { FormLabel } from "@/components/ui/form-label";
 import { getPublicSiteOrigin } from "@/config/site-url";
 import { createSupabaseBrowserClient } from "@/services/supabase/browser";
 
 export type AuthIntentRole = "brand" | "creator";
+
+type AccountSnapshot = {
+  isBrand?: boolean;
+  isCreator?: boolean;
+  brandOnboardingComplete?: boolean;
+};
 
 const oauthProviders = [
   {
@@ -20,7 +27,7 @@ const oauthProviders = [
   },
 ] as const;
 
-const emailOtpEnabled = process.env.NEXT_PUBLIC_AUTH_EMAIL_OTP_ENABLED === "true";
+const secondaryEmailLinkEnabled = process.env.NEXT_PUBLIC_AUTH_EMAIL_OTP_ENABLED === "true";
 
 function safeAuthError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -31,28 +38,44 @@ function safeAuthError(error: unknown) {
   if (lower.includes("rate limit") || lower.includes("too many") || lower.includes("email rate limit")) {
     return "Please wait before requesting another email.";
   }
-  if (lower.includes("token") || lower.includes("otp") || lower.includes("expired") || lower.includes("invalid")) {
-    return lower.includes("expired")
-      ? "That sign-in email expired. Request a new one."
-      : "That sign-in email could not be verified. Check the email and try again.";
+  if (lower.includes("password")) {
+    return "Email or password is incorrect.";
   }
-  return "We could not complete email sign-in. Try again.";
+  if (lower.includes("invalid") || lower.includes("credentials") || lower.includes("login")) {
+    return "Email or password is incorrect.";
+  }
+  if (lower.includes("already registered") || lower.includes("already exists")) {
+    return "This email already has an account. Log in or reset your password.";
+  }
+  if (lower.includes("weak") || lower.includes("at least")) {
+    return "Choose a stronger password.";
+  }
+  if (lower.includes("token") || lower.includes("otp") || lower.includes("expired")) {
+    return lower.includes("expired")
+      ? "That email link expired. Request a new one."
+      : "That email link could not be verified. Check the email and try again.";
+  }
+  return "Authentication could not be completed. Try again.";
 }
 
 function safeRole(role?: AuthIntentRole | null) {
   return role === "brand" || role === "creator" ? role : null;
 }
 
-function safeNextPath(nextPath?: string) {
+function safeNextPath(nextPath?: string | null) {
   if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) return "/dashboard";
   return nextPath;
 }
 
-function buildCallbackPath(input: { nextPath?: string; roleIntent?: AuthIntentRole | null }) {
-  const params = new URLSearchParams({ next: safeNextPath(input.nextPath) });
+function buildCallbackPath(input: { nextPath?: string | null; roleIntent?: AuthIntentRole | null; type?: "recovery" }) {
+  const params = new URLSearchParams();
+  const next = input.nextPath ? safeNextPath(input.nextPath) : null;
   const role = safeRole(input.roleIntent);
+  if (next) params.set("next", next);
   if (role) params.set("role", role);
-  return `/auth/callback?${params.toString()}`;
+  if (input.type) params.set("type", input.type);
+  const query = params.toString();
+  return query ? `/auth/callback?${query}` : "/auth/callback";
 }
 
 function maskEmail(value: string) {
@@ -66,134 +89,201 @@ function validEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function safePostAuthDestination(input: {
-  account?: {
-    isBrand?: boolean;
-    isCreator?: boolean;
-    brandOnboardingComplete?: boolean;
-  };
+function passwordIssues(value: string) {
+  const issues = [];
+  if (value.length < 8) issues.push("at least 8 characters");
+  if (!/[A-Z]/.test(value)) issues.push("one uppercase letter");
+  if (!/[a-z]/.test(value)) issues.push("one lowercase letter");
+  if (!/\d/.test(value)) issues.push("one number");
+  return issues;
+}
+
+function passwordIsValid(value: string) {
+  return passwordIssues(value).length === 0;
+}
+
+function setupPath(role: AuthIntentRole | null) {
+  const params = new URLSearchParams();
+  if (role) params.set("role", role);
+  params.set("setup", "1");
+  return `/auth/sign-up?${params.toString()}`;
+}
+
+function roleConflictPath(existingRole: AuthIntentRole) {
+  const params = new URLSearchParams({ roleConflict: existingRole });
+  return `/auth/sign-up?${params.toString()}`;
+}
+
+function postAuthDestination(input: {
+  account?: AccountSnapshot;
   roleIntent?: AuthIntentRole | null;
-  nextPath?: string;
+  nextPath?: string | null;
 }) {
-  const next = safeNextPath(input.nextPath);
+  const next = input.nextPath ? safeNextPath(input.nextPath) : null;
+  const roleIntent = safeRole(input.roleIntent);
   const isBrand = input.account?.isBrand === true;
   const isCreator = input.account?.isCreator === true;
-  if (input.nextPath) {
+
+  if (roleIntent === "brand" && isCreator && !isBrand) return roleConflictPath("creator");
+  if (roleIntent === "creator" && isBrand && !isCreator) return roleConflictPath("brand");
+
+  if (next) {
     if (next.startsWith("/dashboard/creator") && isCreator) return next;
     if ((next === "/dashboard" || next.startsWith("/dashboard/")) && isBrand) return next;
     if (next.startsWith("/challenges") && (isBrand || isCreator)) return next;
   }
-  if (input.roleIntent === "creator") {
-    if (isCreator) return "/dashboard/creator";
-    return "/auth/onboarding/creator";
-  }
-  if (input.roleIntent === "brand") {
-    if (isBrand && input.account?.brandOnboardingComplete !== false) return "/dashboard";
-    return "/auth/onboarding/brand";
-  }
-  if (isBrand) return "/dashboard";
+
+  if (isBrand) return input.account?.brandOnboardingComplete === false ? "/auth/onboarding/brand" : "/dashboard";
   if (isCreator) return "/dashboard/creator";
-  return "/auth/sign-up?setup=1";
+  if (roleIntent === "brand") return "/auth/onboarding/brand";
+  if (roleIntent === "creator") return "/auth/onboarding/creator";
+  return setupPath(null);
+}
+
+async function currentAccount() {
+  const response = await fetch("/api/account/current", {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    if (response.status === 401) return null;
+    throw new Error("Account resolution failed.");
+  }
+  const body = await response.json() as { account?: AccountSnapshot };
+  return body.account ?? null;
 }
 
 export function AuthActions({
+  mode = "sign-in",
   roleIntent = null,
   nextPath,
 }: {
   mode?: "sign-in" | "sign-up";
   roleIntent?: AuthIntentRole | null;
-  nextPath?: string;
+  nextPath?: string | null;
 }) {
   const supabase = createSupabaseBrowserClient();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [sentEmail, setSentEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"email" | "link" | "otp">("email");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
+  const [secondaryOpen, setSecondaryOpen] = useState(false);
   const visibleOauthProviders = oauthProviders.filter((provider) => provider.enabled);
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
-  const canSubmitEmail = validEmail(normalizedEmail) && pending === null;
-  const canVerifyOtp = otp.length === 6 && pending === null;
+  const normalizedRole = safeRole(roleIntent);
+  const issues = passwordIssues(password);
+  const canLogIn = validEmail(normalizedEmail) && password.length > 0 && pending === null;
+  const canSignUp =
+    validEmail(normalizedEmail) &&
+    passwordIsValid(password) &&
+    password === confirmPassword &&
+    normalizedRole !== null &&
+    pending === null;
 
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = window.setTimeout(() => setCooldown((value) => Math.max(0, value - 1)), 1000);
-    return () => window.clearTimeout(timer);
-  }, [cooldown]);
+  async function finishPasswordAuth(accountHint?: AccountSnapshot | null) {
+    const account = accountHint ?? await currentAccount();
+    window.location.assign(postAuthDestination({ account: account ?? undefined, roleIntent: normalizedRole, nextPath }));
+  }
 
-  async function requestEmailCode(inputEmail = normalizedEmail) {
-    if (!validEmail(inputEmail)) {
+  async function signInWithPassword() {
+    if (!validEmail(normalizedEmail) || !password) {
+      setError("Enter your email and password.");
+      return;
+    }
+    setPending("password-login");
+    setError("");
+    setStatus("");
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+      if (signInError) throw signInError;
+      await finishPasswordAuth();
+    } catch (caught) {
+      setError(safeAuthError(caught));
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function signUpWithPassword() {
+    if (!normalizedRole) {
+      setError("Choose Brand or Creator.");
+      return;
+    }
+    if (!validEmail(normalizedEmail)) {
       setError("Enter a valid email address.");
       return;
     }
-    setPending("email");
+    if (!passwordIsValid(password)) {
+      setError(`Password must include ${issues.join(", ")}.`);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setPending("password-signup");
+    setError("");
+    setStatus("");
+    try {
+      const origin = getPublicSiteOrigin();
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: {
+          emailRedirectTo: `${origin}${buildCallbackPath({
+            nextPath: normalizedRole === "creator" ? "/auth/onboarding/creator" : "/auth/onboarding/brand",
+            roleIntent: normalizedRole,
+          })}`,
+          data: {
+            ccn_role_intent: normalizedRole,
+          },
+        },
+      });
+      if (signUpError) throw signUpError;
+
+      if (data.session) {
+        await finishPasswordAuth();
+        return;
+      }
+
+      setSentEmail(normalizedEmail);
+      setStatus(`Confirm your email at ${maskEmail(normalizedEmail)}, then log in with your password.`);
+    } catch (caught) {
+      setError(safeAuthError(caught));
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function requestSecondaryEmailLink() {
+    if (!validEmail(normalizedEmail)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    setPending("email-link");
     setError("");
     setStatus("");
     try {
       const origin = getPublicSiteOrigin();
       const { error: signInError } = await supabase.auth.signInWithOtp({
-        email: inputEmail,
+        email: normalizedEmail,
         options: { emailRedirectTo: `${origin}${buildCallbackPath({ nextPath, roleIntent })}` },
       });
       if (signInError) throw signInError;
-      setSentEmail(inputEmail);
-      setOtp("");
-      setCooldown(60);
-      if (emailOtpEnabled) {
-        setStep("otp");
-        setStatus("We sent a 6-digit code to your email.");
-      } else {
-        setStep("link");
-        setStatus("Secure sign-in link sent.");
-      }
+      setSentEmail(normalizedEmail);
+      setStatus(`Email link sent to ${maskEmail(normalizedEmail)}.`);
     } catch (caught) {
       setError(safeAuthError(caught));
     } finally {
       setPending(null);
     }
-  }
-
-  async function verifyEmailCode() {
-    if (!sentEmail || otp.length !== 6) {
-      setError("Enter the 6-digit code from your email.");
-      return;
-    }
-    setPending("otp");
-    setError("");
-    setStatus("");
-    try {
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: sentEmail,
-        token: otp,
-        type: "email",
-      });
-      if (verifyError) throw verifyError;
-
-      const response = await fetch("/api/account/current", {
-        method: "GET",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) throw new Error("Account resolution failed.");
-      const body = await response.json() as {
-        account?: {
-          isBrand?: boolean;
-          isCreator?: boolean;
-          brandOnboardingComplete?: boolean;
-        };
-      };
-      window.location.assign(safePostAuthDestination({ account: body.account, roleIntent, nextPath }));
-    } catch (caught) {
-      setError(safeAuthError(caught));
-    } finally {
-      setPending(null);
-    }
-  }
-
-  function updateOtp(value: string) {
-    setOtp(value.replace(/\D/g, "").slice(0, 6));
   }
 
   async function signInWithOAuth(provider: "google" | "github") {
@@ -221,124 +311,91 @@ export function AuthActions({
 
   return (
     <div className="mt-7 space-y-4">
-      {step === "email" ? (
+      <label className="grid gap-2 text-sm font-semibold text-slate-200">
+        <FormLabel required>Email</FormLabel>
+        <input
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          type="email"
+          required
+          aria-required="true"
+          autoComplete="email"
+          placeholder="you@example.com"
+          className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60"
+          aria-invalid={Boolean(error && !validEmail(normalizedEmail))}
+        />
+      </label>
+      <label className="grid gap-2 text-sm font-semibold text-slate-200">
+        <FormLabel required>Password</FormLabel>
+        <input
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          type="password"
+          required
+          aria-required="true"
+          autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+          className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60"
+        />
+      </label>
+      {mode === "sign-up" ? (
         <>
           <label className="grid gap-2 text-sm font-semibold text-slate-200">
-            <FormLabel required>Email</FormLabel>
+            <FormLabel required>Confirm password</FormLabel>
             <input
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              type="email"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              type="password"
               required
               aria-required="true"
-              autoComplete="email"
-              placeholder="you@example.com"
+              autoComplete="new-password"
               className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60"
-              aria-invalid={Boolean(error && !validEmail(normalizedEmail))}
             />
           </label>
-          <button
-            type="button"
-            onClick={() => void requestEmailCode()}
-            disabled={!canSubmitEmail}
-            className="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {pending === "email" ? "Sending..." : "Continue with Email"}
-          </button>
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
+            Password requirements: at least 8 characters, one uppercase letter, one lowercase letter, and one number.
+          </div>
         </>
-      ) : step === "otp" ? (
-        <div className="space-y-4" aria-live="polite">
-          <div>
-            <h2 className="text-2xl font-semibold text-white">Enter your verification code</h2>
-            <p className="mt-2 text-sm text-slate-300">We sent a 6-digit code to {maskEmail(sentEmail)}.</p>
-          </div>
-          <label className="grid gap-2 text-sm font-semibold text-slate-200">
-            <FormLabel required>Verification code</FormLabel>
-            <input
-              value={otp}
-              onChange={(event) => updateOtp(event.target.value)}
-              required
-              aria-required="true"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="[0-9]*"
-              maxLength={6}
-              aria-invalid={Boolean(error)}
-              placeholder="000000"
-              className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-center text-2xl font-semibold tracking-[0.35em] text-white outline-none transition focus:border-cyan-300/60"
-            />
-          </label>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => void (mode === "sign-in" ? signInWithPassword() : signUpWithPassword())}
+        disabled={mode === "sign-in" ? !canLogIn : !canSignUp}
+        className="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {pending === "password-login" ? "Logging in..." : pending === "password-signup" ? "Creating..." : mode === "sign-in" ? "Log in" : "Create account"}
+      </button>
+      {mode === "sign-in" ? (
+        <div className="flex flex-col gap-3 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/auth/forgot-password" className="text-blue-300 hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200">
+            Forgot password?
+          </Link>
+          <Link href={`/auth/sign-up${normalizedRole ? `?role=${normalizedRole}` : ""}`} className="text-blue-300 hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200">
+            Create account
+          </Link>
+        </div>
+      ) : null}
+      {secondaryEmailLinkEnabled && mode === "sign-in" ? (
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <button
             type="button"
-            onClick={() => void verifyEmailCode()}
-            disabled={!canVerifyOtp}
-            className="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => setSecondaryOpen((value) => !value)}
+            className="text-sm font-semibold text-slate-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200"
           >
-            {pending === "otp" ? "Verifying..." : "Verify and continue"}
+            Other sign-in options
           </button>
-          <div className="flex flex-col gap-3 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
+          {secondaryOpen ? (
             <button
               type="button"
-              onClick={() => void requestEmailCode(sentEmail)}
-              disabled={pending !== null || cooldown > 0}
-              className="rounded-md text-blue-300 transition hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => void requestSecondaryEmailLink()}
+              disabled={pending !== null || !validEmail(normalizedEmail)}
+              className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
+              {pending === "email-link" ? "Sending..." : "Email me a sign-in link"}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStep("email");
-                setOtp("");
-                setError("");
-                setStatus("");
-              }}
-              className="rounded-md text-slate-300 transition hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200"
-            >
-              Change email
-            </button>
-          </div>
+          ) : null}
         </div>
-      ) : (
-        <div className="space-y-4" aria-live="polite">
-          <div>
-            <h2 className="text-2xl font-semibold text-white">Check your email</h2>
-            <p className="mt-2 text-sm text-slate-300">
-              We sent a secure sign-in link to {maskEmail(sentEmail)}. Open the link to continue to CCN.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
-            <button
-              type="button"
-              onClick={() => void requestEmailCode(sentEmail)}
-              disabled={pending !== null || cooldown > 0}
-              className="rounded-md text-blue-300 transition hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {cooldown > 0 ? `Resend link in ${cooldown}s` : "Resend link"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStep("email");
-                setOtp("");
-                setError("");
-                setStatus("");
-              }}
-              className="rounded-md text-slate-300 transition hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200"
-            >
-              Change email
-            </button>
-            <button
-              type="button"
-              onClick={() => window.history.back()}
-              className="rounded-md text-slate-300 transition hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200"
-            >
-              Back
-            </button>
-          </div>
-        </div>
-      )}
-      {step === "email" && visibleOauthProviders.length ? (
+      ) : null}
+      {visibleOauthProviders.length ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {visibleOauthProviders.map((provider) => (
             <button
@@ -354,6 +411,7 @@ export function AuthActions({
         </div>
       ) : null}
       {status ? <p className="text-sm text-emerald-200" role="status">{status}</p> : null}
+      {sentEmail && !status ? <p className="sr-only">Email sent to {sentEmail}</p> : null}
       {error ? <p className="text-sm text-rose-200" role="alert">{error}</p> : null}
     </div>
   );
