@@ -5,13 +5,17 @@ import {
   challenges,
   getChallengeBySlug,
 } from "@/features/challenges";
-import { getPublishedCreateChallenge } from "@/services/create-challenge/published-challenge.server";
+import {
+  getPublishedCreateChallengeBySlug,
+  includeStaticChallengeMocks,
+} from "@/services/create-challenge/published-challenge.server";
 
 type ChallengePageProps = {
   params: Promise<{ slug: string }>;
 };
 
 export function generateStaticParams() {
+  if (!includeStaticChallengeMocks()) return [];
   return challenges.map((challenge) => ({ slug: challenge.slug }));
 }
 
@@ -19,10 +23,9 @@ export async function generateMetadata({
   params,
 }: ChallengePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const published = await getPublishedCreateChallenge();
   const challenge =
-    getChallengeBySlug(slug) ??
-    (published?.slug === slug ? published : undefined);
+    (await getPublishedCreateChallengeBySlug(slug)) ??
+    (includeStaticChallengeMocks() ? getChallengeBySlug(slug) : undefined);
 
   if (!challenge) {
     return {
@@ -38,10 +41,9 @@ export async function generateMetadata({
 
 export default async function Page({ params }: ChallengePageProps) {
   const { slug } = await params;
-  const published = await getPublishedCreateChallenge();
   const challenge =
-    getChallengeBySlug(slug) ??
-    (published?.slug === slug ? published : undefined);
+    (await getPublishedCreateChallengeBySlug(slug)) ??
+    (includeStaticChallengeMocks() ? getChallengeBySlug(slug) : undefined);
 
   if (!challenge) {
     notFound();

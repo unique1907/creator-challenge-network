@@ -1,14 +1,15 @@
 import Link from "next/link";
-import Image from "next/image";
+import { CCNLogo } from "@/components/ui/ccn-logo";
+import type { PublicAuthState } from "@/types/public-auth";
+import { SiteAuthActions } from "./site-auth-actions";
 
 const navItems = [
   { href: "/challenges", label: "Explore Challenges" },
   { href: "/#how-it-works", label: "How It Works" },
-  { href: "/challenges", label: "For Brands" },
-  { href: "/challenges", label: "Sign In" },
+  { href: "/#for-brands", label: "For Brands" },
 ];
 
-export function SiteHeader() {
+export function SiteHeader({ authState }: { authState?: PublicAuthState }) {
   return (
     <header className="sticky top-0 z-50 bg-[#030a1f]/95 text-white backdrop-blur">
       <div className="mx-auto flex h-[88px] max-w-7xl items-center justify-between px-6 sm:px-8 lg:px-10">
@@ -16,14 +17,7 @@ export function SiteHeader() {
           href="/"
           className="flex items-center rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-200"
         >
-          <Image
-            src="/brand/ccn-logo.png"
-            alt="Creator Challenge Network"
-            width={154}
-            height={48}
-            priority
-            className="h-12 w-auto object-contain"
-          />
+          <CCNLogo size="lg" priority />
         </Link>
 
         <nav className="hidden items-center gap-11 lg:flex">
@@ -38,12 +32,10 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <Link
-          href="/create-challenge?new=1"
-          className="hidden h-12 items-center justify-center rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-6 text-sm font-bold text-white shadow-lg shadow-blue-950/25 transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-200 lg:inline-flex"
-        >
-          Launch a Challenge
-        </Link>
+        <div aria-label="Authentication" className="hidden items-center gap-3 lg:flex">
+          <SiteAuthActions variant="nav" initialAuthState={authState} />
+          <SiteAuthActions initialAuthState={authState} />
+        </div>
 
         <details className="group relative lg:hidden">
           <summary className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-md border border-white/15 bg-white/5 text-white focus:outline-none focus:ring-2 focus:ring-cyan-200">
@@ -60,12 +52,10 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
-            <Link
-              href="/create-challenge?new=1"
-              className="mt-2 flex h-11 items-center justify-center rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-4 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-cyan-200"
-            >
-              Launch a Challenge
-            </Link>
+            <div aria-label="Authentication" className="mt-3 border-t border-white/10 pt-3">
+              <SiteAuthActions mobile variant="nav" initialAuthState={authState} />
+              <SiteAuthActions mobile initialAuthState={authState} />
+            </div>
           </div>
         </details>
       </div>

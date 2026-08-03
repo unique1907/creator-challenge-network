@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import {
   accentClassName,
@@ -15,6 +16,9 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
   return (
     <article className="flex h-full flex-col justify-between rounded-xl border border-white/10 bg-white/[0.045] p-5 shadow-2xl shadow-black/15">
       <div>
+        {challenge.coverImageUrl ? (
+          <img src={challenge.coverImageUrl} alt={challenge.coverImageAlt ?? `${challenge.title} cover image`} className="mb-5 aspect-[16/9] w-full rounded-lg border border-white/10 object-cover" />
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentClassName(challenge.accent)}`}

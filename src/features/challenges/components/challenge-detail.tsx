@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import {
   accentClassName,
@@ -12,6 +13,8 @@ type ChallengeDetailProps = {
 };
 
 export function ChallengeDetail({ challenge }: ChallengeDetailProps) {
+  const submissionClosed = challenge.submissionClosed ?? challenge.status !== "open";
+
   return (
     <article className="mx-auto max-w-6xl px-6 py-12 sm:px-8 lg:px-10">
       <Link
@@ -23,6 +26,9 @@ export function ChallengeDetail({ challenge }: ChallengeDetailProps) {
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
         <section>
+          {challenge.coverImageUrl ? (
+            <img src={challenge.coverImageUrl} alt={challenge.coverImageAlt ?? `${challenge.title} cover image`} className="mb-8 aspect-[16/7] w-full rounded-xl border border-white/10 object-cover shadow-2xl shadow-black/20" />
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`rounded-full border px-3 py-1 text-xs font-semibold ${accentClassName(challenge.accent)}`}
@@ -62,6 +68,29 @@ export function ChallengeDetail({ challenge }: ChallengeDetailProps) {
               {challenge.usageRights}
             </p>
           </section>
+
+          <section className="mt-6 rounded-xl border border-white/10 bg-white/[0.045] p-6">
+            <h2 className="text-xl font-semibold text-white">
+              Ready to participate?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Sign in as a Creator to prepare your entry. Your identity stays hidden from the Brand during review.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {submissionClosed ? (
+                <span className="rounded-md border border-white/15 px-4 py-2 text-sm font-bold text-slate-300">
+                  Submissions are closed
+                </span>
+              ) : (
+                <Link
+                  href={`/dashboard/creator/challenges/${challenge.slug}`}
+                  className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                >
+                  Sign in to submit
+                </Link>
+              )}
+            </div>
+          </section>
         </section>
 
         <aside className="h-fit rounded-xl border border-white/10 bg-slate-950/65 p-6 shadow-2xl shadow-black/20">
@@ -95,16 +124,48 @@ export function ChallengeDetail({ challenge }: ChallengeDetailProps) {
             <div className="flex justify-between gap-5">
               <dt className="text-slate-400">Winner</dt>
               <dd className="text-right font-medium text-white">
-                One selected submission
+                {challenge.winnerModel ?? "One selected submission"}
               </dd>
             </div>
           </dl>
+
+          {challenge.prizeDistribution?.length ? (
+            <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-sm font-bold text-white">Prize distribution</p>
+              <ul className="mt-3 space-y-2 text-sm text-slate-300">
+                {challenge.prizeDistribution.map((prize) => (
+                  <li key={prize}>{prize}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {challenge.fundingTransactionHash ? (
+            <a
+              href={`https://testnet.arcscan.app/tx/${challenge.fundingTransactionHash}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 block text-sm font-bold text-cyan-200 transition hover:text-cyan-100"
+            >
+              Funding transaction
+            </a>
+          ) : null}
+
+          {challenge.escrowContractAddress ? (
+            <a
+              href={`https://testnet.arcscan.app/address/${challenge.escrowContractAddress}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 block text-sm font-bold text-cyan-200 transition hover:text-cyan-100"
+            >
+              Contract
+            </a>
+          ) : null}
         </aside>
       </div>
     </article>
   );
 }
-
 function InfoPanel({ title, items }: { title: string; items: string[] }) {
   return (
     <section className="rounded-xl border border-white/10 bg-white/[0.045] p-6">

@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { SiteFooter } from "@/components/layout/site-footer";
-import { SiteHeader } from "@/components/layout/site-header";
+import { AppChrome } from "@/components/layout/app-chrome";
+import { getPublicSiteOrigin } from "@/config/site-url";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Creator Challenge Network",
   description:
     "Programmable creative competitions where brands fund challenges, creators submit anonymously, and winners receive USDC payouts on Arc.",
-  metadataBase: new URL("https://creator-challenge-network.vercel.app"),
+  metadataBase: new URL(getPublicSiteOrigin()),
   openGraph: {
     title: "Creator Challenge Network",
     description:
@@ -24,9 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <SiteHeader />
-        {children}
-        <SiteFooter />
+        <AppChrome>{children}</AppChrome>
       </body>
     </html>
   );

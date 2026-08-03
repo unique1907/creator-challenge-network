@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { CCNLogo } from "@/components/ui/ccn-logo";
 
 const footerColumns = [
   {
@@ -41,13 +41,7 @@ export function SiteFooter() {
             href="/"
             className="inline-flex rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-200"
           >
-            <Image
-              src="/brand/ccn-logo.png"
-              alt="Creator Challenge Network"
-              width={126}
-              height={40}
-              className="h-10 w-auto object-contain"
-            />
+            <CCNLogo size="md" />
           </Link>
           <p className="mt-4 text-sm font-semibold text-white">
             Creator Challenge Network

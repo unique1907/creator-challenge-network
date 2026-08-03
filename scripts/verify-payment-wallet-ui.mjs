@@ -19,7 +19,7 @@ function assert(condition, message) {
 }
 
 const cardUsages = [...source.matchAll(/<PaymentWalletCard\b/g)].length;
-assert(cardUsages >= 2, "Prize & Winners and Secure Prize Pool must both render PaymentWalletCard.");
+assert(cardUsages >= 2, "Prize & Winners and Fund Prize Pool must both render PaymentWalletCard.");
 assert(source.includes("function PaymentWalletCard"), "PaymentWalletCard component must exist.");
 assert(source.includes("walletAddressMasked"), "Payment wallet card must render the masked wallet address.");
 assert(source.includes("navigator.clipboard.writeText(account.walletAddress)"), "Copy Address must copy the full wallet address.");
@@ -32,7 +32,7 @@ assert(!source.includes("https://faucet-v2.circle.com/"), "Add Test USDC must no
 assert(source.includes("rel=\"noopener noreferrer\""), "External faucet link must use noopener noreferrer.");
 assert(source.includes("account.explorerUrl"), "View on Arcscan must use the canonical account explorer URL.");
 assert(source.includes("PaymentWalletCardAccount"), "Payment wallet card must consume the shared typed wallet object.");
-assert(source.includes("Review and Approve {totalRequired}"), "Ready funding CTA must use Review and Approve copy.");
+assert(source.includes("Review & Launch {totalRequired}"), "Ready funding CTA must use Review & Launch copy.");
 assert(!source.includes("Confirm payment {totalRequired}"), "Ready funding CTA must not use stale Confirm payment copy.");
 const progressStart = source.indexOf("function paymentProgressItems");
 const headerStart = source.indexOf("function paymentStateHeaderStatus");
@@ -42,10 +42,10 @@ assert(headerStart > progressStart, "Funding header status must derive from the 
 assert(overviewStatusStart > headerStart, "Funding copy must derive from the canonical payment overview.");
 const progressSegment = source.slice(progressStart, headerStart);
 assert(progressSegment.includes("READY_FOR_APPROVAL"), "Progress derivation must represent approval-required state.");
-assert(progressSegment.includes("APPROVED"), "Progress derivation must represent approved state.");
-assert(progressSegment.includes("FUNDED_VERIFIED"), "Progress derivation must represent funded verified state.");
+assert(source.includes("state === \"APPROVED\""), "Progress derivation must represent approved state.");
+assert(source.includes("state === \"FUNDED_VERIFIED\""), "Progress derivation must represent funded verified state.");
 assert(source.includes("const fundingState: PaymentState = paymentOverview?.paymentState ?? \"NOT_STARTED\""), "UI must read funding state from the backend payment overview.");
-assert(source.includes("const fundingSteps = paymentOverview?.progress ?? paymentProgressItems(fundingState)"), "UI must use backend progress or derive locally only from canonical state.");
+assert(source.includes("const fundingSteps = paymentProgressItems(fundingState, draft, approval, funding, error, pending)"), "UI must derive progress locally only from canonical state.");
 assert(!progressSegment.includes("BigInt(preflight.allowance) >= BigInt(preflight.amounts.totalRequired)"), "Progress must not infer approval completion from allowance alone.");
 
 const prizeStepIndex = source.indexOf("function PrizeStep");
@@ -56,6 +56,6 @@ assert(prizeStepIndex > -1 && fundingStepIndex > -1, "PrizeStep and FundingStep 
 const prizeSegment = source.slice(prizeStepIndex, fundingStepIndex);
 const fundingSegment = source.slice(fundingStepIndex, cardDefinitionIndex);
 assert(prizeSegment.includes("<PaymentWalletCard"), "Prize & Winners must visibly show the payment wallet.");
-assert(fundingSegment.includes("<PaymentWalletCard"), "Secure Prize Pool must visibly show the payment wallet.");
+assert(fundingSegment.includes("<PaymentWalletCard"), "Fund Prize Pool must visibly show the payment wallet.");
 
 console.log("Payment wallet UI guard passed.");

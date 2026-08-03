@@ -414,7 +414,7 @@ export function EscrowFundingSpikeClient({
             <div className="border-t border-white/10 pt-4 text-sm text-slate-300">
               <p>Network: ARC-TESTNET</p>
               <p>USDC: 0x3600...0000</p>
-              <p>Escrow: 0x5714...eBF6</p>
+              <p>Escrow: {mask(preflight?.escrow.address)}</p>
             </div>
             <div className="space-y-2 text-sm">
               {links.contract ? <SafeLink href={links.contract} label="Contract Arcscan" /> : null}

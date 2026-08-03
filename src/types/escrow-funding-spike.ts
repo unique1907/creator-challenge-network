@@ -69,6 +69,7 @@ export type EscrowPreflightSnapshot = {
     chainId: number;
   };
   escrow: {
+    address: `0x${string}`;
     bytecodeExists: boolean;
     usdc: `0x${string}`;
     paused: boolean;

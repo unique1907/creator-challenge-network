@@ -82,6 +82,8 @@ export class CircleSpikeError extends Error {
 
   constructor(safe: SafeCircleError) {
     super(safe.message);
+    this.name = "CircleSpikeError";
+    Object.setPrototypeOf(this, CircleSpikeError.prototype);
     this.safe = safe;
   }
 }

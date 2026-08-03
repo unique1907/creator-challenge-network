@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { CircleSpikeError } from "@/services/circle/user-controlled-wallets.server";
 import {
   CreatorFoundationError,
+  getCreatorPayoutWalletStatus,
+  getSafeCurrentAccount,
   startCreatorOnboarding,
 } from "@/services/creator-foundation/creator-foundation.server";
 import { createSupabaseServerClient } from "@/services/supabase/server";
@@ -28,6 +30,18 @@ export async function POST() {
     const { data, error } = await supabase.auth.getUser();
     if (error) throw error;
     return NextResponse.json({ onboarding: await startCreatorOnboarding(data.user) });
+  } catch (error) {
+    return safeError(error);
+  }
+}
+
+export async function GET() {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    const account = await getSafeCurrentAccount(data.user);
+    return NextResponse.json({ wallet: await getCreatorPayoutWalletStatus(account.accountId) });
   } catch (error) {
     return safeError(error);
   }

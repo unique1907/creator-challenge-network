@@ -1,21 +1,25 @@
 import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
-import { constants } from "node:fs";
-import { access, copyFile, mkdir, open, readFile, readdir, rename, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import {
+  ARC_TESTNET_CHAIN_ID,
+  type CreateChallengeDeadlinePolicy,
+  getCreateChallengeDeadlinePolicy,
+} from "@/config/create-challenge-deadline-policy";
 import { demoCreateChallengeDraft } from "@/features/create-challenge/data/demo-draft";
+import { createSupabaseAdminClient } from "@/services/supabase/admin.server";
 import type {
   CreateChallengeDraftState,
   CreateChallengeStepId,
   CreateChallengeValidation,
 } from "@/types/create-challenge";
+import type { WinnerFinalizationState } from "@/types/winner-finalization";
 import {
-  calculatePrizePool,
   formatUsdcUnits,
   normalizePrizePool,
-  parseUsdcUnits,
 } from "@/utils/create-challenge-finance";
+import { unixFromLocal, validateCreateChallengeStep } from "@/utils/create-challenge-launch-readiness";
 
 // Local JSON persistence is for the hackathon/dev spike only. Vercel/production must use a real database.
 const LOCAL_USER_HOME = process.env.USERPROFILE ?? process.env.HOME ?? "C:\\Users\\TB";
@@ -25,7 +29,7 @@ export const CREATE_CHALLENGE_STORE_PATH =
 let storePathLogged = false;
 export const CREATE_CHALLENGE_BRAND_ACCOUNT_ID = "ccn-test-email-001";
 export const CREATE_CHALLENGE_ESCROW_CONTRACT =
-  "0x571470097882848441f8d7FD3D0A37B1b726eBF6";
+  "0x4DCE98F8a35d09F57ECE7A340B8392Ba0Fb7ba3D";
 export const CREATE_CHALLENGE_USDC_CONTRACT =
   "0x3600000000000000000000000000000000000000";
 
@@ -34,19 +38,38 @@ type Store = {
   revision?: number;
   activeDraftId?: string;
   drafts?: Record<string, CreateChallengeDraftState>;
+  publicSlugReservations?: Record<string, PublicSlugReservation>;
   fundingRecords?: Record<string, FundingRecordScope>;
   approvalAttempts?: Record<string, ApprovalAttemptRecord[]>;
   fundingAttempts?: Record<string, FundingAttemptRecord[]>;
+  winnerFinalizationAttempts?: Record<string, WinnerFinalizationAttemptRecord>;
   onChainVerificationsByTxHash?: Record<string, OnChainVerificationRecord>;
   draft?: CreateChallengeDraftState;
 };
 
+type PublicSlugReservation = {
+  slug: string;
+  draftId: string;
+  titleBasis: string;
+  updatedAt: string;
+};
+
 const STORE_VERSION = 1;
+const IS_MANAGED_PRODUCTION =
+  process.env.VERCEL_ENV === "production" ||
+  process.env.CCN_DEPLOYMENT_ENV === "production";
+const LIFECYCLE_PERSISTENCE_ADAPTER =
+  process.env.CCN_LIFECYCLE_PERSISTENCE ??
+  (IS_MANAGED_PRODUCTION ? "supabase" : "filesystem");
 const STORE_WRITE_RETRIES = 3;
 const STORE_BACKUP_KEEP = 8;
 const CREATE_CHALLENGE_BACKUP_DIR = join(dirname(CREATE_CHALLENGE_STORE_PATH), "backups");
 const CREATE_CHALLENGE_LAST_KNOWN_GOOD_PATH = join(CREATE_CHALLENGE_BACKUP_DIR, "last-known-good.json");
 let storeWriteQueue = Promise.resolve();
+
+async function filesystem() {
+  return import("node:fs/promises");
+}
 
 export class StoreCorruptionError extends Error {
   readonly path: string;
@@ -58,6 +81,14 @@ export class StoreCorruptionError extends Error {
     this.path = input.path;
     this.size = input.size;
     this.cause = input.cause;
+  }
+}
+
+export class PublicSlugReservationError extends Error {
+  readonly code = "PUBLIC_SLUG_RESERVATION_FAILED";
+
+  constructor(message = "We couldn't reserve a public URL. Please try again.") {
+    super(message);
   }
 }
 
@@ -154,6 +185,8 @@ export type OnChainVerificationRecord = {
   walletId: string;
   ccnAccountId: string;
   eventType: "ChallengeFunded" | "ChallengePayout" | "ChallengeRefund";
+  eventName?: "ChallengeFunded" | "WinnersPaid" | "ChallengeRefunded";
+  runtimeContractAddress?: string;
   blockNumber: number | null;
   verifiedAt: string;
   receiptStatus?: "success";
@@ -162,7 +195,56 @@ export type OnChainVerificationRecord = {
   challengeVerified?: boolean;
   sponsorVerified?: boolean;
   amountVerified?: boolean;
+  winnersVerified?: boolean;
+  feeVerified?: boolean;
+  treasuryVerified?: boolean;
+  finalContractStatus?: string;
+  winnerWalletAddresses?: string[];
+  payoutAmounts?: string[];
+  platformFee?: string;
+  treasuryRecipient?: string;
   orphaned?: boolean;
+};
+
+export type WinnerFinalizationAttemptRecord = {
+  ccnAccountId: string;
+  draftId: string;
+  challengeId: string;
+  fundingIntentId: string;
+  lockId: string;
+  idempotencyKey: string;
+  operationKey?: string;
+  operationOwnerToken?: string;
+  approvalCreationStartedAt?: string;
+  approvalCreatedAt?: string;
+  state: WinnerFinalizationState;
+  selectedWinnerEntryIds: string[];
+  winnerWalletAddresses: string[];
+  payoutWalletId?: string;
+  payoutWalletAddress?: string;
+  circleStatus?: string;
+  circleChallengeId?: string;
+  circleTransactionId?: string;
+  transactionHash?: string;
+  blockNumber?: number;
+  receiptStatus?: "success";
+  payoutConfirmedAt?: string;
+  reconciliationSource?: "circle" | "blockchain-first";
+  finalContractStatus?: string;
+  lastCheckedAt?: string;
+  reconciliation?: {
+    receiptVerified?: boolean;
+    eventVerified?: boolean;
+    challengeVerified?: boolean;
+    winnersVerified?: boolean;
+    amountsVerified?: boolean;
+    feeVerified?: boolean;
+    treasuryVerified?: boolean;
+  };
+  finalizedAt?: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CreateChallengeDraftSummary = {
@@ -172,6 +254,10 @@ export type CreateChallengeDraftSummary = {
   title: string;
   brandName: string;
   currentStep: CreateChallengeStepId;
+  category: string;
+  coverImageKey: string | null;
+  coverImageAlt: string | null;
+  coverImageUpdatedAt: string | null;
   publicationStatus: CreateChallengeDraftState["deployment"]["publicationStatus"];
   fundingStatus: CreateChallengeDraftState["funding"]["fundingStatus"];
   updatedAt: string;
@@ -202,6 +288,17 @@ function slugify(value: string) {
     .replace(/(^-|-$)/g, "")
     .slice(0, 80);
   return slug || "new-challenge";
+}
+
+function shouldReservePublicSlug(title: string) {
+  const normalized = title.trim().toLowerCase();
+  return normalized.length >= 3 && normalized !== "untitled draft" && normalized !== "untitled challenge";
+}
+
+function slugCandidate(base: string, offset: number) {
+  if (offset === 0) return base;
+  const suffix = `-${offset + 1}`;
+  return `${base.slice(0, Math.max(1, 80 - suffix.length))}${suffix}`;
 }
 
 function bytes32(seed: string): `0x${string}` {
@@ -249,6 +346,129 @@ function withDerivedValues(
   };
 }
 
+function reservePublicSlugInStore(store: Store, draft: CreateChallengeDraftState) {
+  const draftId = draft.challenge.id;
+  if (!draftId || draft.deployment.publicationStatus === "live" || !shouldReservePublicSlug(draft.challenge.title)) {
+    return { store, slug: draft.challenge.slug ?? slugify(draft.challenge.title), titleBasis: draft.challenge.slugReservedForTitle };
+  }
+
+  const titleBasis = slugify(draft.challenge.title);
+  const existing = Object.values(store.publicSlugReservations ?? {}).find((reservation) => reservation.draftId === draftId);
+  if (existing?.titleBasis === titleBasis) {
+    return { store, slug: existing.slug, titleBasis };
+  }
+
+  const reservations = Object.fromEntries(
+    Object.entries(store.publicSlugReservations ?? {}).filter(([, reservation]) => reservation.draftId !== draftId),
+  );
+  const occupied = new Set(Object.keys(reservations));
+  for (const candidate of Object.values(store.drafts ?? {})) {
+    if (candidate.challenge.id === draftId) continue;
+    if (candidate.deployment.publicationStatus === "live" && candidate.challenge.slug) {
+      occupied.add(candidate.challenge.slug);
+    }
+  }
+
+  for (let offset = 0; offset < 500; offset += 1) {
+    const slug = slugCandidate(titleBasis, offset);
+    if (occupied.has(slug)) continue;
+    const updatedAt = new Date().toISOString();
+    return {
+      store: {
+        ...store,
+        publicSlugReservations: {
+          ...reservations,
+          [slug]: { slug, draftId, titleBasis, updatedAt },
+        },
+      },
+      slug,
+      titleBasis,
+    };
+  }
+
+  throw new PublicSlugReservationError();
+}
+
+function supabaseErrorCode(error: unknown) {
+  return isRecord(error) && typeof error.code === "string" ? error.code : "";
+}
+
+async function reservePublicSlugInSupabase(draft: CreateChallengeDraftState) {
+  const draftId = draft.challenge.id;
+  if (!draftId || draft.deployment.publicationStatus === "live" || !shouldReservePublicSlug(draft.challenge.title)) {
+    return { slug: draft.challenge.slug ?? slugify(draft.challenge.title), titleBasis: draft.challenge.slugReservedForTitle };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const titleBasis = slugify(draft.challenge.title);
+  const existing = await supabase
+    .from("ccn_public_slug_reservations")
+    .select("slug,title_basis")
+    .eq("draft_id", draftId)
+    .maybeSingle();
+  if (existing.error) throw new PublicSlugReservationError();
+  if (existing.data?.title_basis === titleBasis) {
+    return { slug: existing.data.slug as string, titleBasis };
+  }
+
+  if (existing.data) {
+    const removed = await supabase.from("ccn_public_slug_reservations").delete().eq("draft_id", draftId);
+    if (removed.error) throw new PublicSlugReservationError();
+  }
+
+  for (let offset = 0; offset < 500; offset += 1) {
+    const slug = slugCandidate(titleBasis, offset);
+    const inserted = await supabase.from("ccn_public_slug_reservations").insert({
+      slug,
+      draft_id: draftId,
+      title_basis: titleBasis,
+    });
+    if (!inserted.error) return { slug, titleBasis };
+    if (supabaseErrorCode(inserted.error) !== "23505") throw new PublicSlugReservationError();
+
+    const current = await supabase
+      .from("ccn_public_slug_reservations")
+      .select("slug,title_basis")
+      .eq("draft_id", draftId)
+      .maybeSingle();
+    if (!current.error && current.data?.title_basis === titleBasis) {
+      return { slug: current.data.slug as string, titleBasis };
+    }
+  }
+
+  throw new PublicSlugReservationError();
+}
+
+async function reservePublicSlug(store: Store, draft: CreateChallengeDraftState) {
+  if (LIFECYCLE_PERSISTENCE_ADAPTER === "supabase") {
+    const reservation = await reservePublicSlugInSupabase(draft);
+    return {
+      store,
+      draft: {
+        ...draft,
+        challenge: {
+          ...draft.challenge,
+          slug: reservation.slug,
+          slugReservedForTitle: reservation.titleBasis,
+        },
+      },
+    };
+  }
+
+  const reservation = reservePublicSlugInStore(store, draft);
+  return {
+    store: reservation.store,
+    draft: {
+      ...draft,
+      challenge: {
+        ...draft.challenge,
+        slug: reservation.slug,
+        slugReservedForTitle: reservation.titleBasis,
+      },
+    },
+  };
+}
+
 function cleanTransactionState(
   draft: CreateChallengeDraftState,
   resetStep = true,
@@ -281,6 +501,18 @@ function cleanTransactionState(
   };
 }
 
+function withInitialBrandName(draft: CreateChallengeDraftState, brandName?: string | null) {
+  const cleanBrandName = brandName?.trim();
+  if (!cleanBrandName || draft.challenge.brandName.trim()) return draft;
+  return {
+    ...draft,
+    challenge: {
+      ...draft.challenge,
+      brandName: cleanBrandName,
+    },
+  };
+}
+
 function createCleanDraft() {
   const draftId = randomUUID();
   return withDerivedValues(
@@ -302,6 +534,44 @@ function createCleanDraft() {
       },
     }),
   );
+}
+
+function toServerLocalDateTimeInput(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join("-") + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function createCleanSmokeTestDraft() {
+  const policy = getCreateChallengeDeadlinePolicy({
+    runtimeBlockchain: "ARC-TESTNET",
+    chainId: ARC_TESTNET_CHAIN_ID,
+    isSmokeTestChallenge: true,
+  });
+  if (policy.mode !== "smoke") {
+    throw new Error("Arc Testnet smoke challenge mode is not enabled.");
+  }
+
+  const nowMs = Date.now();
+  const inputPrecisionBufferMs = 60_000;
+  const submissionDeadline = new Date(nowMs + policy.minimumSubmissionLeadMinutes * 60 * 1000 + inputPrecisionBufferMs);
+  const reviewDeadline = new Date(submissionDeadline.getTime() + policy.minimumReviewGapMinutes * 60 * 1000 + inputPrecisionBufferMs);
+  const draft = createCleanDraft();
+  return withDerivedValues({
+    ...draft,
+    challenge: {
+      ...draft.challenge,
+      isSmokeTest: true,
+    },
+    reviewRules: {
+      ...draft.reviewRules,
+      submissionDeadline: toServerLocalDateTimeInput(submissionDeadline),
+      reviewDeadline: toServerLocalDateTimeInput(reviewDeadline),
+    },
+  });
 }
 
 export function fundingRecordKey(input: {
@@ -354,10 +624,28 @@ export function fundingAttemptScopeKey(input: {
   ].join(":");
 }
 
-function fundingRecordFromDraft(draft: CreateChallengeDraftState): FundingRecordScope {
+export function winnerFinalizationAttemptScopeKey(input: {
+  ccnAccountId: string;
+  draftId: string;
+  challengeId: string;
+  fundingIntentId: string;
+}) {
+  return [
+    input.ccnAccountId,
+    input.draftId,
+    input.challengeId.toLowerCase(),
+    input.fundingIntentId,
+    "WINNER_FINALIZATION",
+  ].join(":");
+}
+
+function fundingRecordFromDraft(
+  draft: CreateChallengeDraftState,
+  ccnAccountId = CREATE_CHALLENGE_BRAND_ACCOUNT_ID,
+): FundingRecordScope {
   const normalized = withDerivedValues(draft);
   return {
-    ccnAccountId: CREATE_CHALLENGE_BRAND_ACCOUNT_ID,
+    ccnAccountId,
     walletId: normalized.funding.walletId || "unassigned",
     draftId: normalized.challenge.id ?? "",
     challengeId: normalized.challenge.challengeId ?? normalized.deployment.challengeId,
@@ -381,8 +669,12 @@ function fundingRecordFromDraft(draft: CreateChallengeDraftState): FundingRecord
   };
 }
 
-function withFundingRecord(store: Store, draft: CreateChallengeDraftState): Store {
-  const record = fundingRecordFromDraft(draft);
+function withFundingRecord(
+  store: Store,
+  draft: CreateChallengeDraftState,
+  ccnAccountId = CREATE_CHALLENGE_BRAND_ACCOUNT_ID,
+): Store {
+  const record = fundingRecordFromDraft(draft, ccnAccountId);
   const key = fundingRecordKey(record);
   return {
     ...store,
@@ -419,10 +711,22 @@ function logStorePathOnce() {
   if (storePathLogged) return;
   storePathLogged = true;
   console.info("[ccn-create-challenge-store]", {
-    storePath: CREATE_CHALLENGE_STORE_PATH,
-    persistence: "local-json-dev-only",
-    productionWarning: "Use a durable database on Vercel/production.",
+    storePath: LIFECYCLE_PERSISTENCE_ADAPTER === "filesystem" ? CREATE_CHALLENGE_STORE_PATH : undefined,
+    persistence: LIFECYCLE_PERSISTENCE_ADAPTER,
+    productionWarning:
+      LIFECYCLE_PERSISTENCE_ADAPTER === "filesystem"
+        ? "Filesystem persistence is for local deterministic tests and explicit local development only."
+        : undefined,
   });
+}
+
+function assertPersistenceAdapter() {
+  if (LIFECYCLE_PERSISTENCE_ADAPTER !== "filesystem" && LIFECYCLE_PERSISTENCE_ADAPTER !== "supabase") {
+    throw new Error("CCN_LIFECYCLE_PERSISTENCE must be either filesystem or supabase.");
+  }
+  if (IS_MANAGED_PRODUCTION && LIFECYCLE_PERSISTENCE_ADAPTER !== "supabase") {
+    throw new Error("Production lifecycle persistence must use Supabase/Postgres. Set CCN_LIFECYCLE_PERSISTENCE=supabase.");
+  }
 }
 
 function withRuntimeIndexes(store: Store): Store {
@@ -431,13 +735,14 @@ function withRuntimeIndexes(store: Store): Store {
     fundingRecords: store.fundingRecords ?? {},
     approvalAttempts: store.approvalAttempts ?? {},
     fundingAttempts: store.fundingAttempts ?? {},
+    winnerFinalizationAttempts: store.winnerFinalizationAttempts ?? {},
     onChainVerificationsByTxHash: store.onChainVerificationsByTxHash ?? {},
   };
 }
 
 async function fileExists(path: string) {
   try {
-    await access(path, constants.F_OK);
+    await (await filesystem()).access(path);
     return true;
   } catch {
     return false;
@@ -450,9 +755,11 @@ function emptyStore(): Store {
     revision: 0,
     activeDraftId: undefined,
     drafts: {},
+    publicSlugReservations: {},
     fundingRecords: {},
     approvalAttempts: {},
     fundingAttempts: {},
+    winnerFinalizationAttempts: {},
     onChainVerificationsByTxHash: {},
   };
 }
@@ -471,7 +778,7 @@ function validateStoreShape(value: unknown): Store {
     throw new Error("activeDraftId must be a string or null.");
   }
 
-  for (const key of ["drafts", "fundingRecords", "approvalAttempts", "fundingAttempts", "onChainVerificationsByTxHash"]) {
+  for (const key of ["drafts", "publicSlugReservations", "fundingRecords", "approvalAttempts", "fundingAttempts", "winnerFinalizationAttempts", "onChainVerificationsByTxHash"]) {
     const item = value[key];
     if (typeof item !== "undefined" && !isRecord(item)) {
       throw new Error(`${key} must be an object when present.`);
@@ -508,9 +815,11 @@ function normalizeStoreInMemory(input: Store): Store {
     revision: input.revision ?? 0,
     activeDraftId,
     drafts,
+    publicSlugReservations: input.publicSlugReservations ?? {},
     fundingRecords: input.fundingRecords ?? {},
     approvalAttempts: input.approvalAttempts ?? {},
     fundingAttempts: input.fundingAttempts ?? {},
+    winnerFinalizationAttempts: input.winnerFinalizationAttempts ?? {},
     onChainVerificationsByTxHash: input.onChainVerificationsByTxHash ?? {},
   });
   Object.values(drafts).forEach((draft) => {
@@ -520,14 +829,18 @@ function normalizeStoreInMemory(input: Store): Store {
 }
 
 async function readStore(): Promise<Store> {
+  assertPersistenceAdapter();
   logStorePathOnce();
+  if (LIFECYCLE_PERSISTENCE_ADAPTER === "supabase") return readSupabaseStore();
   const exists = await fileExists(CREATE_CHALLENGE_STORE_PATH);
   if (!exists) return emptyStore();
 
   try {
+    const { readFile } = await filesystem();
     const raw = await readFile(CREATE_CHALLENGE_STORE_PATH, "utf8");
     return normalizeStoreInMemory(validateStoreShape(JSON.parse(raw)));
   } catch (error) {
+    const { stat } = await filesystem();
     const info = await stat(CREATE_CHALLENGE_STORE_PATH).catch(() => null);
     console.error("[ccn-create-challenge-store]", {
       storePath: CREATE_CHALLENGE_STORE_PATH,
@@ -544,6 +857,7 @@ async function readStore(): Promise<Store> {
 
 async function backupCurrentStore() {
   if (!(await fileExists(CREATE_CHALLENGE_STORE_PATH))) return;
+  const { copyFile, mkdir, readdir, rm } = await filesystem();
   await mkdir(CREATE_CHALLENGE_BACKUP_DIR, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   await copyFile(CREATE_CHALLENGE_STORE_PATH, CREATE_CHALLENGE_LAST_KNOWN_GOOD_PATH);
@@ -561,7 +875,13 @@ async function backupCurrentStore() {
 }
 
 async function atomicWriteStore(store: Store) {
+  assertPersistenceAdapter();
   logStorePathOnce();
+  if (LIFECYCLE_PERSISTENCE_ADAPTER === "supabase") {
+    await writeSupabaseStore(store);
+    return;
+  }
+  const { mkdir, open, readFile, rename, rm } = await filesystem();
   await mkdir(dirname(CREATE_CHALLENGE_STORE_PATH), { recursive: true });
   await backupCurrentStore();
 
@@ -583,6 +903,183 @@ async function atomicWriteStore(store: Store) {
     if (handle) await handle.close().catch(() => undefined);
     await rm(tempPath, { force: true }).catch(() => undefined);
     throw error;
+  }
+}
+
+async function readSupabaseStore(): Promise<Store> {
+  const supabase = createSupabaseAdminClient();
+  const [
+    drafts,
+    fundingRecords,
+    approvalAttempts,
+    fundingAttempts,
+    winnerAttempts,
+    verifications,
+  ] = await Promise.all([
+    supabase.from("ccn_challenge_drafts").select("draft_id,draft_state"),
+    supabase.from("ccn_challenge_funding_records").select("record_key,record_state"),
+    supabase.from("ccn_wallet_approval_attempts").select("scope_key,attempt_state"),
+    supabase.from("ccn_funding_attempts").select("scope_key,attempt_state"),
+    supabase.from("ccn_winner_finalization_attempts").select("scope_key,attempt_state"),
+    supabase.from("ccn_onchain_verifications").select("tx_hash,verification_state"),
+  ]);
+
+  for (const result of [drafts, fundingRecords, approvalAttempts, fundingAttempts, winnerAttempts, verifications]) {
+    if (result.error) throw result.error;
+  }
+
+  const store: Store = emptyStore();
+  for (const row of drafts.data ?? []) {
+    store.drafts![row.draft_id] = row.draft_state as CreateChallengeDraftState;
+  }
+  for (const row of fundingRecords.data ?? []) {
+    store.fundingRecords![row.record_key] = row.record_state as FundingRecordScope;
+  }
+  for (const row of approvalAttempts.data ?? []) {
+    const attempt = row.attempt_state as ApprovalAttemptRecord;
+    const current = store.approvalAttempts![row.scope_key] ?? [];
+    store.approvalAttempts![row.scope_key] = [...current, attempt].sort((a, b) => a.sequence - b.sequence);
+  }
+  for (const row of fundingAttempts.data ?? []) {
+    const attempt = row.attempt_state as FundingAttemptRecord;
+    const current = store.fundingAttempts![row.scope_key] ?? [];
+    store.fundingAttempts![row.scope_key] = [...current, attempt].sort((a, b) => a.sequence - b.sequence);
+  }
+  for (const row of winnerAttempts.data ?? []) {
+    store.winnerFinalizationAttempts![row.scope_key] = row.attempt_state as WinnerFinalizationAttemptRecord;
+  }
+  for (const row of verifications.data ?? []) {
+    store.onChainVerificationsByTxHash![row.tx_hash] = row.verification_state as OnChainVerificationRecord;
+  }
+
+  return normalizeStoreInMemory(store);
+}
+
+function nonEmptyPersistenceValue(value: string | undefined | null) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+async function writeSupabaseStore(store: Store) {
+  const supabase = createSupabaseAdminClient();
+  const normalized = normalizeStoreInMemory(store);
+  const drafts = Object.entries(normalized.drafts ?? {}).map(([draftId, draft]) => ({
+    draft_id: draftId,
+    challenge_id: draft.challenge.challengeId,
+    funding_intent_id: draft.funding.fundingIntentId,
+    slug: draft.challenge.slug,
+    title: draft.challenge.title,
+    brand_name: draft.challenge.brandName,
+    cover_image_key: draft.challenge.coverImageKey ?? null,
+    cover_image_alt: draft.challenge.coverImageAlt ?? null,
+    cover_image_updated_at: draft.challenge.coverImageUpdatedAt ?? null,
+    publication_status: draft.deployment.publicationStatus,
+    funding_status: draft.funding.fundingStatus,
+    escrow_status: draft.funding.escrowStatus,
+    event_verified: draft.funding.eventVerified,
+    draft_state: draft,
+    updated_at: draft.updatedAt ?? new Date().toISOString(),
+  }));
+  const fundingRows = Object.entries(normalized.fundingRecords ?? {}).map(([recordKey, record]) => ({
+    record_key: recordKey,
+    ccn_account_id: record.ccnAccountId,
+    wallet_id: record.walletId,
+    draft_id: record.draftId,
+    challenge_id: record.challengeId,
+    funding_intent_id: record.fundingIntentId,
+    funding_verified: record.fundingVerified,
+    event_verified: record.eventVerified,
+    published: record.published,
+    record_state: record,
+    updated_at: record.updatedAt,
+  }));
+  const approvalRows = Object.entries(normalized.approvalAttempts ?? {}).flatMap(([scopeKey, attempts]) =>
+    attempts.map((attempt) => ({
+      scope_key: scopeKey,
+      circle_challenge_id: nonEmptyPersistenceValue(attempt.circleChallengeId),
+      sequence: attempt.sequence,
+      ccn_account_id: attempt.ccnAccountId,
+      wallet_id: attempt.walletId,
+      draft_id: attempt.draftId,
+      challenge_id: attempt.challengeId,
+      funding_intent_id: attempt.fundingIntentId,
+      circle_status: attempt.circleStatus,
+      circle_transaction_id: nonEmptyPersistenceValue(attempt.circleTransactionId),
+      transaction_hash: nonEmptyPersistenceValue(attempt.transactionHash),
+      idempotency_key: attempt.idempotencyKey,
+      attempt_state: attempt,
+      updated_at: attempt.updatedAt,
+    })),
+  );
+  const fundingAttemptRows = Object.entries(normalized.fundingAttempts ?? {}).flatMap(([scopeKey, attempts]) =>
+    attempts.map((attempt) => ({
+      scope_key: scopeKey,
+      circle_challenge_id: nonEmptyPersistenceValue(attempt.circleChallengeId),
+      sequence: attempt.sequence,
+      ccn_account_id: attempt.ccnAccountId,
+      wallet_id: attempt.walletId,
+      draft_id: attempt.draftId,
+      challenge_id: attempt.challengeId,
+      funding_intent_id: attempt.fundingIntentId,
+      circle_status: attempt.circleStatus,
+      circle_transaction_id: nonEmptyPersistenceValue(attempt.circleTransactionId),
+      transaction_hash: nonEmptyPersistenceValue(attempt.transactionHash),
+      idempotency_key: attempt.idempotencyKey,
+      attempt_state: attempt,
+      updated_at: attempt.updatedAt,
+    })),
+  );
+  const winnerRows = Object.entries(normalized.winnerFinalizationAttempts ?? {}).map(([scopeKey, attempt]) => ({
+    scope_key: scopeKey,
+    ccn_account_id: attempt.ccnAccountId,
+    draft_id: attempt.draftId,
+    challenge_id: attempt.challengeId,
+    funding_intent_id: attempt.fundingIntentId,
+    state: attempt.state,
+    circle_challenge_id: nonEmptyPersistenceValue(attempt.circleChallengeId),
+    circle_transaction_id: nonEmptyPersistenceValue(attempt.circleTransactionId),
+    transaction_hash: nonEmptyPersistenceValue(attempt.transactionHash),
+    idempotency_key: attempt.idempotencyKey,
+    attempt_state: attempt,
+    updated_at: attempt.updatedAt,
+  }));
+  const verificationRows = Object.entries(normalized.onChainVerificationsByTxHash ?? {}).map(([txHash, record]) => ({
+    tx_hash: txHash,
+    circle_transaction_id: record.circleTransactionId,
+    circle_challenge_id: record.circleChallengeId,
+    draft_id: record.draftId,
+    challenge_id: record.challengeId,
+    funding_intent_id: record.fundingIntentId,
+    event_type: record.eventType,
+    receipt_verified: record.receiptVerified ?? false,
+    event_verified: record.eventVerified ?? false,
+    challenge_verified: record.challengeVerified ?? false,
+    verification_state: record,
+    verified_at: record.verifiedAt,
+  }));
+
+  if (drafts.length) {
+    const { error } = await supabase.from("ccn_challenge_drafts").upsert(drafts, { onConflict: "draft_id" });
+    if (error) throw error;
+  }
+  if (fundingRows.length) {
+    const { error } = await supabase.from("ccn_challenge_funding_records").upsert(fundingRows, { onConflict: "record_key" });
+    if (error) throw error;
+  }
+  if (approvalRows.length) {
+    const { error } = await supabase.from("ccn_wallet_approval_attempts").upsert(approvalRows, { onConflict: "scope_key,circle_challenge_id" });
+    if (error) throw error;
+  }
+  if (fundingAttemptRows.length) {
+    const { error } = await supabase.from("ccn_funding_attempts").upsert(fundingAttemptRows, { onConflict: "scope_key,circle_challenge_id" });
+    if (error) throw error;
+  }
+  if (winnerRows.length) {
+    const { error } = await supabase.from("ccn_winner_finalization_attempts").upsert(winnerRows, { onConflict: "scope_key" });
+    if (error) throw error;
+  }
+  if (verificationRows.length) {
+    const { error } = await supabase.from("ccn_onchain_verifications").upsert(verificationRows, { onConflict: "tx_hash" });
+    if (error) throw error;
   }
 }
 
@@ -623,9 +1120,17 @@ async function normalizeStore() {
   return readStore();
 }
 
-export async function listCreateChallengeDrafts() {
+export async function listCreateChallengeDrafts(input: { ccnAccountId?: string } = {}) {
   const store = await normalizeStore();
+  const allowedDraftIds = input.ccnAccountId
+    ? new Set(
+        Object.values(store.fundingRecords ?? {})
+          .filter((record) => record.ccnAccountId === input.ccnAccountId)
+          .map((record) => record.draftId),
+      )
+    : null;
   return Object.values(store.drafts ?? {})
+    .filter((draft) => !allowedDraftIds || allowedDraftIds.has(draft.challenge.id ?? ""))
     .map((draft) => {
       const normalized = withDerivedValues(draft);
       return {
@@ -635,6 +1140,10 @@ export async function listCreateChallengeDrafts() {
         title: normalized.challenge.title || "Untitled challenge",
         brandName: normalized.challenge.brandName || "Brand not set",
         currentStep: normalized.deployment.currentStep,
+        category: normalized.challenge.category || "Creative",
+        coverImageKey: normalized.challenge.coverImageKey ?? null,
+        coverImageAlt: normalized.challenge.coverImageAlt ?? null,
+        coverImageUpdatedAt: normalized.challenge.coverImageUpdatedAt ?? null,
         publicationStatus: normalized.deployment.publicationStatus,
         fundingStatus: normalized.funding.fundingStatus,
         updatedAt: normalized.updatedAt ?? "",
@@ -643,8 +1152,24 @@ export async function listCreateChallengeDrafts() {
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export async function createNewCreateChallengeDraft() {
-  const draft = createCleanDraft();
+export async function listCreateChallengeDraftStates(input: { ccnAccountId?: string } = {}) {
+  const store = await normalizeStore();
+  const allowedDraftIds = input.ccnAccountId
+    ? new Set(
+        Object.values(store.fundingRecords ?? {})
+          .filter((record) => record.ccnAccountId === input.ccnAccountId)
+          .map((record) => record.draftId),
+      )
+    : null;
+
+  return Object.values(store.drafts ?? {})
+    .map((draft) => sanitizeStoredDraft(draft))
+    .filter((draft) => !allowedDraftIds || allowedDraftIds.has(draft.challenge.id ?? ""))
+    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+}
+
+export async function createNewCreateChallengeDraft(input: { ccnAccountId?: string; brandName?: string | null } = {}) {
+  const draft = withInitialBrandName(createCleanDraft(), input.brandName);
   const draftId = draft.challenge.id ?? randomUUID();
   await updateStore((store) => withFundingRecord({
     ...store,
@@ -653,7 +1178,21 @@ export async function createNewCreateChallengeDraft() {
       ...(store.drafts ?? {}),
       [draftId]: draft,
     },
-  }, draft));
+  }, draft, input.ccnAccountId));
+  return draft;
+}
+
+export async function createNewSmokeTestCreateChallengeDraft(input: { ccnAccountId?: string; brandName?: string | null } = {}) {
+  const draft = withInitialBrandName(createCleanSmokeTestDraft(), input.brandName);
+  const draftId = draft.challenge.id ?? randomUUID();
+  await updateStore((store) => withFundingRecord({
+    ...store,
+    activeDraftId: draftId,
+    drafts: {
+      ...(store.drafts ?? {}),
+      [draftId]: draft,
+    },
+  }, draft, input.ccnAccountId));
   return draft;
 }
 
@@ -672,6 +1211,47 @@ export async function getCreateChallengeDraftStrict(draftId: string) {
   return getCreateChallengeDraft(draftId);
 }
 
+export async function assertCreateChallengeDraftOwner(draftId: string, ccnAccountId: string) {
+  const store = await normalizeStore();
+  const owned = Object.values(store.fundingRecords ?? {}).some(
+    (record) => record.draftId === draftId && record.ccnAccountId === ccnAccountId,
+  );
+  if (!owned) throw new DraftNotFoundError(draftId);
+}
+
+export async function getCreateChallengeDraftOwnerAccountId(draftId: string) {
+  const store = await normalizeStore();
+  const record = Object.values(store.fundingRecords ?? {}).find((item) => item.draftId === draftId);
+  return record?.ccnAccountId ?? null;
+}
+
+export async function getCreateChallengeDraftForAccount(draftId: string, ccnAccountId: string) {
+  await assertCreateChallengeDraftOwner(draftId, ccnAccountId);
+  return getCreateChallengeDraftStrict(draftId);
+}
+
+export async function ensureCreateChallengeDraftPublicSlugReservation(
+  draftId: string,
+  input: { ccnAccountId?: string } = {},
+) {
+  if (input.ccnAccountId) await assertCreateChallengeDraftOwner(draftId, input.ccnAccountId);
+  let normalized!: CreateChallengeDraftState;
+  await updateStore(async (store) => {
+    const current = store.drafts?.[draftId];
+    if (!current) throw new DraftNotFoundError(draftId);
+    const reservation = await reservePublicSlug(store, withDerivedValues(current));
+    normalized = reservation.draft;
+    return {
+      ...reservation.store,
+      drafts: {
+        ...(reservation.store.drafts ?? {}),
+        [draftId]: normalized,
+      },
+    };
+  });
+  return normalized;
+}
+
 export async function upsertOnChainVerification(record: OnChainVerificationRecord) {
   await updateStore((store) => ({
     ...store,
@@ -681,6 +1261,52 @@ export async function upsertOnChainVerification(record: OnChainVerificationRecor
     },
   }));
   return record;
+}
+
+export async function upsertLifecycleEvent(input: {
+  draftId: string;
+  challengeId: string;
+  eventType: string;
+  eventState: Record<string, unknown>;
+}) {
+  const now = new Date().toISOString();
+  const eventId = stableUuid("lifecycle-event", [
+    input.draftId,
+    input.challengeId.toLowerCase(),
+    input.eventType,
+  ].join("|"));
+
+  if (LIFECYCLE_PERSISTENCE_ADAPTER !== "supabase") {
+    return {
+      eventId,
+      draftId: input.draftId,
+      challengeId: input.challengeId,
+      eventType: input.eventType,
+      createdAt: now,
+    };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase.from("ccn_lifecycle_events").upsert({
+    event_id: eventId,
+    draft_id: input.draftId,
+    challenge_id: input.challengeId,
+    event_type: input.eventType,
+    metadata: {
+      ...input.eventState,
+      idempotencyKey: eventId,
+    },
+    created_at: now,
+  }, { onConflict: "event_id" });
+  if (error) throw error;
+
+  return {
+    eventId,
+    draftId: input.draftId,
+    challengeId: input.challengeId,
+    eventType: input.eventType,
+    createdAt: now,
+  };
 }
 
 export async function findOnChainVerificationForDraft(input: { draftId: string; challengeId: string; fundingIntentId: string }) {
@@ -693,25 +1319,51 @@ export async function findOnChainVerificationForDraft(input: { draftId: string; 
   ) ?? null;
 }
 
+export async function listOnChainVerificationsForDraft(input: {
+  draftId: string;
+  challengeId: string;
+  fundingIntentId: string;
+}) {
+  const store = await normalizeStore();
+  return Object.values(store.onChainVerificationsByTxHash ?? {})
+    .filter(
+      (record) =>
+        record.draftId === input.draftId &&
+        record.challengeId.toLowerCase() === input.challengeId.toLowerCase() &&
+        record.fundingIntentId === input.fundingIntentId,
+    )
+    .sort((a, b) => (b.verifiedAt ?? "").localeCompare(a.verifiedAt ?? ""));
+}
+
 export async function saveCreateChallengeDraft(
   draft: CreateChallengeDraftState,
   draftId?: string,
+  input: { ccnAccountId?: string } = {},
 ) {
   const targetDraftId = draftId || draft.challenge.id;
   if (!targetDraftId) throw new DraftNotFoundError("missing-draft-id");
   let normalized!: CreateChallengeDraftState;
-  await updateStore((store) => {
+  await updateStore(async (store) => {
     const current = store.drafts?.[targetDraftId];
     if (!current) throw new DraftNotFoundError(targetDraftId);
-    normalized = withDerivedValues({
+    const preserveExistingCover = Boolean(current.challenge.coverImageKey) && !draft.challenge.coverImageKey;
+    const merged = withDerivedValues({
       ...current,
       ...draft,
       challenge: {
         ...current.challenge,
         ...draft.challenge,
-        slug: draft.challenge.title
-          ? slugify(draft.challenge.title)
-          : current.challenge.slug,
+        ...(preserveExistingCover
+          ? {
+              coverImageKey: current.challenge.coverImageKey,
+              coverImageAlt: current.challenge.coverImageAlt,
+              coverImageUpdatedAt: current.challenge.coverImageUpdatedAt,
+            }
+          : {}),
+        isSmokeTest: current.challenge.isSmokeTest,
+        slug: current.deployment.publicationStatus === "live"
+          ? current.challenge.slug
+          : draft.challenge.slug ?? current.challenge.slug,
       },
       prizePool: {
         ...current.prizePool,
@@ -722,14 +1374,16 @@ export async function saveCreateChallengeDraft(
       funding: { ...current.funding, ...draft.funding },
       deployment: { ...current.deployment, ...draft.deployment },
     });
+    const reservation = await reservePublicSlug(store, merged);
+    normalized = reservation.draft;
     return withFundingRecord({
-      ...store,
+      ...reservation.store,
       activeDraftId: targetDraftId,
       drafts: {
-        ...(store.drafts ?? {}),
+        ...(reservation.store.drafts ?? {}),
         [targetDraftId]: normalized,
       },
-    }, normalized);
+    }, normalized, input.ccnAccountId);
   });
   return normalized;
 }
@@ -830,16 +1484,159 @@ export async function upsertFundingAttemptForScope(input: {
   return next;
 }
 
+export async function getWinnerFinalizationAttemptForScope(input: {
+  ccnAccountId: string;
+  draftId: string;
+  challengeId: string;
+  fundingIntentId: string;
+}) {
+  const store = await normalizeStore();
+  return store.winnerFinalizationAttempts?.[winnerFinalizationAttemptScopeKey(input)] ?? null;
+}
+
+export async function listWinnerFinalizationAttempts() {
+  const store = await normalizeStore();
+  return Object.values(store.winnerFinalizationAttempts ?? {})
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+export async function acquireWinnerFinalizationAttemptLock(input: {
+  ccnAccountId: string;
+  draftId: string;
+  challengeId: string;
+  fundingIntentId: string;
+  selectedWinnerEntryIds: string[];
+  winnerWalletAddresses: string[];
+}) {
+  const key = winnerFinalizationAttemptScopeKey(input);
+  const now = new Date().toISOString();
+  let next!: WinnerFinalizationAttemptRecord;
+  await updateStore((store) => {
+    const existing = store.winnerFinalizationAttempts?.[key];
+    if (
+      existing?.state === "FINALIZATION_IN_PROGRESS" ||
+      existing?.state === "APPROVAL_CREATION_IN_PROGRESS" ||
+      existing?.state === "TRANSACTION_SUBMITTED" ||
+      existing?.state === "PAYOUT_CONFIRMED" ||
+      existing?.state === "ALREADY_FINALIZED"
+    ) {
+      throw new StoreConflictError();
+    }
+
+    next = {
+      ...existing,
+      ccnAccountId: input.ccnAccountId,
+      draftId: input.draftId,
+      challengeId: input.challengeId,
+      fundingIntentId: input.fundingIntentId,
+      lockId: existing?.lockId ?? stableUuid("winner-finalization-lock", key),
+      idempotencyKey: existing?.idempotencyKey ?? stableUuid("winner-payout", key),
+      operationOwnerToken: randomUUID(),
+      state: "FINALIZATION_IN_PROGRESS",
+      selectedWinnerEntryIds: input.selectedWinnerEntryIds,
+      winnerWalletAddresses: input.winnerWalletAddresses,
+      errorMessage: undefined,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    return {
+      ...store,
+      winnerFinalizationAttempts: {
+        ...(store.winnerFinalizationAttempts ?? {}),
+        [key]: next,
+      },
+    };
+  });
+  return next;
+}
+
+export async function patchWinnerFinalizationAttempt(input: {
+  scope: {
+    ccnAccountId: string;
+    draftId: string;
+    challengeId: string;
+    fundingIntentId: string;
+  };
+  patch: Partial<Pick<
+    WinnerFinalizationAttemptRecord,
+    "state" | "payoutWalletId" | "payoutWalletAddress" | "circleStatus" | "circleChallengeId" | "circleTransactionId" | "transactionHash" | "blockNumber" | "receiptStatus" | "payoutConfirmedAt" | "reconciliationSource" | "finalContractStatus" | "lastCheckedAt" | "reconciliation" | "finalizedAt" | "errorMessage"
+  >>;
+}) {
+  const key = winnerFinalizationAttemptScopeKey(input.scope);
+  const now = new Date().toISOString();
+  let updated: WinnerFinalizationAttemptRecord | null = null;
+  await updateStore((store) => {
+    const existing = store.winnerFinalizationAttempts?.[key];
+    if (!existing) return store;
+
+    updated = {
+      ...existing,
+      ...input.patch,
+      updatedAt: now,
+    };
+
+    return {
+      ...store,
+      winnerFinalizationAttempts: {
+        ...(store.winnerFinalizationAttempts ?? {}),
+        [key]: updated,
+      },
+    };
+  });
+  return updated;
+}
+
+export async function patchWinnerFinalizationAttemptForOwner(input: {
+  scope: {
+    ccnAccountId: string;
+    draftId: string;
+    challengeId: string;
+    fundingIntentId: string;
+  };
+  ownerToken: string;
+  patch: Partial<Pick<
+    WinnerFinalizationAttemptRecord,
+    "state" | "payoutWalletId" | "payoutWalletAddress" | "circleStatus" | "circleChallengeId" | "circleTransactionId" | "transactionHash" | "blockNumber" | "receiptStatus" | "payoutConfirmedAt" | "reconciliationSource" | "finalContractStatus" | "lastCheckedAt" | "reconciliation" | "finalizedAt" | "errorMessage" | "operationKey" | "operationOwnerToken" | "approvalCreationStartedAt" | "approvalCreatedAt"
+  >>;
+}) {
+  const key = winnerFinalizationAttemptScopeKey(input.scope);
+  const now = new Date().toISOString();
+  let updated: WinnerFinalizationAttemptRecord | null = null;
+  await updateStore((store) => {
+    const existing = store.winnerFinalizationAttempts?.[key];
+    if (!existing || existing.operationOwnerToken !== input.ownerToken) {
+      throw new StoreConflictError();
+    }
+
+    updated = {
+      ...existing,
+      ...input.patch,
+      updatedAt: now,
+    };
+
+    return {
+      ...store,
+      winnerFinalizationAttempts: {
+        ...(store.winnerFinalizationAttempts ?? {}),
+        [key]: updated,
+      },
+    };
+  });
+  return updated;
+}
+
 export async function patchCreateChallengeDraft(
   patch: Partial<CreateChallengeDraftState>,
   draftId?: string,
+  input: { ccnAccountId?: string } = {},
 ) {
   if (!draftId) throw new DraftNotFoundError("missing-draft-id");
   let updated!: CreateChallengeDraftState;
-  await updateStore((store) => {
+  await updateStore(async (store) => {
     const current = store.drafts?.[draftId];
     if (!current) throw new DraftNotFoundError(draftId);
-    updated = withDerivedValues({
+    const merged = withDerivedValues({
       ...current,
       ...patch,
       challenge: { ...current.challenge, ...patch.challenge },
@@ -848,106 +1645,35 @@ export async function patchCreateChallengeDraft(
       funding: { ...current.funding, ...patch.funding },
       deployment: { ...current.deployment, ...patch.deployment },
     });
+    const reservation = await reservePublicSlug(store, merged);
+    updated = reservation.draft;
     return withFundingRecord({
-      ...store,
+      ...reservation.store,
       activeDraftId: draftId,
       drafts: {
-        ...(store.drafts ?? {}),
+        ...(reservation.store.drafts ?? {}),
         [draftId]: updated,
       },
-    }, updated);
+    }, updated, input.ccnAccountId);
   });
   return updated;
-}
-
-function isValidUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-export function unixFromLocal(value: string) {
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? Math.floor(ms / 1000) : 0;
 }
 
 export function validateCreateChallengeDraft(
   draft: CreateChallengeDraftState,
   step: CreateChallengeStepId,
+  options: { deadlinePolicy?: CreateChallengeDeadlinePolicy } = {},
 ): CreateChallengeValidation {
-  const errors: string[] = [];
-
-  if (step === "basics") {
-    if (draft.challenge.title.trim().length < 5 || draft.challenge.title.length > 100) {
-      errors.push("Challenge title must be 5-100 characters.");
-    }
-    if (!draft.challenge.brandName.trim()) errors.push("Brand name is required.");
-    if (!draft.challenge.category.trim()) errors.push("Category is required.");
-    if (!draft.challenge.summary.trim() || draft.challenge.summary.length > 240) {
-      errors.push("Short summary is required and must be 240 characters or less.");
-    }
-    if (draft.challenge.description.trim().length < 50) {
-      errors.push("Full creative brief must be at least 50 characters.");
-    }
-    if (!draft.challenge.primaryDeliverable.trim()) {
-      errors.push("Primary deliverable is required.");
-    }
-    if (!draft.challenge.usageRightsAcknowledged) {
-      errors.push("Usage-rights acknowledgement is required.");
-    }
-    draft.challenge.referenceLinks.filter(Boolean).forEach((url) => {
-      if (!isValidUrl(url)) errors.push(`Invalid reference URL: ${url}`);
-    });
-  }
-
-  if (step === "prize-pool") {
-    const math = calculatePrizePool({
-      totalAmount: draft.prizePool.totalAmount,
-      winnerCount: draft.prizePool.winnerCount,
-      distributionMode: draft.prizePool.distributionMode,
-      prizeDistribution: draft.prizePool.prizeDistribution,
-    });
-    errors.push(...math.errors);
-    const balanceUnits = parseUsdcUnits(draft.funding.availableBalance || 0).units;
-    if (balanceUnits > BigInt(0) && BigInt(math.totalRequiredUnits) > balanceUnits) {
-      errors.push("Total required exceeds the available test USDC balance.");
-    }
-  }
-
-  if (step === "review-rules") {
-    const submissionDeadline = unixFromLocal(draft.reviewRules.submissionDeadline);
-    const reviewDeadline = unixFromLocal(draft.reviewRules.reviewDeadline);
-    const now = Math.floor(Date.now() / 1000);
-    if (!submissionDeadline || submissionDeadline < now + 24 * 60 * 60) {
-      errors.push("Submission date and time must be at least 24 hours from now.");
-    }
-    if (!reviewDeadline || reviewDeadline < submissionDeadline + 24 * 60 * 60) {
-      errors.push("Review date and time must be at least 24 hours after submissions close.");
-    }
-    if (!draft.reviewRules.judgingCriteria.some((item) => item.trim())) {
-      errors.push("At least one judging criterion is required.");
-    }
-    if (!draft.reviewRules.blindReview) errors.push("Blind review is required in MVP.");
-    if (!draft.reviewRules.creatorAcknowledgement) {
-      errors.push("Creator acknowledgement is required.");
-    }
-    if (!draft.reviewRules.cancellationAcknowledgement) {
-      errors.push("Brand cancellation acknowledgement is required.");
-    }
-  }
-
-  return { step, valid: errors.length === 0, errors };
+  return validateCreateChallengeStep(draft, step, options);
 }
 
 export function getFundingIntentFromDraft(
   draft: CreateChallengeDraftState,
+  input: { ccnAccountId?: string } = {},
 ): FundingIntentSnapshot {
   const normalized = withDerivedValues(draft);
   return {
-    ccnAccountId: CREATE_CHALLENGE_BRAND_ACCOUNT_ID,
+    ccnAccountId: input.ccnAccountId ?? CREATE_CHALLENGE_BRAND_ACCOUNT_ID,
     challengeLogicalId: normalized.challenge.id ?? "",
     challengeId:
       normalized.challenge.challengeId ??

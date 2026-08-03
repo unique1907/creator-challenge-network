@@ -21,7 +21,7 @@ export const createChallengeSteps: CreateChallengeStep[] = [
   },
   {
     id: "funding",
-    label: "Secure Prize Pool",
+    label: "Fund Prize Pool",
     description: "Confirm payment and secure the reward.",
   },
   {
@@ -39,6 +39,9 @@ export const demoCreateChallengeDraft: CreateChallengeDraftState = {
     market: "Arc Testnet",
     summary: "",
     description: "",
+    coverImageKey: null,
+    coverImageAlt: null,
+    coverImageUpdatedAt: null,
     primaryDeliverable: "",
     supportingDeliverables: [],
     referenceLinks: [],

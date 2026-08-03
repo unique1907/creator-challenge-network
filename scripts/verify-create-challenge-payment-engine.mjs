@@ -69,7 +69,7 @@ for (const route of ["payment-overview", "payment-account"]) {
 }
 const draftRoute = read("src/app/api/create-challenge/draft/route.ts");
 assert.ok(draftRoute.includes("draftId is required unless new=1 or list=1"), "draft GET must not silently use activeDraftId");
-assert.ok(draftRoute.includes("getCreateChallengeDraftStrict"), "draft GET must use exact draft lookup");
+assert.ok(draftRoute.includes("getCreateChallengeDraftForAccount"), "draft GET must use owner-scoped exact draft lookup");
 
 const wizard = read("src/features/create-challenge/components/real-flow/create-challenge-wizard.tsx");
 assert.ok(wizard.includes("Choose Continue Draft or Start New Challenge to begin."), "wizard must not silently create a draft without explicit choice");

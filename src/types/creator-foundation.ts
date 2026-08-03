@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 
 export type AccountStatus = "ACTIVE" | "DEACTIVATED";
+export type CcnPrimaryRole = "brand" | "creator";
 export type WalletScope = "BRAND_PAYMENT" | "CREATOR_PAYOUT";
 export type WalletStatus = "PENDING" | "ACTIVE" | "FAILED";
 export type AuditActor = "USER" | "SERVICE" | "SYSTEM";
@@ -11,6 +12,17 @@ export type CcnAccount = {
   is_brand: boolean;
   is_creator: boolean;
   primary_email: string;
+  display_name: string | null;
+  avatar_image_key: string | null;
+  avatar_image_updated_at: string | null;
+  brand_name: string | null;
+  brand_logo_image_key: string | null;
+  website_url: string | null;
+  company_description: string | null;
+  linkedin_url: string | null;
+  instagram_url: string | null;
+  x_url: string | null;
+  brand_onboarding_completed_at: string | null;
   status: AccountStatus;
   created_at: string;
   updated_at: string;
@@ -40,9 +52,13 @@ export type WalletRow = {
 
 export type CreatorProfile = {
   account_id: string;
+  auth_user_id?: string | null;
   display_name: string | null;
   username: string | null;
+  username_normalized?: string | null;
   country: string | null;
+  avatar_image_key?: string | null;
+  avatar_image_updated_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -51,7 +67,21 @@ export type SafeAccountDto = {
   accountId: string;
   isBrand: boolean;
   isCreator: boolean;
+  primaryRole: CcnPrimaryRole | null;
   primaryEmail: string;
+  displayName: string | null;
+  avatarImageKey: string | null;
+  avatarImageUrl?: string | null;
+  brandName: string | null;
+  brandLogoImageKey: string | null;
+  brandLogoImageUrl?: string | null;
+  websiteUrl: string | null;
+  companyDescription: string | null;
+  linkedinUrl: string | null;
+  instagramUrl: string | null;
+  xUrl: string | null;
+  brandOnboardingCompletedAt: string | null;
+  brandOnboardingComplete: boolean;
   status: AccountStatus;
 };
 
@@ -67,6 +97,10 @@ export type CreatorOnboardingResult = {
   profile: CreatorProfile;
   wallet: SafeWalletDto;
   circleChallengeId?: string;
+  circleSession?: {
+    userToken: string;
+    encryptionKey: string;
+  };
   recoveryRequired?: boolean;
 };
 

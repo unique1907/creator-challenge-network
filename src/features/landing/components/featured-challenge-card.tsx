@@ -1,104 +1,108 @@
+import type { Challenge } from "@/types/ccn";
 import { LandingIcon } from "./landing-icons";
 
-const prizeDistribution = [
-  { place: "1st Place", amount: "30,000 USDC", tone: "text-yellow-300" },
-  { place: "2nd Place", amount: "15,000 USDC", tone: "text-slate-100" },
-  { place: "3rd Place", amount: "5,000 USDC", tone: "text-orange-300" },
+const verificationFacts = [
+  { label: "Escrow", value: "Funded before publish", icon: "lock" as const },
+  { label: "Wallets", value: "Circle Hosted approval", icon: "wallet" as const },
+  { label: "Network", value: "Arc Testnet", icon: "arc" as const },
 ];
 
-export function FeaturedChallengeCard() {
+const sampleChallenge: Challenge = {
+  source: "mock",
+  slug: "sample-funded-brief",
+  title: "Sample Creator Challenge",
+  brand: "Sample brand",
+  category: "Creative Strategy",
+  rewardUsdc: 2500,
+  deadline: "Open for submissions",
+  submissions: 8,
+  status: "open",
+  usageRights: "Demo usage rights",
+  escrowStatus: "Escrow ready",
+  summary: "A sample funded creative brief for juror review, shown only when no live challenge is available.",
+  brief: "A sample funded creative brief for juror review, shown only when no live challenge is available.",
+  deliverables: [],
+  evaluation: ["Blind scoring"],
+  audience: "Creators exploring CCN.",
+  accent: "blue",
+  winnerModel: "Top 1",
+};
+
+function statusLabel(status: Challenge["status"]) {
+  if (status === "reviewing") return "Review";
+  if (status === "funded") return "Funded";
+  return "Live";
+}
+
+function formatReward(challenge: Challenge) {
+  return `${challenge.rewardUsdc.toLocaleString()} USDC`;
+}
+
+function deadlineLabel(challenge: Challenge) {
+  if (challenge.submissionClosed) return "Submissions closed";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(challenge.deadline)) return `Open until ${challenge.deadline}`;
+  return challenge.deadline;
+}
+
+export function FeaturedChallengeCard({ challenge }: { challenge?: Challenge | null }) {
+  const featured = challenge ?? sampleChallenge;
+  const campaignFacts = [
+    { label: "Brand", value: featured.brand },
+    { label: "Category", value: featured.category },
+    { label: "Prize Pool", value: formatReward(featured) },
+    { label: "Status", value: statusLabel(featured.status) },
+    { label: "Deadline", value: deadlineLabel(featured) },
+    { label: "Review", value: featured.evaluation[0] ?? "Blind scoring" },
+  ];
+
   return (
-    <article className="relative overflow-hidden rounded-2xl border border-purple-400/40 bg-[#080d29] p-6 shadow-2xl shadow-purple-950/35">
-      <div className="absolute inset-x-40 top-4 h-72 rounded-full bg-purple-500/18 blur-3xl" />
-      <div className="absolute right-0 top-0 h-56 w-72 bg-[radial-gradient(circle_at_center,rgba(217,70,239,0.35),transparent_58%)]" />
-      <div className="absolute right-5 top-8 h-48 w-48 rounded-full border border-fuchsia-300/40 shadow-[0_0_52px_rgba(217,70,239,0.38)]" />
-      <div className="absolute right-14 top-16 h-32 w-32 rounded-full border border-fuchsia-400/45 shadow-[0_0_38px_rgba(217,70,239,0.45)]" />
-      <div className="absolute bottom-24 right-8 flex h-24 items-end gap-1 opacity-70">
-        {Array.from({ length: 34 }).map((_, index) => (
-          <span
-            key={index}
-            className="w-1 rounded-full bg-gradient-to-t from-blue-500 to-fuchsia-400"
-            style={{ height: `${18 + ((index * 17) % 62)}px` }}
-          />
+    <article className="rounded-2xl border border-white/12 bg-white/[0.055] p-5 shadow-2xl shadow-black/30 backdrop-blur">
+      <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-5">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">Featured challenge</p>
+          <h2 className="mt-3 text-2xl font-bold tracking-tight text-white">{featured.title}</h2>
+          <p className="mt-2 max-w-md text-sm leading-6 text-slate-300">
+            {featured.summary}
+          </p>
+        </div>
+        <span className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-3 py-1 text-xs font-bold text-emerald-100">
+          {featured.source === "canonical" ? "Live" : "Sample"}
+        </span>
+      </div>
+
+      <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+        {campaignFacts.map((fact) => (
+          <div key={fact.label} className="rounded-xl border border-white/10 bg-slate-950/35 p-4">
+            <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{fact.label}</dt>
+            <dd className="mt-2 text-sm font-bold text-white">{fact.value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <div className="mt-5 space-y-3 rounded-xl border border-white/10 bg-slate-950/45 p-4">
+        {verificationFacts.map((fact) => (
+          <div key={fact.label} className="flex items-center justify-between gap-4 text-sm">
+            <span className="flex items-center gap-2 text-slate-300">
+              <LandingIcon name={fact.icon} className="h-4 w-4 text-cyan-200" />
+              {fact.label}
+            </span>
+            <span className="font-semibold text-white">{fact.value}</span>
+          </div>
         ))}
       </div>
 
-      <div className="relative">
-        <div className="flex items-start justify-between gap-4">
-          <span className="inline-flex items-center gap-2 rounded-md bg-indigo-500/35 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-50">
-            <span aria-hidden>☆</span>
-            Featured Challenge
-          </span>
-          <span className="rounded-md border border-white/25 bg-white/5 px-3 py-1 text-xs font-medium text-white">
-            Demo
-          </span>
+      <div className="mt-5 grid gap-3 border-t border-white/10 pt-5 sm:grid-cols-3">
+        <div>
+          <p className="text-xs text-slate-500">Submissions</p>
+          <p className="mt-1 text-lg font-bold text-white">{featured.submissions}</p>
         </div>
-
-        <div className="mt-7 flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1ed760] text-slate-950">
-            <span className="h-6 w-6 rounded-full border-t-4 border-slate-950" />
-          </span>
-          <p className="text-2xl font-bold text-white">Spotify</p>
+        <div>
+          <p className="text-xs text-slate-500">Winner model</p>
+          <p className="mt-1 text-lg font-bold text-white">{featured.winnerModel ?? "Top 1"}</p>
         </div>
-
-        <h2 className="mt-6 text-2xl font-semibold text-white">
-          Motion Design Challenge
-        </h2>
-        <span className="mt-3 inline-flex rounded-md bg-violet-500/35 px-3 py-1 text-xs font-medium text-violet-50">
-          Motion Design
-        </span>
-
-        <div className="mt-7 grid gap-4 md:grid-cols-[1fr_auto]">
-          <div>
-            <p className="text-sm text-slate-300">Prize Pool</p>
-            <p className="mt-1 text-[2.6rem] font-bold leading-none tracking-tight text-white">
-              50,000 <span className="text-[1.65rem]">USDC</span>
-            </p>
-          </div>
-          <div className="rounded-lg border border-white/15 bg-slate-950/45 p-3 text-sm">
-            <p className="flex items-center gap-2 text-emerald-200">
-              <LandingIcon name="lock" className="h-4 w-4" />
-              Escrow Funded
-            </p>
-            <p className="mt-2 flex items-center gap-2 text-cyan-200">
-              <LandingIcon name="arc" className="h-4 w-4" />
-              Arc Verified
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-7 border-y border-white/12 py-5">
-          <div className="grid gap-4 sm:grid-cols-3">
-            {prizeDistribution.map((prize) => (
-              <div
-                key={prize.place}
-                className="flex items-center gap-3 sm:border-r sm:border-white/12 sm:last:border-r-0"
-              >
-                <LandingIcon name="trophy" className={`h-6 w-6 ${prize.tone}`} />
-                <div>
-                  <p className="text-xs text-slate-300">{prize.place}</p>
-                  <p className={`mt-1 text-sm font-bold ${prize.tone}`}>
-                    {prize.amount}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid gap-4 pt-4 text-sm text-slate-200 sm:grid-cols-3">
-          <p className="flex items-center gap-2">
-            <LandingIcon name="submissions" className="h-5 w-5" />
-            42 Submissions
-          </p>
-          <p className="flex items-center gap-2">
-            <LandingIcon name="clock" className="h-5 w-5" />
-            6d 12h remaining
-          </p>
-          <p className="flex items-center gap-2">
-            <LandingIcon name="blind" className="h-5 w-5" />
-            Blind Review
-          </p>
+        <div>
+          <p className="text-xs text-slate-500">Creator entry</p>
+          <p className="mt-1 text-lg font-bold text-white">{featured.submissionClosed ? "Closed" : "Open"}</p>
         </div>
       </div>
     </article>

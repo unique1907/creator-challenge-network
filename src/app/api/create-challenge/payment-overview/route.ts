@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { CircleSpikeError } from "@/services/circle/user-controlled-wallets.server";
+import { authErrorResponse, CcnAuthError, requireBrandWorkspace } from "@/services/auth/ccn-auth.server";
 import { requireSearchDraftId } from "@/services/create-challenge/create-challenge-route-guards.server";
 import { getCreateChallengePaymentOverview } from "@/services/create-challenge/brand-payment-account.server";
-import { DraftNotFoundError, StoreCorruptionError } from "@/services/create-challenge/create-challenge-store.server";
+import { assertCreateChallengeDraftOwner, DraftNotFoundError, StoreCorruptionError } from "@/services/create-challenge/create-challenge-store.server";
 import { createChallengeTraceId, logCreateChallengeTrace, type CreateChallengeTraceSource } from "@/utils/create-challenge-payment-trace";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,9 @@ function safeError(error: unknown) {
       { status: error.safe.status ?? 400 },
     );
   }
+  if (error instanceof CcnAuthError) {
+    return authErrorResponse(error);
+  }
 
   return NextResponse.json(
     { error: { message: "We couldn't refresh your balance. Please try again." } },
@@ -42,7 +46,9 @@ export async function GET(request: Request) {
   const triggerSource = (request.headers.get("x-ccn-trigger-source") ?? "server") as CreateChallengeTraceSource;
   let draftId: string | undefined;
   try {
+    const context = await requireBrandWorkspace({ allowTestContext: true });
     draftId = requireSearchDraftId(searchParams);
+    await assertCreateChallengeDraftOwner(draftId, context.ccnAccountId);
     logCreateChallengeTrace({
       requestId,
       route: "/api/create-challenge/payment-overview",
@@ -52,7 +58,7 @@ export async function GET(request: Request) {
       startedAt: new Date().toISOString(),
       attemptedErrorUpdate: false,
     });
-    const paymentOverview = await getCreateChallengePaymentOverview(draftId, { requestId, triggerSource });
+    const paymentOverview = await getCreateChallengePaymentOverview(draftId, { requestId, triggerSource }, { ccnAccountId: context.ccnAccountId });
     logCreateChallengeTrace({
       requestId,
       route: "/api/create-challenge/payment-overview",

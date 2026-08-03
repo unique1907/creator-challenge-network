@@ -18,20 +18,27 @@ import {
 } from "@/services/circle/user-controlled-wallets.server";
 import {
   formatTestUsdc,
+  ensureCreateChallengeDraftPublicSlugReservation,
   findOnChainVerificationForDraft,
   getCreateChallengeDraft,
   getFundingIntentFromDraft,
   listApprovalAttemptsForScope,
   listFundingAttemptsForScope,
+  listCreateChallengeDrafts,
   patchCreateChallengeDraft,
   stableUuid,
   upsertApprovalAttemptForScope,
   upsertOnChainVerification,
   upsertFundingAttemptForScope,
-  validateCreateChallengeDraft,
 } from "./create-challenge-store.server";
 import type { ApprovalAttemptRecord, ApprovalAttemptStatus, OnChainVerificationRecord } from "./create-challenge-store.server";
 import { getBrandPaymentAccount, getCreateChallengePaymentOverview } from "./brand-payment-account.server";
+import {
+  ARC_TESTNET_CHAIN_ID,
+  getCreateChallengeDeadlinePolicy,
+  logCreateChallengeDeadlinePolicy,
+} from "@/config/create-challenge-deadline-policy";
+import { validateCreateChallengeLaunchReadiness } from "@/utils/create-challenge-launch-readiness";
 
 const ARC_RPC_URL = "https://rpc.testnet.arc.network";
 const ARC_CHAIN_ID = 5_042_002;
@@ -46,6 +53,15 @@ const LOG_BLOCK_SPAN = BigInt(9_999);
 const VERIFICATION_CACHE_TTL_MS = 12_000;
 
 const verificationCache = new Map<string, { expiresAt: number; value: CanonicalFundingVerification }>();
+
+function deadlinePolicyForDraft(draft: Awaited<ReturnType<typeof getCreateChallengeDraft>>) {
+  const policy = getCreateChallengeDeadlinePolicy({
+    runtimeBlockchain: "ARC-TESTNET",
+    chainId: ARC_TESTNET_CHAIN_ID,
+    isSmokeTestChallenge: draft.challenge.isSmokeTest === true,
+  });
+  return policy;
+}
 const verificationInFlight = new Map<string, Promise<CanonicalFundingVerification>>();
 
 const SELECTORS = {
@@ -472,10 +488,12 @@ function receiptContainsChallengeFundedEvent(receipt: Receipt | null, intent: Re
     ),
   );
 }
-async function getBrandWallet(userToken: string, draftId?: string) {
+type FundingAccountScope = { ccnAccountId?: string };
+
+async function getBrandWallet(userToken: string, draftId?: string, input: FundingAccountScope = {}) {
   assertToken(userToken);
   assertDraftScope(draftId);
-  const intent = getFundingIntentFromDraft(await getCreateChallengeDraft(draftId));
+  const intent = getFundingIntentFromDraft(await getCreateChallengeDraft(draftId), input);
   const account = await getBrandPaymentAccount(intent.ccnAccountId);
   return {
     walletId: account.walletId,
@@ -511,12 +529,16 @@ function latestApprovalTx(logs: ApprovalLog[], totalRequired: string) {
   return logs.filter((log) => BigInt(log.amount) >= BigInt(totalRequired)).at(-1)?.transactionHash ?? null;
 }
 
-export async function getCanonicalFundingVerification(userToken: unknown, draftId?: string, options: { useCache?: boolean } = {}): Promise<CanonicalFundingVerification> {
+export async function getCanonicalFundingVerification(
+  userToken: unknown,
+  draftId?: string,
+  options: { useCache?: boolean; ccnAccountId?: string } = {},
+): Promise<CanonicalFundingVerification> {
   assertToken(userToken);
   assertDraftScope(draftId);
   const draft = await getCreateChallengeDraft(draftId);
-  const intent = getFundingIntentFromDraft(draft);
-  const wallet = await getBrandWallet(userToken, draftId);
+  const intent = getFundingIntentFromDraft(draft, options);
+  const wallet = await getBrandWallet(userToken, draftId, options);
   const walletAddress = asHexAddress(wallet.walletAddress);
   const key = cacheKey({
     draftId: draft.challenge.id ?? draftId,
@@ -535,12 +557,16 @@ export async function getCanonicalFundingVerification(userToken: unknown, draftI
   return promise;
 }
 
-async function buildCanonicalFundingVerification(userToken: unknown, draftId?: string, options: { useCache?: boolean } = {}): Promise<CanonicalFundingVerification> {
+async function buildCanonicalFundingVerification(
+  userToken: unknown,
+  draftId?: string,
+  options: { useCache?: boolean; ccnAccountId?: string } = {},
+): Promise<CanonicalFundingVerification> {
   assertToken(userToken);
   assertDraftScope(draftId);
   const draft = await getCreateChallengeDraft(draftId);
-  const intent = getFundingIntentFromDraft(draft);
-  const wallet = await getBrandWallet(userToken, draftId);
+  const intent = getFundingIntentFromDraft(draft, options);
+  const wallet = await getBrandWallet(userToken, draftId, options);
   const walletAddress = asHexAddress(wallet.walletAddress);
   const key = cacheKey({
     draftId: draft.challenge.id ?? draftId,
@@ -690,18 +716,17 @@ async function buildCanonicalFundingVerification(userToken: unknown, draftId?: s
   verificationCache.set(key, { expiresAt: Date.now() + VERIFICATION_CACHE_TTL_MS, value });
   return value;
 }
-export async function getCreateChallengePreflight(userToken: unknown, draftId?: string) {
+export async function getCreateChallengePreflight(userToken: unknown, draftId?: string, input: FundingAccountScope = {}) {
   assertToken(userToken);
   assertDraftScope(draftId);
   const draft = await getCreateChallengeDraft(draftId);
-  const intent = getFundingIntentFromDraft(draft);
-  const overview = await getCreateChallengePaymentOverview(draftId);
+  const intent = getFundingIntentFromDraft(draft, input);
+  const overview = await getCreateChallengePaymentOverview(draftId, undefined, input);
   const blockers: string[] = [];
 
-  ["basics", "prize-pool", "review-rules"].forEach((step) => {
-    const validation = validateCreateChallengeDraft(draft, step as never);
-    blockers.push(...validation.errors);
-  });
+  const deadlinePolicy = deadlinePolicyForDraft(draft);
+  logCreateChallengeDeadlinePolicy("/api/create-challenge/preflight", deadlinePolicy);
+  blockers.push(...validateCreateChallengeLaunchReadiness(draft, { deadlinePolicy }).errors);
 
   if (overview.paymentState === "RECOVERABLE_ERROR") blockers.push(overview.safeMessage || "We couldn't refresh your balance. Please try again.");
   if (overview.paymentState === "FATAL_ERROR") blockers.push(overview.safeMessage || "Payment account verification failed.");
@@ -717,7 +742,7 @@ export async function getCreateChallengePreflight(userToken: unknown, draftId?: 
       lastBalanceRefreshAt: overview.balance.readAt,
       fundingStatus: ready ? "ready" : draft.funding.fundingStatus,
     } as never,
-  }, draft.challenge.id);
+  }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
 
   return {
     chainId: overview.diagnostics.chainId,
@@ -753,6 +778,7 @@ export async function getCreateChallengePreflight(userToken: unknown, draftId?: 
       chainId: overview.diagnostics.chainId,
     },
     escrow: {
+      address: intent.escrowContractAddress,
       bytecodeExists: true,
       usdc: intent.usdcContractAddress,
       paused: Boolean(overview.diagnostics.escrowPaused),
@@ -776,13 +802,33 @@ export async function getCreateChallengePreflight(userToken: unknown, draftId?: 
     },
   } satisfies EscrowPreflightSnapshot & { display: Record<string, string>; paymentOverview: unknown };
 }
-export async function createProductApprovalChallenge(userToken: unknown, draftId?: string) {
+
+function assertLaunchReadinessBeforeFinancialAction(
+  draft: Awaited<ReturnType<typeof getCreateChallengeDraft>>,
+  endpoint: string,
+) {
+  const deadlinePolicy = deadlinePolicyForDraft(draft);
+  logCreateChallengeDeadlinePolicy(endpoint, deadlinePolicy);
+  const readiness = validateCreateChallengeLaunchReadiness(draft, { deadlinePolicy });
+  if (readiness.valid) return;
+  throw new CircleSpikeError({
+    message: readiness.errors[0] ?? "Complete required campaign details before launch.",
+    status: 400,
+    code: readiness.items.find((item) => item.status !== "ready")?.id === "campaign-cover"
+      ? "CAMPAIGN_COVER_REQUIRED"
+      : "CAMPAIGN_LAUNCH_REQUIREMENTS_INCOMPLETE",
+    endpoint,
+  });
+}
+
+export async function createProductApprovalChallenge(userToken: unknown, draftId?: string, input: FundingAccountScope = {}) {
   assertToken(userToken);
   assertDraftScope(draftId);
   const draft = await getCreateChallengeDraft(draftId);
-  const intent = getFundingIntentFromDraft(draft);
-  const wallet = await getBrandWallet(userToken, draftId);
-  const recovery = await reconcileCurrentApprovalAttempts(userToken, draftId);
+  assertLaunchReadinessBeforeFinancialAction(draft, "/api/create-challenge/approve");
+  const intent = getFundingIntentFromDraft(draft, input);
+  const wallet = await getBrandWallet(userToken, draftId, input);
+  const recovery = await reconcileCurrentApprovalAttempts(userToken, draftId, input);
   if (recovery.restoredState === "APPROVED") {
     return {
       alreadyApproved: true,
@@ -797,7 +843,7 @@ export async function createProductApprovalChallenge(userToken: unknown, draftId
       attempts: recovery.attempts.length,
     };
   }
-  const preflight = await getCreateChallengePreflight(userToken, draftId);
+  const preflight = await getCreateChallengePreflight(userToken, draftId, input);
   if (!preflight.ready) throw new CircleSpikeError({ message: preflight.blockers.join(" ") });
   const idempotencyKey = stableUuid(
     "approval",
@@ -830,20 +876,22 @@ export async function createProductApprovalChallenge(userToken: unknown, draftId
   await persistApprovalAttempt({
     userToken,
     draftId,
+    ccnAccountId: input.ccnAccountId,
     circleChallengeId: data.challengeId,
     idempotencyKey,
     status: "PENDING",
   });
-  await patchCreateChallengeDraft({ funding: { fundingStatus: "approval-pending" } as never }, draft.challenge.id);
+  await patchCreateChallengeDraft({ funding: { fundingStatus: "approval-pending" } as never }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
   return { alreadyApproved: false, challengeId: data.challengeId, attempts: recovery.attempts.length + 1 };
 }
 
-export async function createProductFundingChallenge(userToken: unknown, draftId?: string) {
+export async function createProductFundingChallenge(userToken: unknown, draftId?: string, input: FundingAccountScope = {}) {
   assertToken(userToken);
   assertDraftScope(draftId);
   const draft = await getCreateChallengeDraft(draftId);
-  const intent = getFundingIntentFromDraft(draft);
-  const wallet = await getBrandWallet(userToken, draftId);
+  assertLaunchReadinessBeforeFinancialAction(draft, "/api/create-challenge/fund");
+  const intent = getFundingIntentFromDraft(draft, input);
+  const wallet = await getBrandWallet(userToken, draftId, input);
   const scopedDraftId = draft.challenge.id ?? draftId;
   const scope = approvalAttemptScope({
     ccnAccountId: intent.ccnAccountId,
@@ -862,14 +910,14 @@ export async function createProductFundingChallenge(userToken: unknown, draftId?
         transactionId: activeAttempt.circleTransactionId ?? draft.funding.transactionId,
         transactionHash: activeAttempt.transactionHash ?? draft.funding.transactionHash,
       } as never,
-    }, draft.challenge.id);
+    }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
     return {
       alreadyPending: true,
       challengeId: activeAttempt.circleChallengeId,
       attempts: fundingAttempts.length,
     };
   }
-  const verification = await getCanonicalFundingVerification(userToken, draftId, { useCache: true });
+  const verification = await getCanonicalFundingVerification(userToken, draftId, { useCache: true, ccnAccountId: input.ccnAccountId });
   if (verification.escrow.isFunded) {
     await patchCreateChallengeDraft({
       funding: {
@@ -879,7 +927,7 @@ export async function createProductFundingChallenge(userToken: unknown, draftId?
         eventVerified: verification.eventVerified || draft.funding.eventVerified,
       } as never,
       deployment: verification.challengeVerified ? { publicationStatus: "ready-to-publish" } as never : undefined,
-    }, draft.challenge.id);
+    }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
     throw new CircleSpikeError({ message: "This challenge ID is already funded." });
   }
   if (BigInt(verification.allowance) < BigInt(intent.totalRequired)) {
@@ -923,6 +971,7 @@ export async function createProductFundingChallenge(userToken: unknown, draftId?
   await persistFundingAttempt({
     userToken,
     draftId,
+    ccnAccountId: input.ccnAccountId,
     circleChallengeId: data.challengeId,
     idempotencyKey,
     status: "PENDING",
@@ -932,7 +981,7 @@ export async function createProductFundingChallenge(userToken: unknown, draftId?
       fundingStatus: "funding-pending",
       fundingChallengeId: data.challengeId,
     } as never,
-  }, draft.challenge.id);
+  }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
   return { alreadyPending: false, challengeId: data.challengeId, attempts: fundingAttempts.length + 1 };
 }
 
@@ -1080,6 +1129,7 @@ function approvalAttemptScope(input: {
 async function persistApprovalAttempt(input: {
   userToken: string;
   draftId: string;
+  ccnAccountId?: string;
   circleChallengeId: string;
   idempotencyKey: string;
   status?: ApprovalAttemptStatus;
@@ -1089,8 +1139,8 @@ async function persistApprovalAttempt(input: {
   errorMessage?: string;
 }) {
   const draft = await getCreateChallengeDraft(input.draftId);
-  const intent = getFundingIntentFromDraft(draft);
-  const wallet = await getBrandWallet(input.userToken, input.draftId);
+  const intent = getFundingIntentFromDraft(draft, { ccnAccountId: input.ccnAccountId });
+  const wallet = await getBrandWallet(input.userToken, input.draftId, { ccnAccountId: input.ccnAccountId });
   const challenge =
     input.circleChallengeId ? await getCircleChallenge(input.circleChallengeId, input.userToken).catch(() => null) : null;
   const transactionId =
@@ -1128,6 +1178,7 @@ async function persistApprovalAttempt(input: {
 async function persistFundingAttempt(input: {
   userToken: string;
   draftId: string;
+  ccnAccountId?: string;
   circleChallengeId: string;
   idempotencyKey: string;
   status?: ApprovalAttemptStatus;
@@ -1137,8 +1188,8 @@ async function persistFundingAttempt(input: {
   errorMessage?: string;
 }) {
   const draft = await getCreateChallengeDraft(input.draftId);
-  const intent = getFundingIntentFromDraft(draft);
-  const wallet = await getBrandWallet(input.userToken, input.draftId);
+  const intent = getFundingIntentFromDraft(draft, { ccnAccountId: input.ccnAccountId });
+  const wallet = await getBrandWallet(input.userToken, input.draftId, { ccnAccountId: input.ccnAccountId });
   const challenge =
     input.circleChallengeId ? await getCircleChallenge(input.circleChallengeId, input.userToken).catch(() => null) : null;
   const transactionId =
@@ -1173,10 +1224,10 @@ async function persistFundingAttempt(input: {
   });
 }
 
-async function findApprovalAttemptsFromCircle(userToken: string, draftId: string) {
+async function findApprovalAttemptsFromCircle(userToken: string, draftId: string, input: FundingAccountScope = {}) {
   const draft = await getCreateChallengeDraft(draftId);
-  const intent = getFundingIntentFromDraft(draft);
-  const wallet = await getBrandWallet(userToken, draftId);
+  const intent = getFundingIntentFromDraft(draft, input);
+  const wallet = await getBrandWallet(userToken, draftId, input);
   const scope = approvalAttemptScope({
     ccnAccountId: intent.ccnAccountId,
     walletId: wallet.walletId,
@@ -1216,12 +1267,16 @@ async function findApprovalAttemptsFromCircle(userToken: string, draftId: string
   return listApprovalAttemptsForScope(scope);
 }
 
-export async function reconcileCurrentApprovalAttempts(userToken: unknown, draftId?: string): Promise<ApprovalRecoveryResult> {
+export async function reconcileCurrentApprovalAttempts(
+  userToken: unknown,
+  draftId?: string,
+  input: FundingAccountScope = {},
+): Promise<ApprovalRecoveryResult> {
   assertToken(userToken);
   assertDraftScope(draftId);
   const draft = await getCreateChallengeDraft(draftId);
-  const intent = getFundingIntentFromDraft(draft);
-  const wallet = await getBrandWallet(userToken, draftId);
+  const intent = getFundingIntentFromDraft(draft, input);
+  const wallet = await getBrandWallet(userToken, draftId, input);
   const scope = approvalAttemptScope({
     ccnAccountId: intent.ccnAccountId,
     walletId: wallet.walletId,
@@ -1231,7 +1286,7 @@ export async function reconcileCurrentApprovalAttempts(userToken: unknown, draft
   });
   let attempts = await listApprovalAttemptsForScope(scope);
   if (attempts.length === 0) {
-    attempts = await findApprovalAttemptsFromCircle(userToken, draftId);
+    attempts = await findApprovalAttemptsFromCircle(userToken, draftId, input);
   }
   attempts = await Promise.all(
     attempts.map(async (attempt) => {
@@ -1242,6 +1297,7 @@ export async function reconcileCurrentApprovalAttempts(userToken: unknown, draft
       return persistApprovalAttempt({
         userToken,
         draftId,
+        ccnAccountId: input.ccnAccountId,
         circleChallengeId: attempt.circleChallengeId,
         idempotencyKey: attempt.idempotencyKey,
         status: circleChallengeStatus(challenge),
@@ -1263,7 +1319,7 @@ export async function reconcileCurrentApprovalAttempts(userToken: unknown, draft
         fundingStatus: "approved",
         availableBalance: draft.funding.availableBalance,
       } as never,
-    }, draft.challenge.id);
+    }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
     return { attempts, allowance, requiredAllowance: intent.totalRequired, canonicalAttempt, restoredState: "APPROVED" };
   }
 
@@ -1277,7 +1333,7 @@ export async function reconcileCurrentApprovalAttempts(userToken: unknown, draft
         approvalTransactionHash: activeAttempt.transactionHash ?? draft.funding.approvalTransactionHash,
         fundingStatus: "approval-pending",
       } as never,
-    }, draft.challenge.id);
+    }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
     return { attempts, allowance, requiredAllowance: intent.totalRequired, canonicalAttempt: activeAttempt, restoredState: "APPROVAL_PENDING" };
   }
 
@@ -1288,7 +1344,7 @@ export async function reconcileCurrentApprovalAttempts(userToken: unknown, draft
       walletAddress: wallet.walletAddress,
       fundingStatus: terminalOnly ? "ready" : "ready",
     } as never,
-  }, draft.challenge.id);
+  }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
   return { attempts, allowance, requiredAllowance: intent.totalRequired, canonicalAttempt: null, restoredState: terminalOnly ? "START_AGAIN" : "READY_FOR_APPROVAL" };
 }
 
@@ -1326,6 +1382,7 @@ export async function reconcileProductTransaction(input: {
   stage: EscrowTransactionStage;
   challengeId: string;
   draftId?: string;
+  ccnAccountId?: string;
 }) {
   assertToken(input.userToken);
   assertDraftScope(input.draftId);
@@ -1333,10 +1390,11 @@ export async function reconcileProductTransaction(input: {
     await persistApprovalAttempt({
       userToken: input.userToken,
       draftId: input.draftId,
+      ccnAccountId: input.ccnAccountId,
       circleChallengeId: input.challengeId,
       idempotencyKey: stableUuid("approval-recovered", input.challengeId),
     });
-    const recovery = await reconcileCurrentApprovalAttempts(input.userToken, input.draftId);
+    const recovery = await reconcileCurrentApprovalAttempts(input.userToken, input.draftId, { ccnAccountId: input.ccnAccountId });
     const canonical = recovery.canonicalAttempt;
     return {
       stage: input.stage,
@@ -1347,8 +1405,8 @@ export async function reconcileProductTransaction(input: {
     } satisfies EscrowTransactionSnapshot;
   }
   const draft = await getCreateChallengeDraft(input.draftId);
-  const intent = getFundingIntentFromDraft(draft);
-  const wallet = await getBrandWallet(input.userToken, input.draftId);
+  const intent = getFundingIntentFromDraft(draft, { ccnAccountId: input.ccnAccountId });
+  const wallet = await getBrandWallet(input.userToken, input.draftId, { ccnAccountId: input.ccnAccountId });
   const fundingScope = approvalAttemptScope({
     ccnAccountId: intent.ccnAccountId,
     walletId: wallet.walletId,
@@ -1363,24 +1421,25 @@ export async function reconcileProductTransaction(input: {
   await persistFundingAttempt({
     userToken: input.userToken,
     draftId: input.draftId,
+    ccnAccountId: input.ccnAccountId,
     circleChallengeId: input.challengeId,
     idempotencyKey: fundingIdempotencyKey,
   });
   const transactionId = await getChallengeTransactionId(input.challengeId, input.userToken);
   if (!transactionId) {
-    await restoreFundingStateFromChain(input.userToken, draft.challenge.id);
+    await restoreFundingStateFromChain(input.userToken, draft.challenge.id, { ccnAccountId: input.ccnAccountId });
     await patchCreateChallengeDraft({
       funding: {
         fundingChallengeId: input.challengeId,
         fundingStatus: "funding-pending",
         escrowStatus: "pending",
       } as never,
-    }, draft.challenge.id);
+    }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
     return { stage: input.stage, challengeId: input.challengeId } satisfies EscrowTransactionSnapshot;
   }
   const transaction = await getTransaction(transactionId, input.userToken);
   if (!transaction) {
-    await restoreFundingStateFromChain(input.userToken, draft.challenge.id);
+    await restoreFundingStateFromChain(input.userToken, draft.challenge.id, { ccnAccountId: input.ccnAccountId });
     await patchCreateChallengeDraft({
       funding: {
         fundingChallengeId: input.challengeId,
@@ -1388,7 +1447,7 @@ export async function reconcileProductTransaction(input: {
         fundingStatus: "funding-pending",
         escrowStatus: "pending",
       } as never,
-    }, draft.challenge.id);
+    }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
     return {
       stage: input.stage,
       challengeId: input.challengeId,
@@ -1399,6 +1458,7 @@ export async function reconcileProductTransaction(input: {
   await persistFundingAttempt({
     userToken: input.userToken,
     draftId: input.draftId,
+    ccnAccountId: input.ccnAccountId,
     circleChallengeId: input.challengeId,
     idempotencyKey: fundingIdempotencyKey,
     transactionId,
@@ -1413,8 +1473,8 @@ export async function reconcileProductTransaction(input: {
       fundingStatus: transactionHash ? "funded" : "funding-pending",
       escrowStatus: transactionHash ? "locked" : "pending",
     } as never,
-  }, draft.challenge.id);
-  const restored = transactionHash ? await restoreFundingStateFromChain(input.userToken, draft.challenge.id) : null;
+  }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
+  const restored = transactionHash ? await restoreFundingStateFromChain(input.userToken, draft.challenge.id, { ccnAccountId: input.ccnAccountId }) : null;
   return {
     stage: input.stage,
     challengeId: input.challengeId,
@@ -1428,8 +1488,8 @@ async function getReceipt(hash: string) {
   return rpc<Receipt | null>("eth_getTransactionReceipt", [hash]);
 }
 
-async function verifyFundedChallenge(userToken: unknown, draftId?: string) {
-  const verification = await getCanonicalFundingVerification(userToken, draftId);
+async function verifyFundedChallenge(userToken: unknown, draftId?: string, input: FundingAccountScope = {}) {
+  const verification = await getCanonicalFundingVerification(userToken, draftId, input);
   const { draft, intent, wallet, walletAddress, challengeVerified } = verification;
 
   if (verification.approvalTx || verification.fundingTx || challengeVerified) {
@@ -1450,7 +1510,7 @@ async function verifyFundedChallenge(userToken: unknown, draftId?: string) {
       ...(challengeVerified
         ? { deployment: { status: "ready", publicationStatus: "ready-to-publish" } as never }
         : {}),
-    }, draft.challenge.id);
+    }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
     if (verification.challengeVerified && verification.fundingTx) {
       await upsertOnChainVerification({
         txHash: verification.fundingTx,
@@ -1525,13 +1585,13 @@ async function verifyFundedChallenge(userToken: unknown, draftId?: string) {
     },
   };
 }
-async function restoreFundingStateFromChain(userToken: unknown, draftId?: string) {
+async function restoreFundingStateFromChain(userToken: unknown, draftId?: string, input: FundingAccountScope = {}) {
   assertToken(userToken);
-  const verified = await verifyFundedChallenge(userToken, draftId);
+  const verified = await verifyFundedChallenge(userToken, draftId, input);
   if (verified.matches) return verified;
   const draft = await getCreateChallengeDraft(draftId);
-  const wallet = await getBrandWallet(userToken, draftId);
-  const intent = getFundingIntentFromDraft(draft);
+  const wallet = await getBrandWallet(userToken, draftId, input);
+  const intent = getFundingIntentFromDraft(draft, input);
   const walletAddress = asHexAddress(wallet.walletAddress);
   const fundingStatus = BigInt(verified.allowance) >= BigInt(intent.totalRequired) ? "approved" : "ready";
   await patchCreateChallengeDraft({
@@ -1549,11 +1609,11 @@ async function restoreFundingStateFromChain(userToken: unknown, draftId?: string
       escrowStatus: verified.fundingTx ? "locked" : "not-created",
     } as never,
     deployment: { status: "draft", publicationStatus: "draft" } as never,
-  }, draft.challenge.id);
+  }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
   return verified;
 }
-export async function verifyProductFunding(userToken: unknown, draftId?: string) {
-  const verified = await verifyFundedChallenge(userToken, draftId);
+export async function verifyProductFunding(userToken: unknown, draftId?: string, input: FundingAccountScope = {}) {
+  const verified = await verifyFundedChallenge(userToken, draftId, input);
   return {
     walletBalance: verified.walletBalance,
     approvalTx: verified.approvalTx,
@@ -1618,10 +1678,10 @@ function draftHasVerifiedPublishFunding(draft: Awaited<ReturnType<typeof getCrea
   );
 }
 
-async function getTrustedPublishEvidence(draftId?: string) {
+async function getTrustedPublishEvidence(draftId?: string, input: FundingAccountScope = {}) {
   assertDraftScope(draftId);
   const draft = await getCreateChallengeDraft(draftId);
-  const intent = getFundingIntentFromDraft(draft);
+  const intent = getFundingIntentFromDraft(draft, input);
   const record = await findOnChainVerificationForDraft({
     draftId: draft.challenge.id ?? "",
     challengeId: intent.challengeId,
@@ -1664,6 +1724,23 @@ function publishedResult(input: {
   };
 }
 
+async function assertNoPublishedSlugConflict(draft: Awaited<ReturnType<typeof getCreateChallengeDraft>>) {
+  const slug = draft.challenge.slug;
+  if (!slug) return;
+
+  const summaries = await listCreateChallengeDrafts();
+  for (const summary of summaries) {
+    if (summary.draftId === draft.challenge.id || summary.publicationStatus !== "live") continue;
+    const candidate = await getCreateChallengeDraft(summary.draftId);
+    if (candidate.challenge.slug !== slug || candidate.deployment.publicationStatus !== "live") continue;
+    throw new CircleSpikeError({
+      message: "A live challenge already uses this public slug.",
+      status: 409,
+      code: "PUBLIC_SLUG_CONFLICT",
+      endpoint: "/api/create-challenge/publish",
+    });
+  }
+}
 function publishBusinessError() {
   return new CircleSpikeError({
     message: "Prize pool verification is not complete yet.",
@@ -1682,31 +1759,58 @@ function publishRpcError() {
   });
 }
 
-export async function verifyAndPublishChallenge(userToken: unknown, draftId?: string) {
-  const trusted = await getTrustedPublishEvidence(draftId);
+function assertLaunchReadinessBeforePublish(draft: Awaited<ReturnType<typeof getCreateChallengeDraft>>) {
+  const deadlinePolicy = deadlinePolicyForDraft(draft);
+  logCreateChallengeDeadlinePolicy("/api/create-challenge/publish", deadlinePolicy);
+  const readiness = validateCreateChallengeLaunchReadiness(draft, { deadlinePolicy });
+  if (readiness.valid) return;
+  throw new CircleSpikeError({
+    message: readiness.errors[0] ?? "Complete required campaign details before publishing.",
+    status: 400,
+    code: readiness.items.find((item) => item.status !== "ready")?.id === "campaign-cover"
+      ? "CAMPAIGN_COVER_REQUIRED"
+      : "CAMPAIGN_LAUNCH_REQUIREMENTS_INCOMPLETE",
+    endpoint: "/api/create-challenge/publish",
+  });
+}
+
+export async function verifyAndPublishChallenge(userToken: unknown, draftId?: string, input: FundingAccountScope = {}) {
+  // Successful publish responses preserve published: true in every success branch.
+  const trusted = await getTrustedPublishEvidence(draftId, input);
   if (trusted.draft.deployment.publicationStatus === "live" && trusted.record) {
     return publishedResult({ draft: trusted.draft, intent: trusted.intent, record: trusted.record });
   }
+  assertLaunchReadinessBeforePublish(trusted.draft);
   if (trusted.record) {
+    const publishDraft = await ensureCreateChallengeDraftPublicSlugReservation(
+      trusted.draft.challenge.id ?? "",
+      { ccnAccountId: trusted.intent.ccnAccountId },
+    );
+    await assertNoPublishedSlugConflict(publishDraft);
     const updated = await patchCreateChallengeDraft({
       funding: { fundingStatus: "live", escrowStatus: "verified", eventVerified: true } as never,
       deployment: { status: "success", publicationStatus: "live" } as never,
-    }, trusted.draft.challenge.id);
+    }, publishDraft.challenge.id, { ccnAccountId: trusted.intent.ccnAccountId });
     return publishedResult({ draft: updated, intent: trusted.intent, record: trusted.record });
   }
 
   let verified: Awaited<ReturnType<typeof verifyFundedChallenge>>;
   try {
-    verified = await verifyFundedChallenge(userToken, draftId);
+    verified = await verifyFundedChallenge(userToken, draftId, input);
   } catch (error) {
     if (error instanceof CircleSpikeError && error.safe.status === 503) throw publishRpcError();
     throw error;
   }
   if (!verified.matches) throw publishBusinessError();
+  const publishDraft = await ensureCreateChallengeDraftPublicSlugReservation(
+    verified.draft.challenge.id ?? "",
+    { ccnAccountId: verified.intent.ccnAccountId },
+  );
+  await assertNoPublishedSlugConflict(publishDraft);
   const updated = await patchCreateChallengeDraft({
     funding: { fundingStatus: "live", escrowStatus: "verified", eventVerified: true } as never,
     deployment: { status: "success", publicationStatus: "live" } as never,
-  }, verified.draft.challenge.id);
+  }, publishDraft.challenge.id, { ccnAccountId: verified.intent.ccnAccountId });
 
   return {
     walletBalance: verified.walletBalance,

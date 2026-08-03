@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { CCNLogo } from "@/components/ui/ccn-logo";
 import { createChallengeSteps } from "@/features/create-challenge/data/demo-draft";
 import { CreateChallengeProvider, useCreateChallengeDraft } from "@/features/create-challenge/state/create-challenge-context";
 import { ChallengeLivePreview } from "./challenge-live-preview";
@@ -22,14 +22,9 @@ function CreateChallengePlaceholderContent() {
         <div>
           <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
             <div className="relative h-12 w-44 overflow-hidden rounded-md border border-white/10 bg-black">
-              <Image
-                src="/brand/ccn-logo.png"
-                alt="Creator Challenge Network"
-                fill
-                sizes="176px"
-                className="object-contain"
-                priority
-              />
+              <div className="grid h-full place-items-center">
+                <CCNLogo size="lg" priority />
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <StatusBadge tone="demo">Demo draft</StatusBadge>

@@ -1,0 +1,16 @@
+<svg width="220" height="72" viewBox="0 0 220 72" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CCN Creator Challenge Network">
+  <defs>
+    <linearGradient id="ccn-logo-arc" x1="8" y1="49" x2="58" y2="14" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2F7BFF"/>
+      <stop offset="0.48" stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#B147FF"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <path d="M50.5 20.3A21 21 0 1 0 50.5 51.7" stroke="url(#ccn-logo-arc)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M44.7 25.8A13.5 13.5 0 1 0 44.7 46.2" stroke="url(#ccn-logo-arc)" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+    <path d="M29.5 36H53" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <text x="70" y="33" fill="white" font-family="Inter, Arial, sans-serif" font-size="25" font-weight="800" letter-spacing="-0.6">CCN</text>
+  <text x="70" y="51" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="600">Creator Challenge Network</text>
+</svg>

@@ -25,6 +25,7 @@ export type ChallengeStatus = "open" | "reviewing" | "funded";
 export type EscrowStatus = "Arc-funded" | "Escrow ready" | "Funding locked";
 
 export type Challenge = {
+  source?: "canonical" | "mock";
   slug: string;
   title: string;
   brand: string;
@@ -45,4 +46,7 @@ export type Challenge = {
   prizeDistribution?: string[];
   fundingTransactionHash?: string;
   escrowContractAddress?: string;
+  submissionClosed?: boolean;
+  coverImageUrl?: string | null;
+  coverImageAlt?: string | null;
 };

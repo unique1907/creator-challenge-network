@@ -8,11 +8,12 @@ export type TestnetMetric = {
   value: string;
   label: string;
   detail: string;
-  icon: "wallet" | "usdc" | "send" | "arc";
+  icon: "wallet" | "usdc" | "send" | "arc" | "blind";
 };
 
 export type ProcessStep = {
   label: string;
+  description: string;
   icon: "brand" | "lock" | "creators" | "blind" | "payout";
 };
 
@@ -29,121 +30,111 @@ export type LandingChallenge = {
 
 export const trustIndicators: TrustIndicator[] = [
   {
-    title: "Circle Wallets",
-    description: "Programmable escrow",
+    title: "Circle Hosted Wallets",
+    description: "Creator and Brand approvals stay user-controlled.",
     icon: "wallet",
   },
   {
-    title: "Arc Network",
-    description: "Built for speed and scalability",
+    title: "Arc Testnet",
+    description: "Programmable settlement is verified on-chain.",
     icon: "arc",
   },
   {
     title: "USDC Escrow",
-    description: "Funds locked before review",
+    description: "Prize funding is secured before publishing.",
     icon: "usdc",
   },
   {
     title: "Blind Review",
-    description: "Fair evaluation for every entry",
+    description: "Brands evaluate entries without Creator identity.",
     icon: "blind",
   },
 ];
 
 export const testnetMetrics: TestnetMetric[] = [
   {
-    value: "1,248",
-    label: "Wallets Created",
-    detail: "(Testnet)",
+    value: "Arc",
+    label: "Settlement layer",
+    detail: "Testnet chain 5042002",
+    icon: "arc",
+  },
+  {
+    value: "Circle",
+    label: "Wallet approvals",
+    detail: "Hosted user-controlled flows",
     icon: "wallet",
   },
   {
-    value: "2.45M",
-    label: "Test USDC Secured",
-    detail: "in Escrow",
+    value: "USDC",
+    label: "Reward currency",
+    detail: "Escrow before publish",
     icon: "usdc",
   },
   {
-    value: "8,760",
-    label: "Successful Transfers",
-    detail: "on Arc Testnet",
-    icon: "send",
-  },
-  {
-    value: "Arc Testnet",
-    label: "Live and open",
-    detail: "for developers",
-    icon: "arc",
+    value: "Blind",
+    label: "Review model",
+    detail: "Identity hidden until outcome",
+    icon: "blind",
   },
 ];
 
 export const processSteps: ProcessStep[] = [
-  { label: "Brand creates challenge", icon: "brand" },
-  { label: "Prize pool locked in USDC", icon: "lock" },
-  { label: "Creators submit anonymously", icon: "creators" },
-  { label: "Blind review by the brand", icon: "blind" },
-  { label: "Winners paid automatically", icon: "payout" },
+  {
+    label: "Brand creates challenge",
+    description: "Define the brief, reward, dates, rules, and review criteria.",
+    icon: "brand",
+  },
+  {
+    label: "Prize pool is funded",
+    description: "USDC approval and escrow funding complete before the challenge goes live.",
+    icon: "lock",
+  },
+  {
+    label: "Creators submit work",
+    description: "Eligible Creators enter through the canonical workspace and submit before deadline.",
+    icon: "creators",
+  },
+  {
+    label: "Brand reviews blindly",
+    description: "Anonymous entries are scored against the published criteria.",
+    icon: "blind",
+  },
+  {
+    label: "Winner receives payout",
+    description: "Settlement is reconciled against Arc receipt and WinnersPaid evidence.",
+    icon: "payout",
+  },
 ];
 
 export const landingChallenges: LandingChallenge[] = [
   {
     brand: "Nike",
-    title: "Next Gen Campaign",
-    category: "Graphic Design",
-    reward: "25,000 USDC",
-    winners: "Top 3 rewarded",
-    timeLeft: "5d 10h left",
-    submissions: 128,
+    title: "Motion Campaign",
+    category: "Motion Design",
+    reward: "3,000 USDC",
+    winners: "Top 1 rewarded",
+    timeLeft: "Open for submissions",
+    submissions: 1,
     accent: "nike",
   },
   {
     brand: "Spotify",
     title: "Soundtrack Visuals",
-    category: "Motion Design",
-    reward: "50,000 USDC",
-    winners: "Top 3 rewarded",
-    timeLeft: "6d 12h left",
-    submissions: 42,
+    category: "Campaign Design",
+    reward: "2,500 USDC",
+    winners: "Top 1 rewarded",
+    timeLeft: "Review-ready format",
+    submissions: 8,
     accent: "spotify",
-  },
-  {
-    brand: "Samsung",
-    title: "Future Tech Stories",
-    category: "3D / Animation",
-    reward: "30,000 USDC",
-    winners: "Top 3 rewarded",
-    timeLeft: "7d 5h left",
-    submissions: 73,
-    accent: "samsung",
   },
   {
     brand: "Adobe",
     title: "Creativity For All",
     category: "Illustration",
-    reward: "40,000 USDC",
-    winners: "Top 5 rewarded",
-    timeLeft: "8d 8h left",
-    submissions: 156,
+    reward: "4,000 USDC",
+    winners: "Top 1 rewarded",
+    timeLeft: "Funded challenge",
+    submissions: 12,
     accent: "adobe",
-  },
-  {
-    brand: "Red Bull",
-    title: "Energy in Motion",
-    category: "Video / Film",
-    reward: "35,000 USDC",
-    winners: "Top 3 rewarded",
-    timeLeft: "4d 18h left",
-    submissions: 91,
-    accent: "redbull",
-  },
-  {
-    brand: "GoPro",
-    title: "Capture The Impossible",
-    category: "Video / Film",
-    reward: "20,000 USDC",
-    winners: "Top 3 rewarded",
-    timeLeft: "3d 9h left",
-    submissions: 67,
-    accent: "gopro",
   },
 ];

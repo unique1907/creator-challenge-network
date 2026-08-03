@@ -21,12 +21,17 @@ export type ChallengeDraft = {
   market: string;
   summary: string;
   description: string;
+  coverImageKey?: string | null;
+  coverImageAlt?: string | null;
+  coverImageUpdatedAt?: string | null;
   primaryDeliverable: string;
   supportingDeliverables: string[];
   referenceLinks: string[];
   attachments: string[];
   deadline: string;
   usageRightsAcknowledged: boolean;
+  isSmokeTest?: boolean;
+  slugReservedForTitle?: string;
 };
 
 export type PrizeDistribution = {
@@ -116,6 +121,22 @@ export type CreateChallengeValidation = {
   errors: string[];
 };
 
+export type CreateChallengeReadinessStatus = "ready" | "missing" | "needs_correction";
+
+export type CreateChallengeLaunchReadinessItem = {
+  id: string;
+  label: string;
+  step: CreateChallengeStepId;
+  status: CreateChallengeReadinessStatus;
+  message: string;
+};
+
+export type CreateChallengeLaunchReadiness = {
+  valid: boolean;
+  items: CreateChallengeLaunchReadinessItem[];
+  errors: string[];
+};
+
 export type CreateChallengePaymentState =
   | "NOT_STARTED"
   | "ACCOUNT_LOADING"
@@ -135,4 +156,6 @@ export type CreateChallengePaymentState =
 export type CreateChallengePaymentProgressItem = {
   label: string;
   status: "done" | "active" | "pending" | "warning";
+  description?: string;
+  technology?: string;
 };

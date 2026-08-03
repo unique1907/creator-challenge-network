@@ -23,6 +23,12 @@ export async function GET() {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.getUser();
     if (error) throw error;
+    if (!data.user) {
+      return NextResponse.json(
+        { error: { message: "Sign in is required.", code: "AUTHENTICATION_REQUIRED" } },
+        { status: 401 },
+      );
+    }
     return NextResponse.json({ account: await getSafeCurrentAccount(data.user) });
   } catch (error) {
     return safeError(error);

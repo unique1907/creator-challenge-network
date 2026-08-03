@@ -2,6 +2,7 @@ import "server-only";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createSupabaseAdminClient } from "@/services/supabase/admin.server";
 import type {
   ScopedWalletMapping,
   SpikeWalletRecord,
@@ -36,6 +37,12 @@ const STORE_PATH = join(
   ".local",
   "internal-wallet-spike-store.json",
 );
+const IS_MANAGED_PRODUCTION =
+  process.env.VERCEL_ENV === "production" ||
+  process.env.CCN_DEPLOYMENT_ENV === "production";
+const WALLET_MAPPING_PERSISTENCE_ADAPTER =
+  process.env.CCN_LIFECYCLE_PERSISTENCE ??
+  (IS_MANAGED_PRODUCTION ? "supabase" : "filesystem");
 
 const emptyStore: SpikeStore = {
   wallets: {},
@@ -54,6 +61,8 @@ function normalizeStore(input: Partial<SpikeStore> | null | undefined): SpikeSto
 }
 
 async function readStore(): Promise<SpikeStore> {
+  assertPersistenceAdapter();
+  if (WALLET_MAPPING_PERSISTENCE_ADAPTER === "supabase") return readSupabaseStore();
   try {
     const raw = await readFile(STORE_PATH, "utf8");
     return normalizeStore(JSON.parse(raw) as Partial<SpikeStore>);
@@ -63,8 +72,75 @@ async function readStore(): Promise<SpikeStore> {
 }
 
 async function writeStore(store: SpikeStore) {
+  assertPersistenceAdapter();
+  if (WALLET_MAPPING_PERSISTENCE_ADAPTER === "supabase") {
+    await writeSupabaseStore(store);
+    return;
+  }
   await mkdir(dirname(STORE_PATH), { recursive: true });
   await writeFile(STORE_PATH, JSON.stringify(normalizeStore(store), null, 2), "utf8");
+}
+
+function assertPersistenceAdapter() {
+  if (WALLET_MAPPING_PERSISTENCE_ADAPTER !== "filesystem" && WALLET_MAPPING_PERSISTENCE_ADAPTER !== "supabase") {
+    throw new Error("CCN_LIFECYCLE_PERSISTENCE must be either filesystem or supabase.");
+  }
+  if (IS_MANAGED_PRODUCTION && WALLET_MAPPING_PERSISTENCE_ADAPTER !== "supabase") {
+    throw new Error("Production wallet mapping persistence must use Supabase/Postgres. Set CCN_LIFECYCLE_PERSISTENCE=supabase.");
+  }
+}
+
+async function readSupabaseStore(): Promise<SpikeStore> {
+  const supabase = createSupabaseAdminClient();
+  const [legacy, scoped] = await Promise.all([
+    supabase.from("ccn_legacy_wallet_records").select("internal_user_id,wallet_state"),
+    supabase.from("ccn_wallet_mappings").select("mapping_key,mapping_state"),
+  ]);
+  if (legacy.error) throw legacy.error;
+  if (scoped.error) throw scoped.error;
+  return normalizeStore({
+    wallets: Object.fromEntries(
+      (legacy.data ?? []).map((row) => [row.internal_user_id, row.wallet_state as SpikeWalletRecord]),
+    ),
+    scopedWallets: Object.fromEntries(
+      (scoped.data ?? []).map((row) => [row.mapping_key, row.mapping_state as ScopedWalletMapping]),
+    ),
+    migrations: {},
+    quarantinedLegacyMappings: {},
+  });
+}
+
+async function writeSupabaseStore(store: SpikeStore) {
+  const normalized = normalizeStore(store);
+  const supabase = createSupabaseAdminClient();
+  const legacyRows = Object.entries(normalized.wallets).map(([internalUserId, wallet]) => ({
+    internal_user_id: internalUserId,
+    wallet_state: wallet,
+    updated_at: new Date().toISOString(),
+  }));
+  if (legacyRows.length) {
+    const { error } = await supabase.from("ccn_legacy_wallet_records").upsert(legacyRows, { onConflict: "internal_user_id" });
+    if (error) throw error;
+  }
+
+  const scopedRows = Object.entries(normalized.scopedWallets).map(([mappingKey, mapping]) => ({
+    mapping_key: mappingKey,
+    ccn_account_id: mapping.ccnAccountId,
+    role: mapping.role,
+    purpose: mapping.purpose,
+    circle_user_id: mapping.circleUserId,
+    wallet_id: mapping.walletId,
+    wallet_address: mapping.walletAddress,
+    blockchain: mapping.blockchain,
+    account_type: mapping.accountType,
+    wallet_state: mapping.walletState,
+    mapping_state: mapping,
+    updated_at: mapping.updatedAt ?? new Date().toISOString(),
+  }));
+  if (scopedRows.length) {
+    const { error } = await supabase.from("ccn_wallet_mappings").upsert(scopedRows, { onConflict: "mapping_key" });
+    if (error) throw error;
+  }
 }
 
 export function buildWalletMappingKey(input: {
@@ -198,5 +274,13 @@ export async function listWalletMappingDiagnostics() {
     scopedCount: Object.keys(store.scopedWallets).length,
     migrationCount: Object.keys(store.migrations).length,
     ambiguousCount: Object.keys(store.quarantinedLegacyMappings).length,
+  };
+}
+
+export async function listStoredWalletMappings() {
+  const store = await readStore();
+  return {
+    wallets: Object.values(store.wallets),
+    scopedWallets: Object.values(store.scopedWallets),
   };
 }

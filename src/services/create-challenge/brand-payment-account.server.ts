@@ -20,6 +20,7 @@ import {
   listApprovalAttemptsForScope,
   listFundingAttemptsForScope,
   patchCreateChallengeDraft,
+  upsertLifecycleEvent,
   upsertOnChainVerification,
 } from "./create-challenge-store.server";
 import type { FundingAttemptRecord, FundingIntentSnapshot } from "./create-challenge-store.server";
@@ -38,6 +39,12 @@ const RPC_TIMEOUT_MS = 10_000;
 const BRAND_ROLE = "BRAND";
 const CANONICAL_BRAND_WALLET =
   "0xB1E2700290381396BC2A85bb6C286EaD5e80A5dd";
+
+function expectedBrandWalletAddress(ccnAccountId: string) {
+  return ccnAccountId === CREATE_CHALLENGE_BRAND_ACCOUNT_ID
+    ? CANONICAL_BRAND_WALLET
+    : undefined;
+}
 
 type RpcResponse<T> = {
   result?: T;
@@ -207,19 +214,23 @@ export async function getBrandPaymentAccount(
     ccnAccountId,
     authProvider: "email",
   });
+  const expectedWalletAddress = expectedBrandWalletAddress(ccnAccountId);
   const wallet = await getScopedWallet({
     ccnAccountId,
     authProvider: "email",
     userToken: session.userToken,
     role: "BRAND",
     purpose: "PAYMENT",
-    expectedWalletAddress: CANONICAL_BRAND_WALLET,
+    expectedWalletAddress,
   });
 
   if (!wallet?.walletId) {
     throw new CircleSpikeError({ message: "Brand payment account was not found." });
   }
-  if (wallet.walletAddress.toLowerCase() !== CANONICAL_BRAND_WALLET.toLowerCase()) {
+  if (
+    expectedWalletAddress &&
+    wallet.walletAddress.toLowerCase() !== expectedWalletAddress.toLowerCase()
+  ) {
     throw new CircleSpikeError({ message: "Brand payment account mapping is not canonical." });
   }
 
@@ -334,6 +345,7 @@ export type CreateChallengePaymentOverview = {
   diagnostics: {
     network: "ARC-TESTNET";
     chainId: number;
+    escrowContractAddress: `0x${string}`;
     escrowPaused: boolean | null;
   };
 };
@@ -556,7 +568,7 @@ async function verifyAndPromoteCompleteFundingAttempt(input: {
       lastBalanceRefreshAt: input.account.balanceReadAt,
     } as never,
     deployment: { status: "ready", publicationStatus: "ready-to-publish" } as never,
-  }, input.draft.challenge.id);
+  }, input.draft.challenge.id, { ccnAccountId: input.intent.ccnAccountId });
 
   await upsertOnChainVerification({
     txHash,
@@ -577,12 +589,30 @@ async function verifyAndPromoteCompleteFundingAttempt(input: {
     amountVerified: true,
     verifiedAt: new Date().toISOString(),
   });
+  await upsertLifecycleEvent({
+    draftId: input.draft.challenge.id ?? "",
+    challengeId: input.intent.challengeId,
+    eventType: "funding_verified",
+    eventState: {
+      source: "complete-funding-attempt-promotion",
+      circleChallengeId: attempt.circleChallengeId,
+      circleTransactionId: attempt.circleTransactionId ?? "",
+      transactionHash: txHash,
+      escrowContractAddress: input.intent.escrowContractAddress,
+      walletId: input.account.walletId,
+      ccnAccountId: input.intent.ccnAccountId,
+    },
+  });
   return "verified" as const;
 }
 
-export async function getCreateChallengePaymentOverview(draftId?: string, trace?: { requestId: string; triggerSource: CreateChallengeTraceSource }): Promise<CreateChallengePaymentOverview> {
+export async function getCreateChallengePaymentOverview(
+  draftId?: string,
+  trace?: { requestId: string; triggerSource: CreateChallengeTraceSource },
+  input: { ccnAccountId?: string } = {},
+): Promise<CreateChallengePaymentOverview> {
   let draft = await getCreateChallengeDraft(draftId);
-  const intent = getFundingIntentFromDraft(draft);
+  const intent = getFundingIntentFromDraft(draft, { ccnAccountId: input.ccnAccountId });
   const traceContext = trace ? { ...trace, draftId: draft.challenge.id ?? draftId } : undefined;
   const account = await getBrandPaymentAccount(intent.ccnAccountId, traceContext);
   const escrowPaused = await readEscrowPaused(intent.escrowContractAddress, traceContext);
@@ -642,7 +672,7 @@ export async function getCreateChallengePaymentOverview(draftId?: string, trace?
         availableBalance: Number(formatUsdcUnits(account.usdcBalanceUnits)),
         lastBalanceRefreshAt: account.balanceReadAt,
       } as never,
-    }, draft.challenge.id);
+    }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
   }
 
   return {
@@ -677,6 +707,7 @@ export async function getCreateChallengePaymentOverview(draftId?: string, trace?
     diagnostics: {
       network: "ARC-TESTNET",
       chainId: ARC_CHAIN_ID,
+      escrowContractAddress: intent.escrowContractAddress,
       escrowPaused,
     },
   };

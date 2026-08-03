@@ -23,9 +23,14 @@ export async function createSupabaseServerClient() {
         return cookieStore.getAll();
       },
       setAll(items) {
-        items.forEach(({ name, value, options }) => {
-          cookieStore.set(name, value, options);
-        });
+        try {
+          items.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Server Components can read cookies but cannot write refreshed auth
+          // cookies. Route Handlers and Server Actions still persist them.
+        }
       },
     },
   });

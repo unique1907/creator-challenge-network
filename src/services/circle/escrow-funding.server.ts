@@ -6,6 +6,8 @@ import type {
   EscrowTransactionSnapshot,
   EscrowTransactionStage,
 } from "@/types/escrow-funding-spike";
+import type { FundedChallengeRead } from "@/types/submission";
+import { getCreateChallengeDeadlinePolicy } from "@/config/create-challenge-deadline-policy";
 import {
   ARC_TESTNET_USDC_CONTRACT,
   CircleSpikeError,
@@ -22,8 +24,8 @@ import {
 
 const ARC_RPC_URL = "https://rpc.testnet.arc.network";
 const ARC_CHAIN_ID = 5_042_002;
-const ESCROW_CONTRACT_ADDRESS =
-  "0x571470097882848441f8d7FD3D0A37B1b726eBF6";
+const ESCROW_CONTRACT_ADDRESS: `0x${string}` =
+  "0x4DCE98F8a35d09F57ECE7A340B8392Ba0Fb7ba3D";
 const ARC_EXPLORER_URL = "https://testnet.arcscan.app";
 
 const SELECTORS = {
@@ -295,6 +297,7 @@ async function readEscrowCore(challengeId: string) {
 
   return {
     chainId: Number(BigInt(chainIdHex)),
+    address: ESCROW_CONTRACT_ADDRESS,
     bytecodeExists: bytecode !== "0x",
     usdc: addressFromWord(splitWords(usdcRaw)[0] ?? ""),
     paused: boolFromWord(splitWords(pausedRaw)[0] ?? "0"),
@@ -340,14 +343,26 @@ export async function getEscrowFundingPreflight(userToken: unknown) {
   if (BigInt(brandUsdc) < BigInt(intent.totalRequired)) {
     blockers.push("Brand wallet has insufficient test USDC.");
   }
+  const balanceTimestamp = new Date().toISOString();
+
   if (BigInt(nativeBalance) === BigInt(0)) {
     blockers.push("Brand wallet has no native gas balance.");
   }
+  const deadlinePolicy = getCreateChallengeDeadlinePolicy({
+    runtimeBlockchain: USER_WALLET_BLOCKCHAIN,
+    chainId: ARC_CHAIN_ID,
+    isSmokeTestChallenge: false,
+  });
   if (intent.reviewDeadline <= intent.submissionDeadline) {
     blockers.push("Review deadline is not after submission deadline.");
   }
-  if (intent.submissionDeadline <= Math.floor(Date.now() / 1000) + 24 * 60 * 60) {
-    blockers.push("Submission deadline is not safely more than 24 hours out.");
+  const minimumSubmissionLeadSeconds = deadlinePolicy.minimumSubmissionLeadMinutes * 60;
+  const minimumReviewGapSeconds = deadlinePolicy.minimumReviewGapMinutes * 60;
+  if (intent.submissionDeadline <= Math.floor(Date.now() / 1000) + minimumSubmissionLeadSeconds) {
+    blockers.push(`Submission deadline is not safely more than ${minimumSubmissionLeadSeconds} seconds out.`);
+  }
+  if (intent.reviewDeadline < intent.submissionDeadline + minimumReviewGapSeconds) {
+    blockers.push(`Review deadline is not safely more than ${minimumReviewGapSeconds} seconds after submission close.`);
   }
 
   const updated = await updateEscrowFundingIntent({
@@ -380,6 +395,13 @@ export async function getEscrowFundingPreflight(userToken: unknown) {
       brandUsdc,
       brandNativeWei: BigInt(nativeBalance).toString(),
       escrowUsdc,
+    },
+    balanceSource: {
+      address: walletAddress,
+      source: "Arc RPC eth_call balanceOf(address)",
+      timestamp: balanceTimestamp,
+      network: USER_WALLET_BLOCKCHAIN,
+      chainId: escrow.chainId,
     },
     escrow,
     allowance,
@@ -684,6 +706,21 @@ export async function verifyEscrowFunding(userToken: unknown) {
   });
 
   return {
+    walletBalance: brandUsdc,
+    approvalTx: intent.approvalTransactionHash ?? null,
+    fundingTx: intent.fundingTransactionHash ?? null,
+    receipt: intent.fundingTransactionHash
+      ? { blockNumber: fundingBlockNumber ? `0x${BigInt(fundingBlockNumber).toString(16)}` : undefined }
+      : null,
+    challengeFundedEvent: intent.fundingTransactionHash && fundingBlockNumber
+      ? {
+          transactionHash: intent.fundingTransactionHash,
+          blockNumber: `0x${BigInt(fundingBlockNumber).toString(16)}`,
+          logIndex: "0x0",
+        }
+      : null,
+    blockNumber: fundingBlockNumber ? `0x${BigInt(fundingBlockNumber).toString(16)}` : null,
+    challengeVerified: isLive,
     isFunded: boolFromWord(splitWords(isFundedRaw)[0] ?? "0"),
     challenge,
     distribution,
@@ -713,4 +750,55 @@ export async function getEscrowFundingLinks() {
       ? `${ARC_EXPLORER_URL}/tx/${intent.fundingTransactionHash}`
       : null,
   };
+}
+
+export async function verifyFundedChallengeForSubmission() {
+  const intent = await getEscrowFundingIntent();
+  if (!intent.brandWalletAddress) {
+    throw new CircleSpikeError({
+      message: "Brand wallet address is missing from the verified funding intent.",
+    });
+  }
+
+  const [escrow, challenge, distribution] = await Promise.all([
+    readEscrowCore(intent.challengeId),
+    readChallenge(intent.challengeId),
+    readPrizeDistribution(intent.challengeId),
+  ]);
+  const now = Math.floor(Date.now() / 1000);
+  const blockers: string[] = [];
+
+  if (!escrow.bytecodeExists) blockers.push("Escrow bytecode is missing.");
+  if (!escrow.isFunded) blockers.push("Challenge is not funded.");
+  if (escrow.paused) blockers.push("Escrow contract is paused.");
+  if (challenge.sponsor.toLowerCase() !== intent.brandWalletAddress.toLowerCase()) {
+    blockers.push("Challenge sponsor does not match the verified Brand wallet.");
+  }
+  if (challenge.prizePool !== intent.prizeAmount) blockers.push("Prize pool mismatch.");
+  if (challenge.platformFee !== intent.platformFee) blockers.push("Platform fee mismatch.");
+  if (challenge.winnerCount !== 1) blockers.push("Winner count mismatch.");
+  if (distribution.length !== 1 || distribution[0] !== intent.prizeAmount) {
+    blockers.push("Prize distribution mismatch.");
+  }
+  if (now >= challenge.submissionDeadline) {
+    blockers.push("Submission deadline has passed.");
+  }
+
+  return {
+    challengeId: intent.challengeId,
+    bytecodeExists: escrow.bytecodeExists,
+    isFunded: escrow.isFunded,
+    sponsorMatchesBrand:
+      challenge.sponsor.toLowerCase() === intent.brandWalletAddress.toLowerCase(),
+    prizePool: challenge.prizePool,
+    platformFee: challenge.platformFee,
+    winnerCount: challenge.winnerCount,
+    prizeDistribution: distribution,
+    submissionDeadline: challenge.submissionDeadline,
+    reviewDeadline: challenge.reviewDeadline,
+    acceptsSubmissions: now < challenge.submissionDeadline,
+    paused: escrow.paused,
+    verified: blockers.length === 0,
+    blockers,
+  } satisfies FundedChallengeRead;
 }
