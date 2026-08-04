@@ -14,6 +14,13 @@ type AccountSnapshot = {
   brandOnboardingComplete?: boolean;
 };
 
+type CurrentAccountResponse = {
+  account?: AccountSnapshot;
+  error?: {
+    message?: string;
+  };
+};
+
 const oauthProviders = [
   {
     id: "google",
@@ -34,6 +41,12 @@ function safeAuthError(error: unknown) {
   const lower = message.toLowerCase();
   if (lower.includes("unsupported provider") || lower.includes("provider is not enabled")) {
     return "OAuth provider is not currently available.";
+  }
+  if (lower.includes("registered as a creator") || lower.includes("registered as a brand")) {
+    return message;
+  }
+  if (lower.includes("session") || lower.includes("auth")) {
+    return "Your session could not be created. Please try logging in again.";
   }
   if (lower.includes("rate limit") || lower.includes("too many") || lower.includes("email rate limit")) {
     return "Please wait before requesting another email.";
@@ -56,6 +69,10 @@ function safeAuthError(error: unknown) {
       : "That email link could not be verified. Check the email and try again.";
   }
   return "Authentication could not be completed. Try again.";
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function safeRole(role?: AuthIntentRole | null) {
@@ -140,16 +157,18 @@ function postAuthDestination(input: {
   return setupPath(null);
 }
 
-async function currentAccount() {
+async function currentAccount(options: { requireAuthenticated?: boolean } = {}) {
   const response = await fetch("/api/account/current", {
     method: "GET",
     headers: { Accept: "application/json" },
+    credentials: "same-origin",
+    cache: "no-store",
   });
+  const body = await response.json().catch(() => ({})) as CurrentAccountResponse;
   if (!response.ok) {
-    if (response.status === 401) return null;
-    throw new Error("Account resolution failed.");
+    if (response.status === 401 && !options.requireAuthenticated) return null;
+    throw new Error(body.error?.message ?? "Account resolution failed.");
   }
-  const body = await response.json() as { account?: AccountSnapshot };
   return body.account ?? null;
 }
 
@@ -183,8 +202,21 @@ export function AuthActions({
     normalizedRole !== null &&
     pending === null;
 
+  async function resolveCurrentAccountAfterLogin() {
+    let lastError: unknown = null;
+    for (const waitMs of [0, 150, 400]) {
+      if (waitMs) await delay(waitMs);
+      try {
+        return await currentAccount({ requireAuthenticated: true });
+      } catch (caught) {
+        lastError = caught;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error("Account resolution failed.");
+  }
+
   async function finishPasswordAuth(accountHint?: AccountSnapshot | null) {
-    const account = accountHint ?? await currentAccount();
+    const account = accountHint ?? await resolveCurrentAccountAfterLogin();
     window.location.assign(postAuthDestination({ account: account ?? undefined, roleIntent: normalizedRole, nextPath }));
   }
 
@@ -197,11 +229,19 @@ export function AuthActions({
     setError("");
     setStatus("");
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
       });
       if (signInError) throw signInError;
+      if (!data.session || !data.user) {
+        throw new Error("Password login did not create a Supabase session.");
+      }
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) {
+        throw new Error("Browser session was not saved after password login.");
+      }
       await finishPasswordAuth();
     } catch (caught) {
       setError(safeAuthError(caught));
@@ -249,6 +289,11 @@ export function AuthActions({
       if (signUpError) throw signUpError;
 
       if (data.session) {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!sessionData.session) {
+          throw new Error("Browser session was not saved after account creation.");
+        }
         await finishPasswordAuth();
         return;
       }
@@ -364,6 +409,12 @@ export function AuthActions({
       >
         {pending === "password-login" ? "Logging in..." : pending === "password-signup" ? "Creating..." : mode === "sign-in" ? "Log in" : "Create account"}
       </button>
+      {error ? (
+        <p className="rounded-xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100" role="alert" aria-live="assertive">
+          {error}
+        </p>
+      ) : null}
+      {status ? <p className="text-sm text-emerald-200" role="status" aria-live="polite">{status}</p> : null}
       {mode === "sign-in" ? (
         <div className="flex flex-col gap-3 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
           <Link href="/auth/forgot-password" className="text-blue-300 hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200">
@@ -410,9 +461,7 @@ export function AuthActions({
           ))}
         </div>
       ) : null}
-      {status ? <p className="text-sm text-emerald-200" role="status">{status}</p> : null}
       {sentEmail && !status ? <p className="sr-only">Email sent to {sentEmail}</p> : null}
-      {error ? <p className="text-sm text-rose-200" role="alert">{error}</p> : null}
     </div>
   );
 }

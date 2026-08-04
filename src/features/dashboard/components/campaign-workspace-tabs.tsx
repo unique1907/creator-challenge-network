@@ -90,16 +90,21 @@ const tabs: { id: WorkspaceTab; label: string }[] = [
   { id: "settlement", label: "Settlement" },
   { id: "blockchain", label: "Blockchain" },
 ];
+const DEFAULT_WORKSPACE_TAB: WorkspaceTab = "overview";
 
-function initialTab(): WorkspaceTab {
-  if (typeof window === "undefined") return "overview";
-  const value = window.location.hash.replace("#", "");
+function tabFromHash(hash: string, options: { settlementUnlocked: boolean }): WorkspaceTab {
+  const value = hash.replace("#", "");
   if (value === "finalize-review") return "review";
-  return tabs.some((tab) => tab.id === value) ? (value as WorkspaceTab) : "overview";
+  if (value === "settlement" && !options.settlementUnlocked) return DEFAULT_WORKSPACE_TAB;
+  return tabs.some((tab) => tab.id === value) ? (value as WorkspaceTab) : DEFAULT_WORKSPACE_TAB;
 }
 
-function syncHashTab(setActiveTab: (tab: WorkspaceTab) => void) {
-  setActiveTab(initialTab());
+function browserTabFromHash(options: { settlementUnlocked: boolean }): WorkspaceTab {
+  return tabFromHash(window.location.hash, options);
+}
+
+function syncHashTab(setActiveTab: (tab: WorkspaceTab) => void, options: { settlementUnlocked: boolean }) {
+  setActiveTab(browserTabFromHash(options));
 }
 
 function toneClass(tone: ActivityItem["tone"] = "blue") {
@@ -147,7 +152,7 @@ function safeExternalUrl(value: string) {
 
 export function CampaignWorkspaceTabs(props: CampaignWorkspaceTabsProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(DEFAULT_WORKSPACE_TAB);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState(props.blindEntries[0]?.blindEntryId ?? "");
   const [reviews, setReviews] = useState(() => reviewMap(props.initialReviews));
   const [reviewLocked, setReviewLocked] = useState(Boolean(props.winnerAttempt?.finalizedAt));
@@ -166,7 +171,7 @@ export function CampaignWorkspaceTabs(props: CampaignWorkspaceTabsProps) {
 
   useEffect(() => {
     function syncTabFromHash() {
-      syncHashTab(setActiveTab);
+      syncHashTab(setActiveTab, { settlementUnlocked });
     }
 
     function syncAfterAnchorClick(event: MouseEvent) {
@@ -187,7 +192,7 @@ export function CampaignWorkspaceTabs(props: CampaignWorkspaceTabsProps) {
       window.removeEventListener("pageshow", syncTabFromHash);
       window.removeEventListener("click", syncAfterAnchorClick, true);
     };
-  }, []);
+  }, [settlementUnlocked]);
 
   const visibleTabs = tabs.filter((tab) => tab.id !== "settlement" || settlementUnlocked);
 

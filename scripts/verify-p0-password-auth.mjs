@@ -45,6 +45,10 @@ includes(authActionsPath, "Forgot password?", "password auth must expose Forgot 
 includes(authActionsPath, "Create account", "password auth must link to Create account");
 includes(authActionsPath, "supabase.auth.signInWithPassword", "primary login must use Supabase password auth");
 includes(authActionsPath, "signInWithPassword()", "login button must call password login flow");
+includes(authActionsPath, "if (!data.session || !data.user)", "password login must reject missing Supabase session/user responses");
+includes(authActionsPath, "supabase.auth.getSession()", "password login must verify browser session persistence");
+includes(authActionsPath, "resolveCurrentAccountAfterLogin", "password login must confirm canonical account resolution before redirect");
+includes(authActionsPath, "role=\"alert\" aria-live=\"assertive\"", "failed login must render a visible inline auth error");
 assert.ok(
   read(authActionsPath).indexOf("signInWithPassword()") < read(authActionsPath).indexOf("requestSecondaryEmailLink()"),
   "password login must appear before secondary email-link fallback",
@@ -87,7 +91,7 @@ includes(callbackPath, "roleConflictPath", "callback must preserve role-conflict
 excludes(callbackPath, "access_token", "callback must not log access tokens");
 excludes(callbackPath, "refresh_token", "callback must not log refresh tokens");
 
-includes(authActionsPath, "currentAccount()", "password login must call canonical account/current resolution");
+includes(authActionsPath, "currentAccount({ requireAuthenticated: true })", "password login must call canonical account/current resolution after session creation");
 includes(authActionsPath, "roleConflictPath(\"creator\")", "existing Creator in Brand flow must get role conflict");
 includes(authActionsPath, "roleConflictPath(\"brand\")", "existing Brand in Creator flow must get role conflict");
 includes(creatorFoundationPath, "assertCanUseBrandRole(account)", "Brand onboarding must reject Creator accounts");

@@ -83,7 +83,8 @@
     "test:p0-vercel-production-env-package": "node scripts/verify-p0-vercel-production-env-package.mjs",
     "test:p0-password-auth": "node scripts/verify-p0-password-auth.mjs",
     "test:p0-brand-business-problem-positioning": "node scripts/verify-p0-brand-business-problem-positioning.mjs",
-    "test:p0-brand-dashboard-ux-completion": "node scripts/verify-p0-brand-dashboard-ux-completion.mjs"
+    "test:p0-brand-dashboard-ux-completion": "node scripts/verify-p0-brand-dashboard-ux-completion.mjs",
+    "test:p0-campaign-workspace-hydration": "node scripts/verify-p0-campaign-workspace-hydration.mjs"
   },
   "dependencies": {
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
