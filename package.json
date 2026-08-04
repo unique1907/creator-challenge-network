@@ -84,7 +84,10 @@
     "test:p0-password-auth": "node scripts/verify-p0-password-auth.mjs",
     "test:p0-brand-business-problem-positioning": "node scripts/verify-p0-brand-business-problem-positioning.mjs",
     "test:p0-brand-dashboard-ux-completion": "node scripts/verify-p0-brand-dashboard-ux-completion.mjs",
-    "test:p0-campaign-workspace-hydration": "node scripts/verify-p0-campaign-workspace-hydration.mjs"
+    "test:p0-campaign-workspace-hydration": "node scripts/verify-p0-campaign-workspace-hydration.mjs",
+    "test:p0-winner-finalization-transition": "node scripts/verify-p0-winner-finalization-transition.mjs",
+    "test:p0-brand-challenge-list-data-integrity": "node scripts/verify-p0-brand-challenge-list-data-integrity.mjs",
+    "test:p0-fresh-challenge-deadline-readiness": "node scripts/verify-p0-fresh-challenge-deadline-readiness.mjs"
   },
   "dependencies": {
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",

@@ -6,6 +6,7 @@ import type {
   CreateChallengeStepId,
   CreateChallengeValidation,
 } from "@/types/create-challenge";
+import { deadlineUnixSecondsFromDraft, parseChallengeDeadline } from "@/utils/challenge-deadlines";
 import { calculatePrizePool, parseUsdcUnits } from "@/utils/create-challenge-finance";
 
 function isValidUrl(value: string) {
@@ -18,8 +19,7 @@ function isValidUrl(value: string) {
 }
 
 export function unixFromLocal(value: string) {
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? Math.floor(ms / 1000) : 0;
+  return parseChallengeDeadline(value)?.unix ?? 0;
 }
 
 export function validateCreateChallengeStep(
@@ -64,8 +64,7 @@ export function validateCreateChallengeStep(
   }
 
   if (step === "review-rules") {
-    const submissionDeadline = unixFromLocal(draft.reviewRules.submissionDeadline);
-    const reviewDeadline = unixFromLocal(draft.reviewRules.reviewDeadline);
+    const { submissionDeadline, reviewDeadline } = deadlineUnixSecondsFromDraft(draft);
     const now = Math.floor(Date.now() / 1000);
     const deadlineValidation = validateCreateChallengeDeadlines({
       submissionDeadline,

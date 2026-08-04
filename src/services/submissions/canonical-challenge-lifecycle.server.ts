@@ -18,7 +18,7 @@ import {
 } from "@/services/submissions/submission-store.server";
 import type { FundedChallengeRead, SubmissionDraftInput } from "@/types/submission";
 import type { WinnerFinalizationSelection } from "@/types/winner-finalization";
-import { unixFromLocal } from "@/utils/create-challenge-launch-readiness";
+import { normalizeChallengeDeadlines } from "@/utils/challenge-deadlines";
 
 const ARC_RPC_URL = "https://rpc.testnet.arc.network";
 const IS_FUNDED_SELECTOR = "0x2b5fe3d9";
@@ -108,8 +108,11 @@ async function verifyCanonicalChallengeForPhase(
   const draft = await getCreateChallengeDraftStrict(draftId);
   const intent = getFundingIntentFromDraft(draft);
   const challengeId = intent.challengeId;
-  const submissionDeadline = unixFromLocal(draft.reviewRules.submissionDeadline);
-  const reviewDeadline = unixFromLocal(draft.reviewRules.reviewDeadline);
+  const deadlineStatus = normalizeChallengeDeadlines(draft.reviewRules, {
+    nowSeconds: options.nowSeconds,
+  });
+  const submissionDeadline = deadlineStatus.submissionDeadlineUnix;
+  const reviewDeadline = deadlineStatus.reviewDeadlineUnix;
   const fundingEvidence = await findOnChainVerificationForDraft({
     draftId,
     challengeId,
@@ -139,10 +142,12 @@ async function verifyCanonicalChallengeForPhase(
   if (!fundingEvidence?.receiptVerified || !fundingEvidence.eventVerified || !fundingEvidence.challengeVerified) {
     blockers.push("On-chain funding evidence is incomplete.");
   }
-  if (!submissionDeadline) blockers.push("Submission deadline is missing.");
-  if (!reviewDeadline) blockers.push("Review deadline is missing.");
-  if (submissionDeadline && reviewDeadline && reviewDeadline <= submissionDeadline) {
-    blockers.push("Review deadline must be after submission deadline.");
+  for (const issue of deadlineStatus.issues) {
+    if (issue === "missing-submission-deadline") blockers.push("Missing submission deadline.");
+    if (issue === "missing-review-deadline") blockers.push("Missing review deadline.");
+    if (issue === "malformed-submission-deadline") blockers.push("Submission deadline is malformed.");
+    if (issue === "malformed-review-deadline") blockers.push("Review deadline is malformed.");
+    if (issue === "invalid-deadline-order") blockers.push("Invalid deadline order.");
   }
 
   if (options.phase === "submission" && submissionDeadline && now >= submissionDeadline) {

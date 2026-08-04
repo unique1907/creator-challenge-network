@@ -21,6 +21,7 @@ import type { CreatorSession } from "@/services/creator-session.server";
 import type { CreateChallengeDraftState } from "@/types/create-challenge";
 import type { Submission } from "@/types/submission";
 import { ARC_TESTNET_USDC_CONTRACT } from "@/services/circle/user-controlled-wallets.server";
+import { parseChallengeDeadline } from "@/utils/challenge-deadlines";
 
 export type CreatorSubmissionStatus =
   | "No submission"
@@ -228,7 +229,8 @@ function formatUsdcFromUnits(units: bigint) {
 
 function timeLeftLabel(value?: string | null) {
   if (!value) return "Deadline unset";
-  const target = new Date(value).getTime();
+  const parsed = parseChallengeDeadline(value);
+  const target = parsed ? parsed.unix * 1000 : Number.NaN;
   if (!Number.isFinite(target)) return "Deadline unset";
   const diff = target - Date.now();
   if (diff <= 0) return "Closed";
@@ -268,7 +270,8 @@ function formatUnits(value?: string) {
 
 function formatDate(value?: string | null) {
   if (!value) return "Not set";
-  const date = new Date(value);
+  const parsed = parseChallengeDeadline(value);
+  const date = parsed ? new Date(parsed.iso) : new Date(value);
   if (Number.isNaN(date.getTime())) return "Not set";
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
@@ -363,8 +366,8 @@ export async function getCreatorProfileSummary(session: CreatorSession): Promise
   };
 }
 function isSubmissionOpen(draft: CreateChallengeDraftState) {
-  const deadline = new Date(draft.reviewRules.submissionDeadline);
-  return Number.isFinite(deadline.getTime()) && Date.now() < deadline.getTime();
+  const deadline = parseChallengeDeadline(draft.reviewRules.submissionDeadline);
+  return Boolean(deadline && Date.now() < deadline.unix * 1000);
 }
 
 function creatorEligibilityDiagnosticEnabled() {

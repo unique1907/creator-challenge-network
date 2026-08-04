@@ -41,6 +41,12 @@ function scoreFor(review: Awaited<ReturnType<typeof listSubmissionReviewScores>>
   return values.reduce((total, value) => total + value, 0) / values.length;
 }
 
+function selectedBlindEntryIdsFromBody(value: unknown) {
+  if (!Array.isArray(value)) return null;
+  const ids = value.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean);
+  return ids.length ? ids : null;
+}
+
 export async function POST(request: Request) {
   try {
     traceFinalizeReview("route-entry");
@@ -81,7 +87,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: { message: "Every anonymous submission must be reviewed before finalization." } }, { status: 409 });
     }
 
-    const selectedBlindEntryIds = [...entries]
+    const requestedBlindEntryIds = selectedBlindEntryIdsFromBody(body.selectedBlindEntryIds);
+    const selectedBlindEntryIds = requestedBlindEntryIds ?? [...entries]
       .sort((left, right) => {
         const rightScore = scoreFor(reviewBySubmission.get(right.blindEntryId)!);
         const leftScore = scoreFor(reviewBySubmission.get(left.blindEntryId)!);
@@ -90,6 +97,20 @@ export async function POST(request: Request) {
       })
       .slice(0, draft.prizePool.winnerCount)
       .map((entry) => entry.blindEntryId);
+    if (selectedBlindEntryIds.length !== draft.prizePool.winnerCount) {
+      return NextResponse.json(
+        { error: { message: `Exactly ${draft.prizePool.winnerCount} winner${draft.prizePool.winnerCount === 1 ? "" : "s"} must be selected.` } },
+        { status: 400 },
+      );
+    }
+    const duplicateSelectedIds = new Set(selectedBlindEntryIds);
+    if (duplicateSelectedIds.size !== selectedBlindEntryIds.length) {
+      return NextResponse.json({ error: { message: "Duplicate winner selections are not allowed." } }, { status: 400 });
+    }
+    const invalidSelection = selectedBlindEntryIds.find((id) => !reviewBySubmission.get(id) || !entries.some((entry) => entry.blindEntryId === id));
+    if (invalidSelection) {
+      return NextResponse.json({ error: { message: "Selected winner is not available for this challenge." } }, { status: 400 });
+    }
     const selectedAnonymousEntryCodes = selectedBlindEntryIds.map((id) => {
       const entry = entries.find((item) => item.blindEntryId === id);
       return entry?.anonymousEntryCode ?? id;

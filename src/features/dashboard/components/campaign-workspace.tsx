@@ -15,6 +15,7 @@ import { resolveCampaignCover } from "@/services/media/brand-media.server";
 import type { CreateChallengeDraftState } from "@/types/create-challenge";
 import type { SubmissionReviewRecord } from "@/types/review";
 import type { BlindReviewEntry } from "@/types/submission";
+import { parseChallengeDeadline } from "@/utils/challenge-deadlines";
 
 type CampaignWorkspaceProps = {
   draft: CreateChallengeDraftState;
@@ -70,7 +71,8 @@ const navItems = [
 
 function formatDate(value?: string) {
   if (!value) return "Not set";
-  const date = new Date(value);
+  const parsed = parseChallengeDeadline(value);
+  const date = parsed ? new Date(parsed.iso) : new Date(value);
   if (Number.isNaN(date.getTime())) return "Not set";
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
@@ -112,7 +114,8 @@ function currentLifecycleState(input: {
   ) {
     return "settlement";
   }
-  if (winnerAttempt?.finalizedAt || winnerAttempt?.state === "READY_FOR_FINAL_SELECTION") return "winner";
+  if (winnerAttempt?.finalizedAt) return "settlement";
+  if (winnerAttempt?.state === "READY_FOR_FINAL_SELECTION") return "winner";
   if (draft.deployment.publicationStatus === "live" && submissionCount > 0) return "review";
   if (draft.deployment.publicationStatus === "live") return "published";
   if (
@@ -251,11 +254,10 @@ function primaryActions(input: {
   draft: CreateChallengeDraftState;
   state: LifecycleState;
   submissionCount: number;
-  winnerAttempt: WinnerFinalizationAttemptRecord | null;
   fundingTx?: string;
   payoutTx?: string;
 }): PrimaryAction[] {
-  const { draft, state, submissionCount, winnerAttempt, fundingTx, payoutTx } = input;
+  const { draft, state, submissionCount, fundingTx, payoutTx } = input;
   const draftId = draft.challenge.id ?? "";
   const workspaceHref = `/dashboard/challenges/${encodeURIComponent(draftId)}`;
   const publicSlug = draft.challenge.slug ? `/challenges/${draft.challenge.slug}` : workspaceHref;
@@ -270,8 +272,8 @@ function primaryActions(input: {
   } else if (state === "review" && submissionCount > 0) {
     actions.push({ label: "Evaluate Solutions", href: "#review", primary: true });
     actions.push({ label: "View Public Challenge", href: publicSlug, primary: false });
-  } else if (state === "winner" || winnerAttempt?.state === "READY_FOR_FINAL_SELECTION") {
-    actions.push({ label: "Approve Payout", href: `/dashboard/challenges/${encodeURIComponent(draftId)}#settlement`, primary: true });
+  } else if (state === "winner") {
+    actions.push({ label: "Finalize Winner", href: "#finalize-review", primary: true });
     actions.push({ label: "Review Submissions", href: "#review", primary: false });
   } else if (state === "settlement") {
     actions.push({ label: "Approve Payout", href: `/dashboard/challenges/${encodeURIComponent(draftId)}#settlement`, primary: true });
@@ -316,7 +318,7 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
   const activities = activityFeed(props);
   const fundingTx = draft.funding.transactionHash || fundingAttempts.find((attempt) => attempt.transactionHash)?.transactionHash;
   const payoutTx = winnerAttempt?.transactionHash;
-  const actions = primaryActions({ draft, state, submissionCount, winnerAttempt, fundingTx, payoutTx });
+  const actions = primaryActions({ draft, state, submissionCount, fundingTx, payoutTx });
   const approval = approvalAttempts.at(-1);
   const funding = fundingAttempts.at(-1);
   const isVerified = Boolean(verification?.eventVerified || draft.funding.eventVerified);

@@ -1,6 +1,7 @@
 ﻿import type { CreateChallengeDraftSummary } from "@/services/create-challenge/create-challenge-store.server";
 import { resolveCampaignCover, type CampaignMedia } from "@/services/media/brand-media.server";
 import type { CreateChallengeStepId } from "@/types/create-challenge";
+import { parseChallengeDeadline } from "@/utils/challenge-deadlines";
 
 export type BrandDashboardLifecycleState =
   | "empty"
@@ -235,9 +236,9 @@ function displayCampaignTitle(draft: CreateChallengeDraftSummary) {
   return isMeaningfulTitle(draft.title) ? draft.title.trim() : "Untitled draft";
 }
 
-function displayCampaignDescription(draft: CreateChallengeDraftSummary) {
+function displayCampaignDescription(draft: CreateChallengeDraftSummary, solutionCount = 0) {
   if (!isMeaningfulTitle(draft.title)) return "Describe the business problem before opening it for solutions.";
-  return contextForState(lifecycleStateFromDraft(draft));
+  return contextForState(lifecycleStateFromDraft(draft, solutionCount));
 }
 
 function identityTokenForDraft(draft: CreateChallengeDraftSummary) {
@@ -245,10 +246,21 @@ function identityTokenForDraft(draft: CreateChallengeDraftSummary) {
   return "D";
 }
 
-export function lifecycleStateFromDraft(draft: CreateChallengeDraftSummary): BrandDashboardLifecycleState {
-  if (draft.publicationStatus === "ready-to-publish") return "ready-to-publish";
-  if (draft.publicationStatus === "live") return "review";
-  if (draft.fundingStatus === "funded" || draft.fundingStatus === "live") return "ready-to-publish";
+export function lifecycleStateFromDraft(draft: CreateChallengeDraftSummary, solutionCount = 0): BrandDashboardLifecycleState {
+  if (draft.winnerFinalizationState === "PAYOUT_CONFIRMED" || draft.payoutConfirmedAt) return "completed";
+  if (
+    draft.winnerFinalizationState === "TRANSACTION_SUBMITTED" ||
+    draft.winnerFinalizationState === "RECONCILIATION_REQUIRED" ||
+    draft.winnerFinalizationState === "ACTION_REQUIRED" ||
+    draft.winnerFinalizationState === "APPROVAL_CREATED_RECONCILIATION_REQUIRED" ||
+    draft.winnerFinalizedAt
+  ) {
+    return "settlement";
+  }
+  if (draft.winnerFinalizationState === "READY_FOR_FINAL_SELECTION") return "winner-ready";
+  if (draft.publicationStatus === "live" && solutionCount > 0) return "review";
+  if (draft.publicationStatus === "live" || draft.publicationStatus === "ready-to-publish") return "ready-to-publish";
+  if (draft.fundingStatus === "funded" || draft.fundingStatus === "live" || draft.escrowStatus === "verified") return "ready-to-publish";
   if (
     draft.fundingStatus === "approval-pending" ||
     draft.fundingStatus === "approved" ||
@@ -437,20 +449,25 @@ function fundingStatusLabel(draft: CreateChallengeDraftSummary) {
   }
 }
 
+function deadlineLabel(value: string) {
+  const parsed = parseChallengeDeadline(value);
+  return parsed?.iso.slice(0, 10) ?? "—";
+}
+
 function campaignRows(drafts: CreateChallengeDraftSummary[], solutionCounts = new Map<string, number>()): BrandDashboardCampaignRow[] {
   return drafts.map((draft, index) => {
-    const status = lifecycleStateFromDraft(draft);
+    const solutionCount = solutionCounts.get(draft.draftId) ?? 0;
+    const status = lifecycleStateFromDraft(draft, solutionCount);
     const action = actionForState(status, draft.draftId);
     const progress = progressForState(status);
     const isUnnamedDraft = !isMeaningfulTitle(draft.title);
     const title = displayCampaignTitle(draft);
-    const description = displayCampaignDescription(draft);
+    const description = displayCampaignDescription(draft, solutionCount);
     const updated = updatedLabel(draft.updatedAt);
     const setup = setupProgress(draft.currentStep);
     const metadataLine = isUnnamedDraft
       ? `${updated} - ${setup} - ${draftReference(draft.draftId)}`
       : `${updated}${isMeaningfulBrandName(draft.brandName) ? ` - ${draft.brandName.trim()}` : ""}`;
-    const solutionCount = solutionCounts.get(draft.draftId) ?? 0;
     return {
       draftId: draft.draftId,
       title,
@@ -481,9 +498,9 @@ function campaignRows(drafts: CreateChallengeDraftSummary[], solutionCounts = ne
       hasGoal: false,
       expectedOutcomeLabel: "—",
       hasExpectedOutcome: false,
-      rewardLabel: "—",
+      rewardLabel: `Top ${draft.winnerCount}`,
       fundingStatusLabel: fundingStatusLabel(draft),
-      deadlineLabel: "—",
+      deadlineLabel: deadlineLabel(draft.submissionDeadline),
       solutionsLabel: pluralize(solutionCount, "solution"),
       solutionCount,
       currentPhaseLabel: stateLabel(status),

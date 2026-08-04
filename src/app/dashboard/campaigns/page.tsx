@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { buildBrandDashboardViewModel } from "@/features/dashboard/brand-dashboard-view-model";
 import { getAuthenticatedCcnContext } from "@/services/auth/ccn-auth.server";
 import { listCreateChallengeDrafts } from "@/services/create-challenge/create-challenge-store.server";
+import { getBrandDashboardSubmissionNotifications } from "@/features/dashboard/brand-dashboard-data.server";
 import type { BrandDashboardCampaignRow } from "@/features/dashboard/brand-dashboard-view-model";
 
 export const metadata: Metadata = {
@@ -26,7 +27,8 @@ export default async function BrandCampaignsPage({ searchParams }: BrandCampaign
   const params = await searchParams;
   const activeFilter = normalizeCampaignFilter(params?.filter);
   const drafts = await listCreateChallengeDrafts({ ccnAccountId: context.ccnAccountId });
-  const viewModel = buildBrandDashboardViewModel(drafts, { campaignLimit: null });
+  const submissionNotifications = await getBrandDashboardSubmissionNotifications(drafts);
+  const viewModel = buildBrandDashboardViewModel(drafts, { campaignLimit: null, submissionNotifications });
   const visibleRows = filterCampaignRows(viewModel.campaignRows, activeFilter);
 
   return (

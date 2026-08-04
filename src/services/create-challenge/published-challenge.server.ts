@@ -4,6 +4,7 @@ import { listCreateChallengeDrafts, getCreateChallengeDraftStrict } from "./crea
 import { resolveCampaignCover } from "@/services/media/brand-media.server";
 import type { CreateChallengeDraftState } from "@/types/create-challenge";
 import type { Challenge } from "@/types/ccn";
+import { parseChallengeDeadline } from "@/utils/challenge-deadlines";
 
 function isProductionRuntime() {
   return process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production" || process.env.CCN_DEPLOYMENT_ENV === "production";
@@ -26,6 +27,7 @@ function isPubliclyLiveDraft(draft: CreateChallengeDraftState) {
 }
 
 function toPublicChallenge(draft: CreateChallengeDraftState): Challenge {
+  const submissionDeadline = parseChallengeDeadline(draft.reviewRules.submissionDeadline);
   const cover = resolveCampaignCover({
     coverImageKey: draft.challenge.coverImageKey,
     coverImageAlt: draft.challenge.coverImageAlt,
@@ -39,7 +41,7 @@ function toPublicChallenge(draft: CreateChallengeDraftState): Challenge {
     brand: draft.challenge.brandName,
     category: draft.challenge.category,
     rewardUsdc: draft.prizePool.totalAmount,
-    deadline: draft.reviewRules.submissionDeadline.slice(0, 10),
+    deadline: submissionDeadline?.iso.slice(0, 10) ?? draft.reviewRules.submissionDeadline.slice(0, 10),
     submissions: 0,
     status: "open",
     usageRights: draft.reviewRules.usageRights,
@@ -59,7 +61,7 @@ function toPublicChallenge(draft: CreateChallengeDraftState): Challenge {
     ),
     fundingTransactionHash: draft.funding.transactionHash,
     escrowContractAddress: "0x4DCE98F8a35d09F57ECE7A340B8392Ba0Fb7ba3D",
-    submissionClosed: Date.now() >= new Date(draft.reviewRules.submissionDeadline).getTime(),
+    submissionClosed: Boolean(submissionDeadline && Date.now() >= submissionDeadline.unix * 1000),
     coverImageUrl: cover.imageUrl,
     coverImageAlt: cover.alt,
   };

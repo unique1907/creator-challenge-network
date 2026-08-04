@@ -32,6 +32,7 @@ import {
 import { verifyCanonicalChallengeForPayout } from "@/services/submissions/canonical-challenge-lifecycle.server";
 import { resolveSubmittedSelections } from "@/services/submissions/submission-store.server";
 import { getVerifiedCreatorPayoutMapping } from "@/services/circle/creator-payout-account.server";
+import { normalizeChallengeDeadlines } from "@/utils/challenge-deadlines";
 import type {
   WinnerFinalizationAuthority,
   WinnerFinalizationRecord,
@@ -102,12 +103,6 @@ function safeError(message: string, status = 400): never {
   throw new CircleSpikeError({ message, status });
 }
 
-function unixSeconds(value: string) {
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return Math.floor(parsed / 1000);
-}
-
 function normalizedUnits(value: string | number | bigint) {
   return BigInt(value).toString();
 }
@@ -123,8 +118,18 @@ function isTerminalNegativeCircleState(value: unknown) {
 
 function assertPayoutReadiness(verification: PayoutReadinessVerification) {
   if (verification.verified) return verification;
+  const labels: Record<string, string> = {
+    submissionDeadlineMissing: "Missing submission deadline",
+    reviewDeadlineMissing: "Missing review deadline",
+    submissionDeadlineMalformed: "Malformed submission deadline",
+    reviewDeadlineMalformed: "Malformed review deadline",
+    deadlineOrder: "Invalid deadline order",
+    submissionDeadlineMismatch: "Submission deadline does not match funded escrow",
+    reviewDeadlineMismatch: "Review deadline does not match funded escrow",
+  };
+  const message = verification.mismatches.map((item) => labels[item] ?? item).join(", ");
   throw new CircleSpikeError({
-    message: `Payout readiness verification failed: ${verification.mismatches.join(", ")}.`,
+    message: `Payout readiness verification failed: ${message}.`,
     status: 409,
   });
 }
@@ -209,8 +214,9 @@ export async function verifyOnChainPayoutReadiness(input: {
     challengeId: input.summary.challengeId,
   });
   const mismatches: string[] = [];
-  const expectedSubmissionDeadline = unixSeconds(draft.reviewRules.submissionDeadline);
-  const expectedReviewDeadline = unixSeconds(draft.reviewRules.reviewDeadline);
+  const deadlines = normalizeChallengeDeadlines(draft.reviewRules);
+  const expectedSubmissionDeadline = deadlines.submissionDeadlineUnix;
+  const expectedReviewDeadline = deadlines.reviewDeadlineUnix;
 
   if (snapshot.challengeId.toLowerCase() !== input.summary.challengeId.toLowerCase()) {
     mismatches.push("challengeId");
@@ -231,8 +237,15 @@ export async function verifyOnChainPayoutReadiness(input: {
   ) {
     mismatches.push("prizeDistribution");
   }
-  if (snapshot.submissionDeadline !== expectedSubmissionDeadline) mismatches.push("submissionDeadline");
-  if (snapshot.reviewDeadline !== expectedReviewDeadline) mismatches.push("reviewDeadline");
+  for (const issue of deadlines.issues) {
+    if (issue === "missing-submission-deadline") mismatches.push("submissionDeadlineMissing");
+    if (issue === "missing-review-deadline") mismatches.push("reviewDeadlineMissing");
+    if (issue === "malformed-submission-deadline") mismatches.push("submissionDeadlineMalformed");
+    if (issue === "malformed-review-deadline") mismatches.push("reviewDeadlineMalformed");
+    if (issue === "invalid-deadline-order") mismatches.push("deadlineOrder");
+  }
+  if (expectedSubmissionDeadline && snapshot.submissionDeadline !== expectedSubmissionDeadline) mismatches.push("submissionDeadlineMismatch");
+  if (expectedReviewDeadline && snapshot.reviewDeadline !== expectedReviewDeadline) mismatches.push("reviewDeadlineMismatch");
   if (
     snapshot.escrowContractAddress.toLowerCase() !==
     CREATE_CHALLENGE_ESCROW_CONTRACT.toLowerCase()

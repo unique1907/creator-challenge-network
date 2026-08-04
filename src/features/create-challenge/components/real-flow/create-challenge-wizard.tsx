@@ -31,6 +31,7 @@ import {
   normalizePrizePool,
   parseUsdcUnits,
 } from "@/utils/create-challenge-finance";
+import { localDateInputPart, localInputToCanonicalIso, localTimeInputPart } from "@/utils/challenge-deadlines";
 import { validateCreateChallengeLaunchReadiness } from "@/utils/create-challenge-launch-readiness";
 
 type PaymentErrorScope = "PAYMENT_OVERVIEW" | "WALLET_SETUP" | "APPROVAL" | "FUNDING" | "RECONCILE" | "PUBLISH";
@@ -2581,16 +2582,15 @@ function PrizeStep({ draft, updateDraft, paymentAccount, paymentAccountPending, 
 const allowedFormatOptions = ["MP4", "MOV", "PDF", "PNG", "JPG", "URL"];
 
 function datePart(value: string) {
-  return value ? value.slice(0, 10) : "";
+  return localDateInputPart(value);
 }
 
 function timePart(value: string) {
-  return value.includes("T") ? value.slice(11, 16) : "";
+  return localTimeInputPart(value);
 }
 
 function combineLocalDateTime(date: string, time: string) {
-  if (!date && !time) return "";
-  return `${date || datePart(new Date().toISOString())}T${time || "09:00"}`;
+  return localInputToCanonicalIso(date, time);
 }
 
 function DateTimePicker({ label, value, onChange }: {

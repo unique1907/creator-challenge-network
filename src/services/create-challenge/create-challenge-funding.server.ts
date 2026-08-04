@@ -1508,6 +1508,14 @@ async function verifyFundedChallenge(userToken: unknown, draftId?: string, input
         lastBalanceRefreshAt: verification.balanceTimestamp,
       } as never,
       ...(challengeVerified
+        ? {
+            reviewRules: {
+              submissionDeadline: new Date(verification.challenge.submissionDeadline * 1000).toISOString(),
+              reviewDeadline: new Date(verification.challenge.reviewDeadline * 1000).toISOString(),
+            } as never,
+          }
+        : {}),
+      ...(challengeVerified
         ? { deployment: { status: "ready", publicationStatus: "ready-to-publish" } as never }
         : {}),
     }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
@@ -1529,6 +1537,8 @@ async function verifyFundedChallenge(userToken: unknown, draftId?: string, input
         challengeVerified: verification.challengeVerified,
         sponsorVerified: verification.eventMatchesIntent && verification.txDestinationMatches,
         amountVerified: verification.challengeMatchesIntent,
+        submissionDeadline: verification.challenge.submissionDeadline,
+        reviewDeadline: verification.challenge.reviewDeadline,
         verifiedAt: new Date().toISOString(),
       });
     }

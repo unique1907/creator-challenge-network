@@ -366,6 +366,8 @@ function ReviewTab({
     })
     .slice(0, winnerCount)
     .map((entry) => entry.anonymousEntryCode);
+  const selectedWinnerEntryIds = winnerCount === 1 ? [selectedEntry?.blindEntryId].filter((id): id is string => Boolean(id)) : [];
+  const selectedWinnerCodes = winnerCount === 1 ? [selectedEntry?.anonymousEntryCode].filter((code): code is string => Boolean(code)) : winnerPreviewCodes;
 
   if (!selectedEntry || !selectedReview) {
     return (
@@ -427,7 +429,8 @@ function ReviewTab({
         reviewCriteria={reviewCriteria}
         allCompleted={allCompleted}
         reviewLocked={reviewLocked}
-        winnerPreviewCodes={winnerPreviewCodes}
+        selectedWinnerEntryIds={selectedWinnerEntryIds}
+        selectedWinnerCodes={selectedWinnerCodes}
         finalizedWinnerCodes={finalizedWinnerCodes}
         onSaved={onSaved}
         onFinalized={onFinalized}
@@ -522,7 +525,8 @@ function EvaluationPanel({
   reviewCriteria,
   allCompleted,
   reviewLocked,
-  winnerPreviewCodes,
+  selectedWinnerEntryIds,
+  selectedWinnerCodes,
   finalizedWinnerCodes,
   onSaved,
   onFinalized,
@@ -533,7 +537,8 @@ function EvaluationPanel({
   reviewCriteria: string[];
   allCompleted: boolean;
   reviewLocked: boolean;
-  winnerPreviewCodes: string[];
+  selectedWinnerEntryIds: string[];
+  selectedWinnerCodes: string[];
   finalizedWinnerCodes: string[];
   onSaved: (review: SubmissionReviewRecord) => void;
   onFinalized: (codes: string[]) => void;
@@ -639,15 +644,15 @@ function EvaluationPanel({
           disabled={!allCompleted || reviewLocked || finalizing}
           className="w-full rounded-lg border border-emerald-300/40 px-5 py-3 text-sm font-bold text-emerald-100 transition enabled:hover:bg-emerald-300/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
         >
-          {finalizing ? "Finalizing Evaluation" : reviewLocked ? "Evaluation Finalized" : "Finalize Evaluation"}
+          {finalizing ? "Finalizing Winner" : reviewLocked ? "Winner Finalized" : "Finalize Winner"}
         </button>
         <p className="text-xs leading-5 text-slate-500">
-          Finalize Evaluation becomes active after every anonymous submission receives a completed evaluation.
+          Finalize Winner becomes active after every anonymous submission receives a completed evaluation.
         </p>
         {confirmOpen ? (
           <FinalizeReviewModal
             draftId={draftId}
-            winnerPreviewCodes={winnerPreviewCodes}
+            winnerPreviewCodes={selectedWinnerCodes}
             finalizing={finalizing}
             error={finalizationError}
             onCancel={() => {
@@ -658,7 +663,8 @@ function EvaluationPanel({
             onConfirm={async () => {
               traceFinalizeReview("request-start", {
                 draftId,
-                winnerPreviewCodes,
+                winnerPreviewCodes: selectedWinnerCodes,
+                selectedWinnerEntryIds,
               });
               setFinalizing(true);
               setStatus("");
@@ -667,7 +673,7 @@ function EvaluationPanel({
                 const response = await fetch("/api/dashboard/finalize-review", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ draftId }),
+                  body: JSON.stringify({ draftId, selectedBlindEntryIds: selectedWinnerEntryIds }),
                 });
                 traceFinalizeReview("response-status", {
                   draftId,
@@ -681,8 +687,8 @@ function EvaluationPanel({
                   body: data,
                 });
                 if (!response.ok) throw new Error(data?.error?.message ?? "Evaluation could not be finalized.");
-                const codes = Array.isArray(data?.winner?.selectedAnonymousEntryCodes) ? data.winner.selectedAnonymousEntryCodes : winnerPreviewCodes;
-                setStatus("Evaluation finalized. Selected solution is locked.");
+                const codes = Array.isArray(data?.winner?.selectedAnonymousEntryCodes) ? data.winner.selectedAnonymousEntryCodes : selectedWinnerCodes;
+                setStatus("Winner finalized. Selected solution is locked for payout preparation.");
                 setConfirmOpen(false);
                 onFinalized(codes);
               } catch (error) {

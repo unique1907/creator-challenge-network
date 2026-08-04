@@ -15,11 +15,12 @@ import type {
   CreateChallengeValidation,
 } from "@/types/create-challenge";
 import type { WinnerFinalizationState } from "@/types/winner-finalization";
+import { canonicalizeDraftDeadlines, deadlineUnixSecondsFromDraft } from "@/utils/challenge-deadlines";
 import {
   formatUsdcUnits,
   normalizePrizePool,
 } from "@/utils/create-challenge-finance";
-import { unixFromLocal, validateCreateChallengeStep } from "@/utils/create-challenge-launch-readiness";
+import { validateCreateChallengeStep } from "@/utils/create-challenge-launch-readiness";
 
 // Local JSON persistence is for the hackathon/dev spike only. Vercel/production must use a real database.
 const LOCAL_USER_HOME = process.env.USERPROFILE ?? process.env.HOME ?? "C:\\Users\\TB";
@@ -195,6 +196,8 @@ export type OnChainVerificationRecord = {
   challengeVerified?: boolean;
   sponsorVerified?: boolean;
   amountVerified?: boolean;
+  submissionDeadline?: number;
+  reviewDeadline?: number;
   winnersVerified?: boolean;
   feeVerified?: boolean;
   treasuryVerified?: boolean;
@@ -260,6 +263,13 @@ export type CreateChallengeDraftSummary = {
   coverImageUpdatedAt: string | null;
   publicationStatus: CreateChallengeDraftState["deployment"]["publicationStatus"];
   fundingStatus: CreateChallengeDraftState["funding"]["fundingStatus"];
+  escrowStatus: CreateChallengeDraftState["funding"]["escrowStatus"];
+  eventVerified: boolean;
+  winnerCount: 1 | 3;
+  submissionDeadline: string;
+  winnerFinalizationState: WinnerFinalizationState | null;
+  winnerFinalizedAt: string | null;
+  payoutConfirmedAt: string | null;
   updatedAt: string;
 };
 
@@ -321,25 +331,26 @@ export function stableUuid(scope: string, seed: string) {
 function withDerivedValues(
   draft: CreateChallengeDraftState,
 ): CreateChallengeDraftState {
-  const id = draft.challenge.id ?? randomUUID();
-  const challengeId = draft.challenge.challengeId ?? bytes32(id);
-  const prizePool = normalizePrizePool(draft.prizePool);
+  const canonicalDraft = canonicalizeDraftDeadlines(draft);
+  const id = canonicalDraft.challenge.id ?? randomUUID();
+  const challengeId = canonicalDraft.challenge.challengeId ?? bytes32(id);
+  const prizePool = normalizePrizePool(canonicalDraft.prizePool);
 
   return {
-    ...draft,
+    ...canonicalDraft,
     challenge: {
-      ...draft.challenge,
+      ...canonicalDraft.challenge,
       id,
-      slug: draft.challenge.slug ?? slugify(draft.challenge.title),
+      slug: canonicalDraft.challenge.slug ?? slugify(canonicalDraft.challenge.title),
       challengeId,
     },
     prizePool,
     funding: {
-      ...draft.funding,
-      fundingIntentId: draft.funding.fundingIntentId || randomUUID(),
+      ...canonicalDraft.funding,
+      fundingIntentId: canonicalDraft.funding.fundingIntentId || randomUUID(),
     },
     deployment: {
-      ...draft.deployment,
+      ...canonicalDraft.deployment,
       challengeId,
     },
     updatedAt: new Date().toISOString(),
@@ -1120,6 +1131,14 @@ async function normalizeStore() {
   return readStore();
 }
 
+function winnerAttemptForDraft(store: Store, input: { draftId: string; challengeId: string; fundingIntentId: string }) {
+  return Object.values(store.winnerFinalizationAttempts ?? {}).find((attempt) =>
+    attempt.draftId === input.draftId &&
+    attempt.challengeId.toLowerCase() === input.challengeId.toLowerCase() &&
+    attempt.fundingIntentId === input.fundingIntentId
+  ) ?? null;
+}
+
 export async function listCreateChallengeDrafts(input: { ccnAccountId?: string } = {}) {
   const store = await normalizeStore();
   const allowedDraftIds = input.ccnAccountId
@@ -1133,10 +1152,14 @@ export async function listCreateChallengeDrafts(input: { ccnAccountId?: string }
     .filter((draft) => !allowedDraftIds || allowedDraftIds.has(draft.challenge.id ?? ""))
     .map((draft) => {
       const normalized = withDerivedValues(draft);
+      const draftId = normalized.challenge.id ?? "";
+      const challengeId = normalized.challenge.challengeId ?? "";
+      const fundingIntentId = normalized.funding.fundingIntentId;
+      const winnerAttempt = winnerAttemptForDraft(store, { draftId, challengeId, fundingIntentId });
       return {
-        draftId: normalized.challenge.id ?? "",
-        challengeId: normalized.challenge.challengeId ?? "",
-        fundingIntentId: normalized.funding.fundingIntentId,
+        draftId,
+        challengeId,
+        fundingIntentId,
         title: normalized.challenge.title || "Untitled challenge",
         brandName: normalized.challenge.brandName || "Brand not set",
         currentStep: normalized.deployment.currentStep,
@@ -1146,6 +1169,13 @@ export async function listCreateChallengeDrafts(input: { ccnAccountId?: string }
         coverImageUpdatedAt: normalized.challenge.coverImageUpdatedAt ?? null,
         publicationStatus: normalized.deployment.publicationStatus,
         fundingStatus: normalized.funding.fundingStatus,
+        escrowStatus: normalized.funding.escrowStatus,
+        eventVerified: normalized.funding.eventVerified ?? false,
+        winnerCount: normalized.prizePool.winnerCount,
+        submissionDeadline: normalized.reviewRules.submissionDeadline,
+        winnerFinalizationState: winnerAttempt?.state ?? null,
+        winnerFinalizedAt: winnerAttempt?.finalizedAt ?? null,
+        payoutConfirmedAt: winnerAttempt?.payoutConfirmedAt ?? null,
         updatedAt: normalized.updatedAt ?? "",
       } satisfies CreateChallengeDraftSummary;
     })
@@ -1672,6 +1702,7 @@ export function getFundingIntentFromDraft(
   input: { ccnAccountId?: string } = {},
 ): FundingIntentSnapshot {
   const normalized = withDerivedValues(draft);
+  const deadlines = deadlineUnixSecondsFromDraft(normalized);
   return {
     ccnAccountId: input.ccnAccountId ?? CREATE_CHALLENGE_BRAND_ACCOUNT_ID,
     challengeLogicalId: normalized.challenge.id ?? "",
@@ -1692,8 +1723,8 @@ export function getFundingIntentFromDraft(
     prizeAmount: normalized.prizePool.prizePoolUnits,
     platformFee: normalized.prizePool.platformFeeUnits,
     totalRequired: normalized.prizePool.totalRequiredUnits,
-    submissionDeadline: unixFromLocal(normalized.reviewRules.submissionDeadline),
-    reviewDeadline: unixFromLocal(normalized.reviewRules.reviewDeadline),
+    submissionDeadline: deadlines.submissionDeadline,
+    reviewDeadline: deadlines.reviewDeadline,
     winnerCount: normalized.prizePool.winnerCount,
     prizeDistribution: normalized.prizePool.distributionUnits,
   };

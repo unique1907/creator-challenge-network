@@ -7,8 +7,8 @@ import { getAuthenticatedCcnContext } from "@/services/auth/ccn-auth.server";
 import { getScopedStoredWallet } from "@/services/circle/wallet-spike-store.server";
 import { readBrandUsdcBalance } from "@/services/create-challenge/brand-payment-account.server";
 import { resolveAccountImageUrl } from "@/services/media/brand-media.server";
-import { listSubmissionNotificationEntries } from "@/services/submissions/submission-store.server";
 import { createSupabaseAdminClient } from "@/services/supabase/admin.server";
+import { getBrandDashboardSubmissionNotifications } from "@/features/dashboard/brand-dashboard-data.server";
 
 export const metadata: Metadata = {
   title: "Dashboard | Creator Challenge Network",
@@ -33,7 +33,7 @@ export default async function DashboardPage() {
   const drafts = await listCreateChallengeDrafts({ ccnAccountId: context.ccnAccountId });
   const walletChip = await getBrandWalletChip(context.ccnAccountId);
   const avatarImageUrl = await getAvatarImageUrl(context.ccnAccountId);
-  const submissionNotifications = await getSubmissionNotifications(drafts);
+  const submissionNotifications = await getBrandDashboardSubmissionNotifications(drafts);
   const viewModel = buildBrandDashboardViewModel(drafts, {
     brandDisplayName: context.brandName,
     submissionNotifications,
@@ -77,23 +77,4 @@ async function getAvatarImageUrl(ccnAccountId: string) {
     .eq("id", ccnAccountId)
     .maybeSingle();
   return resolveAccountImageUrl(typeof data?.avatar_image_key === "string" ? data.avatar_image_key : null);
-}
-
-async function getSubmissionNotifications(drafts: Awaited<ReturnType<typeof listCreateChallengeDrafts>>) {
-  const entriesByDraft = await Promise.all(
-    drafts.map(async (draft) => ({
-      draft,
-      entries: draft.challengeId ? await listSubmissionNotificationEntries(draft.challengeId).catch(() => []) : [],
-    })),
-  );
-
-  return entriesByDraft.flatMap(({ draft, entries }) =>
-    entries.map((entry) => ({
-      draftId: draft.draftId,
-      campaignName: draft.title || "Untitled campaign",
-      anonymousEntryCode: entry.anonymousEntryCode,
-      creatorDisplayName: entry.creatorDisplayName,
-      submittedAt: entry.submittedAt,
-    })),
-  );
 }
