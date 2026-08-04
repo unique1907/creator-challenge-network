@@ -173,12 +173,16 @@ type ApprovalRecoveryResponse = {
 };
 
 const categories = [
-  "Motion Design",
-  "Graphic Design",
-  "Video",
-  "Photography",
-  "Music & Audio",
-  "Product Design",
+  "Brand Awareness",
+  "Customer Growth",
+  "Customer Retention",
+  "Retail Experience",
+  "Go-to-Market",
+  "Product Launch",
+  "Market Expansion",
+  "Community Growth",
+  "Customer Experience",
+  "Operations",
   "Other",
 ];
 
@@ -771,7 +775,7 @@ export function CreateChallengeWizard({
     const shouldCreateSmoke = params.get("mode") === "smoke";
     if (!shouldCreateNew && !shouldCreateSmoke && !selectedDraftId) {
       queueMicrotask(() => {
-        if (active) setStatus("Choose Continue Draft or Start New Challenge to begin.");
+        if (active) setStatus("Choose Continue Problem Draft or New Business Challenge to begin.");
       });
       return () => {
         active = false;
@@ -959,10 +963,10 @@ export function CreateChallengeWizard({
     const lower = message.toLowerCase();
     if (lower.includes("title")) return "#challenge-title";
     if (lower.includes("brand name")) return "#brand-name";
-    if (lower.includes("category")) return "#challenge-category";
-    if (lower.includes("short summary")) return "#challenge-summary";
-    if (lower.includes("creative brief")) return "#challenge-description";
-    if (lower.includes("primary deliverable")) return "#primary-deliverable";
+    if (lower.includes("category") || lower.includes("business domain")) return "#challenge-category";
+    if (lower.includes("short summary") || lower.includes("business problem")) return "#challenge-summary";
+    if (lower.includes("creative brief") || lower.includes("expected outcome")) return "#challenge-description";
+    if (lower.includes("primary deliverable")) return "#challenge-description";
     if (lower.includes("usage-rights")) return "#usage-rights-acknowledgement";
     if (lower.includes("reference url")) return "#reference-links";
     if (lower.includes("prize") || lower.includes("amount")) return "input[inputmode='decimal']";
@@ -1683,7 +1687,7 @@ export function CreateChallengeWizard({
   }
 
   async function startNewTestDraft() {
-    if (dirty && !window.confirm("You already have a draft in progress.\n\nStart New Challenge")) {
+    if (dirty && !window.confirm("You already have a draft in progress.\n\nStart New Business Challenge")) {
       return;
     }
     setPending(true);
@@ -1729,8 +1733,15 @@ export function CreateChallengeWizard({
       <main className="min-h-screen bg-[#030a1f] px-6 py-10 text-white">
         <div className="mx-auto max-w-5xl rounded-md border border-white/10 bg-white/[0.03] p-6">
           <p className="text-sm text-slate-300">{statusHeader}</p>
+          <h1 className="mt-3 text-3xl font-bold tracking-tight">Start a Business Challenge</h1>
+          <p className="mt-3 text-sm font-black text-cyan-100">Discover the World&apos;s Best Ideas.</p>
+          <p className="mt-1 text-sm text-slate-200">Turn business problems into winning solutions.</p>
+          <p className="mt-3 text-lg font-semibold text-white">What business problem are you trying to solve?</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Launch a business challenge, receive solutions from a global network of AI-augmented creators, and reward the best outcome.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Describe the outcome you need - not just the asset you expect.</p>
+          <p className="mt-2 text-xs text-cyan-100">Example: &quot;We opened our first coffee shop, but customer traffic is below expectations.&quot;</p>
           <button type="button" onClick={startNewTestDraft} disabled={pending || draftInitializationPending} className="mt-4 rounded-md bg-emerald-400 px-4 py-2 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
-            Start New Challenge
+            Start a Business Challenge
           </button>
         </div>
       </main>
@@ -1754,7 +1765,7 @@ export function CreateChallengeWizard({
               disabled={pending || draftInitializationPending}
               className="rounded-md border border-cyan-200/40 px-4 py-2 text-sm font-bold text-cyan-100 disabled:opacity-50"
             >
-              Start New Test Draft
+              New Business Challenge
             </button>
             <Link
               href="/dashboard"
@@ -1768,7 +1779,7 @@ export function CreateChallengeWizard({
       <div className="mx-auto grid max-w-7xl gap-6 px-6 py-10 sm:px-8 lg:grid-cols-[300px_1fr] lg:px-10">
         <aside className="h-fit rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <p className="text-xs font-bold uppercase tracking-wide text-cyan-200">
-            Create Challenge
+            Start a Business Challenge
           </p>
           <div className="mt-4 space-y-2">
             {createChallengeSteps.map((item, index) => (
@@ -1801,8 +1812,16 @@ export function CreateChallengeWizard({
                 Brand flow
               </p>
               <h1 className="mt-2 text-3xl font-bold tracking-tight">
-                {createChallengeSteps.find((item) => item.id === step)?.label}
+                {step === "basics" ? "Start a Business Challenge" : createChallengeSteps.find((item) => item.id === step)?.label}
               </h1>
+              {step === "basics" ? (
+                <div className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+                  <p className="text-lg font-semibold text-white">What business problem are you trying to solve?</p>
+                  <p className="mt-2">Launch a business challenge, receive solutions from a global network of AI-augmented creators, and reward the best outcome.</p>
+                  <p className="mt-2">Describe the outcome you need - not just the asset you expect.</p>
+                  <p className="mt-2 text-cyan-100">Example: &quot;We opened our first coffee shop, but customer traffic is below expectations.&quot;</p>
+                </div>
+              ) : null}
             </div>
             <p className="text-xs font-bold text-slate-400">Draft ID: {mask(draft.challenge.id)}</p>
           </div>
@@ -2069,7 +2088,7 @@ function CampaignCoverField({
 
   function validateFile(file: File) {
     if (!COVER_ACCEPTED_TYPES.has(file.type)) return "Use a JPG, PNG or WebP image.";
-    if (file.size > COVER_MAX_BYTES) return "Campaign cover must be 5 MB or smaller.";
+    if (file.size > COVER_MAX_BYTES) return "Business challenge cover must be 5 MB or smaller.";
     if (file.size <= 0) return "Choose a non-empty image.";
     return null;
   }
@@ -2086,32 +2105,32 @@ function CampaignCoverField({
     setPending(true);
     try {
       if (!draft.challenge.id) {
-        throw new Error("Save the draft before uploading a campaign cover.");
+        throw new Error("Save the draft before uploading a business challenge cover.");
       }
       const form = new FormData();
       form.set("draftId", draft.challenge.id);
       form.set("file", file);
-      form.set("alt", `${draft.challenge.title || "Campaign"} cover image`);
+      form.set("alt", `${draft.challenge.title || "Business challenge"} cover image`);
       const response = await fetch("/api/create-challenge/media/cover", {
         method: "POST",
         body: form,
       });
       const payload = (await response.json().catch(() => ({}))) as Partial<CampaignCoverResponse> & { error?: { message?: string } };
       if (!response.ok || !payload.draft || !payload.cover?.imageKey) {
-        throw new Error(payload.error?.message ?? "Campaign cover upload failed safely.");
+        throw new Error(payload.error?.message ?? "Business challenge cover upload failed safely.");
       }
       if (payload.draft.challenge.coverImageKey !== payload.cover.imageKey) {
-        throw new Error("Campaign cover persistence could not be verified.");
+        throw new Error("Business challenge cover persistence could not be verified.");
       }
       updateDraft(() => payload.draft as CreateChallengeDraftState);
       onCoverChange(payload.cover);
-      setMessage("Campaign cover saved.");
+      setMessage("Business challenge cover saved.");
       setError(null);
     } catch (errorValue) {
       setError(
         errorValue instanceof Error
           ? `${errorValue.message} Your preview and filename are preserved; re-select the file if the browser requires it.`
-          : "Campaign cover upload failed safely. Your preview and filename are preserved; re-select the file if the browser requires it.",
+          : "Business challenge cover upload failed safely. Your preview and filename are preserved; re-select the file if the browser requires it.",
       );
     } finally {
       setPending(false);
@@ -2124,23 +2143,23 @@ function CampaignCoverField({
     setError(null);
     try {
       if (!draft.challenge.id) {
-        throw new Error("Save the draft before removing a campaign cover.");
+        throw new Error("Save the draft before removing a business challenge cover.");
       }
       const response = await fetch(`/api/create-challenge/media/cover?draftId=${encodeURIComponent(draft.challenge.id)}`, {
         method: "DELETE",
       });
       const payload = (await response.json().catch(() => ({}))) as Partial<DraftResponse> & { error?: { message?: string } };
       if (!response.ok || !payload.draft) {
-        throw new Error(payload.error?.message ?? "Campaign cover removal failed safely.");
+        throw new Error(payload.error?.message ?? "Business challenge cover removal failed safely.");
       }
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
       setSelectedFileName(null);
       updateDraft(() => payload.draft as CreateChallengeDraftState);
       onCoverChange(null);
-      setMessage("Campaign cover removed.");
+      setMessage("Business challenge cover removed.");
     } catch (errorValue) {
-      setError(errorValue instanceof Error ? errorValue.message : "Campaign cover removal failed safely.");
+      setError(errorValue instanceof Error ? errorValue.message : "Business challenge cover removal failed safely.");
     } finally {
       setPending(false);
     }
@@ -2151,8 +2170,8 @@ function CampaignCoverField({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="flex flex-wrap items-center gap-2">
-            <FormLabel>Campaign cover</FormLabel>
-            <span className="text-xs font-semibold text-slate-400">Optional while drafting · Required before publish</span>
+            <FormLabel>Business Challenge Cover</FormLabel>
+            <span className="text-xs font-semibold text-slate-400">Optional while drafting - Required before publish</span>
           </p>
           <p className="mt-1 text-xs leading-5 text-slate-400">
             JPG, PNG or WebP. Optional while drafting, required before publish.
@@ -2192,9 +2211,9 @@ function CampaignCoverField({
         className="mt-4 flex min-h-44 w-full items-center justify-center overflow-hidden rounded-md border border-dashed border-cyan-200/30 bg-slate-950/45 text-center text-sm font-bold text-cyan-100 transition hover:border-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {displayCoverUrl ? (
-          <img src={displayCoverUrl} alt="Campaign cover preview" className="h-full max-h-72 w-full object-cover" />
+          <img src={displayCoverUrl} alt="Business challenge cover preview" className="h-full max-h-72 w-full object-cover" />
         ) : (
-          <span>{pending ? "Uploading cover..." : hasCover ? "Replace campaign cover" : "Drop image here or choose cover"}</span>
+          <span>{pending ? "Uploading cover..." : hasCover ? "Replace business challenge cover" : "Drop image here or choose cover"}</span>
         )}
       </button>
       <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -2229,37 +2248,62 @@ function CampaignCoverField({
 }
 
 function categoryExamples(category: string) {
-  const examples: Record<string, { title: string; summary: string; brief: string; deliverable: string }> = {
-    "Motion Design": {
-      title: "Spotify Motion Campaign",
-      summary: "Create a short animated campaign concept for a new playlist launch.",
-      brief: "Describe the audience, visual direction, required moments, brand tone, and what a winning motion concept should communicate.",
-      deliverable: "15 second motion concept video",
+  const examples: Record<string, { title: string; summary: string; outcome: string }> = {
+    "Brand Awareness": {
+      title: "Increase brand recognition in a new market",
+      summary: "Target customers do not recognize our brand when comparing alternatives.",
+      outcome: "Increase unaided brand recall among Gen Z customers by 25%.",
     },
-    "Graphic Design": {
-      title: "Circle Social Campaign",
-      summary: "Design a social creative system for a product announcement.",
-      brief: "Explain the campaign goal, visual constraints, required formats, message hierarchy, and brand usage expectations.",
-      deliverable: "Three social posts and source files",
+    "Customer Growth": {
+      title: "Increase weekday customer traffic",
+      summary: "Weekday traffic is below target after our first location launch.",
+      outcome: "Increase weekday customer traffic by 40%.",
     },
-    Video: {
-      title: "Nike Product Story",
-      summary: "Produce a short creator-led video concept for a product moment.",
-      brief: "Describe the story, target audience, tone, required scenes, usage rights, and evaluation criteria for the winning video.",
-      deliverable: "30 second edited video",
+    "Customer Retention": {
+      title: "Reduce subscriber churn after month one",
+      summary: "New customers are not returning after their first purchase cycle.",
+      outcome: "Improve second-month retention by 20%.",
     },
-    Photography: {
-      title: "Adobe Creator Portrait Series",
-      summary: "Capture a visual story that introduces a creator workflow.",
-      brief: "Describe the subject, shot list, visual direction, post-production expectations, and required usage terms.",
-      deliverable: "Five edited campaign photos",
+    "Retail Experience": {
+      title: "Improve in-store product discovery",
+      summary: "Shoppers cannot quickly find the right product for their needs.",
+      outcome: "Increase assisted product discovery conversions by 30%.",
+    },
+    "Go-to-Market": {
+      title: "Clarify launch positioning for a new offer",
+      summary: "Prospects do not understand why the new offer is different.",
+      outcome: "Improve launch-page conversion by 15%.",
+    },
+    "Product Launch": {
+      title: "Drive adoption for a new product feature",
+      summary: "Customers are not activating a feature that solves an important workflow problem.",
+      outcome: "Increase first-week feature activation by 35%.",
+    },
+    "Market Expansion": {
+      title: "Enter a new regional market",
+      summary: "Our current message is not resonating with customers in the target region.",
+      outcome: "Generate qualified demand in the new region within 60 days.",
+    },
+    "Community Growth": {
+      title: "Grow a high-value customer community",
+      summary: "Customers are not participating in community programs after signup.",
+      outcome: "Increase active community participation by 30%.",
+    },
+    "Customer Experience": {
+      title: "Reduce support friction for new customers",
+      summary: "New customers need too much help before reaching value.",
+      outcome: "Reduce onboarding-related support tickets by 25%.",
+    },
+    Operations: {
+      title: "Improve service handoff reliability",
+      summary: "Operational handoffs are creating delays and inconsistent customer follow-up.",
+      outcome: "Reduce handoff-related delays by 30%.",
     },
   };
   return examples[category] ?? {
-    title: "Smart Fitness Launch Campaign",
-    summary: "Create a campaign concept for a focused product launch.",
-    brief: "Describe the campaign goal, audience, creative direction, required deliverables, usage terms, and how submissions will be judged.",
-    deliverable: "Campaign concept and final creative asset",
+    title: "Customer Traffic Growth Challenge",
+    summary: "A measurable business problem is preventing the team from reaching its growth target.",
+    outcome: "Increase weekday customer traffic by 40%.",
   };
 }
 
@@ -2272,16 +2316,16 @@ function BasicsStep({ draft, cover, updateDraft, onCoverChange }: {
   const examples = categoryExamples(draft.challenge.category);
   return (
     <div className="grid gap-5">
-      <TextInput id="challenge-title" label="Challenge title" required value={draft.challenge.title} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, title: value } }))} placeholder={examples.title} />
+      <TextInput id="challenge-title" label="Business challenge title" required value={draft.challenge.title} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, title: value } }))} placeholder={examples.title} />
       <div className="rounded-md border border-white/10 bg-white/[0.03] p-3 text-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Public URL</p>
         <p className="mt-1 break-all font-mono text-slate-200">
           ccn.io/challenges/{draft.challenge.slug || "reserved-after-title"}
         </p>
-        <p className="mt-1 text-xs text-slate-500">Reserved automatically. Campaign titles do not need to be unique.</p>
+        <p className="mt-1 text-xs text-slate-500">Reserved automatically. Business challenge titles do not need to be unique.</p>
       </div>
       <label className="block">
-        <FormLabel required>Category</FormLabel>
+        <FormLabel required>Business Domain</FormLabel>
         <select
           id="challenge-category"
           value={draft.challenge.category}
@@ -2293,15 +2337,17 @@ function BasicsStep({ draft, cover, updateDraft, onCoverChange }: {
           {categories.map((category) => <option key={category}>{category}</option>)}
         </select>
       </label>
-      <TextArea id="challenge-summary" label="Short summary" required value={draft.challenge.summary} maxLength={240} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, summary: value } }))} placeholder={examples.summary} />
-      <TextArea id="challenge-description" label="Creative brief" required rows={6} value={draft.challenge.description} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, description: value } }))} placeholder={examples.brief} />
-      <TextInput id="primary-deliverable" label="Primary deliverable" required value={draft.challenge.primaryDeliverable} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, primaryDeliverable: value } }))} placeholder={examples.deliverable} />
+      <TextArea id="challenge-summary" label="Business problem summary" required value={draft.challenge.summary} maxLength={240} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, summary: value } }))} placeholder={examples.summary} />
+      <TextInput id="challenge-description" label="Expected Outcome" required value={draft.challenge.description} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, description: value } }))} placeholder={examples.outcome} />
+      <p className="-mt-3 text-xs leading-5 text-slate-400">
+        Describe the business result you want to achieve.
+      </p>
       <CampaignCoverField draft={draft} cover={cover} updateDraft={updateDraft} onCoverChange={onCoverChange} />
       <TextInput id="brand-name" label="Brand" required value={draft.challenge.brandName} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, brandName: value } }))} placeholder="Auto-filled from Company Settings" />
       <details className="rounded-md border border-white/10 bg-white/[0.03] p-4">
         <summary className="cursor-pointer text-sm font-bold text-slate-200">Advanced Details</summary>
         <div className="mt-4 grid gap-5">
-          <TextInput id="supporting-deliverables" label="Supporting deliverables" optional value={draft.challenge.supportingDeliverables.join(", ")} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, supportingDeliverables: value.split(",").map((item) => item.trim()).filter(Boolean) } }))} placeholder="15s cutdown, source file, style frames" />
+          <TextInput id="supporting-deliverables" label="Supporting assets" optional value={draft.challenge.supportingDeliverables.join(", ")} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, supportingDeliverables: value.split(",").map((item) => item.trim()).filter(Boolean) } }))} placeholder="research findings, customer interviews, market analysis, operational notes, reference materials" />
           <TextInput id="reference-links" label="Reference links" optional value={draft.challenge.referenceLinks.join(", ")} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, referenceLinks: value.split(",").map((item) => item.trim()).filter(Boolean) } }))} placeholder="https://example.com/inspiration" />
         </div>
       </details>
@@ -2313,7 +2359,7 @@ function BasicsStep({ draft, cover, updateDraft, onCoverChange }: {
           onChange={(event) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, usageRightsAcknowledged: event.target.checked } }))}
           className="mt-1"
         />
-        <span>I understand that only the winning submission receives the reward and transfers the predefined usage rights.</span>
+        <span>I understand that only the selected solution receives the reward and transfers the predefined usage rights.</span>
       </label>
     </div>
   );
@@ -2648,7 +2694,7 @@ function RulesStep({ draft, deadlinePolicy, updateDraft }: {
         <div className="rounded-md border border-cyan-200/30 bg-cyan-300/10 p-4 text-sm text-cyan-50">
           <p className="font-bold">Smoke schedule active</p>
           <p className="mt-2 text-cyan-100">
-            Smoke schedule active · Submission lead: {minSubmissionLeadMinutes} minutes · Review gap: {minReviewGapMinutes} minutes
+            Smoke schedule active - Submission lead: {minSubmissionLeadMinutes} minutes - Review gap: {minReviewGapMinutes} minutes
           </p>
           <div className="mt-3 grid gap-2 font-mono text-xs text-cyan-100 sm:grid-cols-2">
             <span>Submission UTC: {draft.reviewRules.submissionDeadline ? new Date(draft.reviewRules.submissionDeadline).toISOString() : "Not set"}</span>
@@ -2857,7 +2903,7 @@ function ReviewBeforeLaunchSummary({ draft, totalRequired, brandPaymentWallet }:
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-cyan-200">Review before launch</p>
-          <p className="mt-1 text-sm text-slate-300">Campaign, prize, dates, cover and wallet</p>
+          <p className="mt-1 text-sm text-slate-300">Business challenge, prize, dates, cover and wallet</p>
         </div>
         <button
           type="button"
@@ -3515,7 +3561,7 @@ function PublishStep({ draft, deadlinePolicy, launchReadiness, publication, onBa
           <Info label="Winner model" value={`Top ${draft.prizePool.winnerCount}`} />
           <Info label="Submission deadline" value={draft.reviewRules.submissionDeadline || "Not set"} />
           <Info label="Escrow verified" value={fundingIsVerified(draft) ? "Yes" : "Pending"} />
-          <Info label="Campaign cover" value={hasCover ? "Ready" : "Required before publish"} />
+          <Info label="Business Challenge Cover" value={hasCover ? "Ready" : "Required before publish"} />
         </div>
       </section>
       {!live ? (

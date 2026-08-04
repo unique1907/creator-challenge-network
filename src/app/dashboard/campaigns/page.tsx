@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+﻿/* eslint-disable @next/next/no-img-element */
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -8,7 +8,7 @@ import { listCreateChallengeDrafts } from "@/services/create-challenge/create-ch
 import type { BrandDashboardCampaignRow } from "@/features/dashboard/brand-dashboard-view-model";
 
 export const metadata: Metadata = {
-  title: "Campaigns | Creator Challenge Network",
+  title: "Business Challenges | Creator Challenge Network",
   robots: { index: false, follow: false },
 };
 
@@ -16,7 +16,7 @@ type BrandCampaignsPageProps = {
   searchParams?: Promise<{ filter?: string }>;
 };
 
-const campaignFilters = ["All", "Draft", "Funding", "Live", "Review", "Completed"] as const;
+const campaignFilters = ["All", "Problem Draft", "Funding", "Open for Solutions", "Evaluation", "Selection", "Completed"] as const;
 
 export default async function BrandCampaignsPage({ searchParams }: BrandCampaignsPageProps) {
   const context = await getAuthenticatedCcnContext({ workspace: "brand", allowTestContext: true });
@@ -35,11 +35,11 @@ export default async function BrandCampaignsPage({ searchParams }: BrandCampaign
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <Link href="/dashboard" className="text-sm font-semibold text-blue-300">Back to dashboard</Link>
-            <h1 className="mt-4 text-3xl font-black tracking-tight">Campaigns</h1>
-            <p className="mt-2 text-slate-400">All Brand campaigns from canonical workspace state.</p>
+            <h1 className="mt-4 text-3xl font-black tracking-tight">Your Business Challenges</h1>
+            <p className="mt-2 text-slate-400">All Brand business challenges from canonical workspace state.</p>
           </div>
           <Link href="/create-challenge?new=1" prefetch className="inline-flex h-11 items-center rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-5 text-sm font-black text-white">
-            + New Challenge
+            + New Business Challenge
           </Link>
         </div>
 
@@ -48,7 +48,7 @@ export default async function BrandCampaignsPage({ searchParams }: BrandCampaign
             {campaignFilters.map((filter) => (
               <Link
                 key={filter}
-                href={filter === "All" ? "/dashboard/campaigns" : `/dashboard/campaigns?filter=${filter.toLowerCase()}`}
+                href={filter === "All" ? "/dashboard/campaigns" : `/dashboard/campaigns?filter=${filterSlug(filter)}`}
                 className={`rounded-lg border px-4 py-2 text-xs font-bold ${activeFilter === filter ? "border-violet-400/50 bg-violet-600 text-white" : "border-white/10 bg-slate-950/40 text-slate-300"}`}
               >
                 {filter}
@@ -60,8 +60,8 @@ export default async function BrandCampaignsPage({ searchParams }: BrandCampaign
               <CampaignCard key={row.draftId} row={row} />
             )) : (
               <div className="rounded-xl border border-dashed border-white/15 bg-slate-950/35 p-6 lg:col-span-2 2xl:col-span-3">
-                <p className="text-lg font-black">No campaigns yet</p>
-                <p className="mt-2 text-sm text-slate-400">Create a challenge to begin the Brand workflow.</p>
+                <p className="text-lg font-black">No business challenges yet</p>
+                <p className="mt-2 text-sm text-slate-400">Describe a business problem to begin the Brand workflow.</p>
               </div>
             )}
           </div>
@@ -71,17 +71,23 @@ export default async function BrandCampaignsPage({ searchParams }: BrandCampaign
   );
 }
 
+function filterSlug(filter: string) {
+  return filter.toLowerCase().replace(/\s+/g, "-");
+}
+
 function normalizeCampaignFilter(value?: string): typeof campaignFilters[number] {
-  const match = campaignFilters.find((filter) => filter.toLowerCase() === value?.toLowerCase());
+  const normalized = value?.toLowerCase();
+  const match = campaignFilters.find((filter) => filterSlug(filter) === normalized || filter.toLowerCase() === normalized);
   return match ?? "All";
 }
 
 function filterCampaignRows(rows: BrandDashboardCampaignRow[], filter: typeof campaignFilters[number]) {
   if (filter === "All") return rows;
-  if (filter === "Draft") return rows.filter((row) => row.status === "draft");
+  if (filter === "Problem Draft") return rows.filter((row) => row.status === "draft");
   if (filter === "Funding") return rows.filter((row) => row.status === "funding");
-  if (filter === "Live") return rows.filter((row) => row.status === "review" || row.status === "ready-to-publish");
-  if (filter === "Review") return rows.filter((row) => row.status === "review");
+  if (filter === "Open for Solutions") return rows.filter((row) => row.status === "ready-to-publish");
+  if (filter === "Evaluation") return rows.filter((row) => row.status === "review");
+  if (filter === "Selection") return rows.filter((row) => row.status === "winner-ready");
   if (filter === "Completed") return rows.filter((row) => row.status === "completed");
   return rows;
 }
@@ -105,10 +111,15 @@ function CampaignCard({ row }: { row: BrandDashboardCampaignRow }) {
       </div>
       <div className="p-5">
         <h2 className="truncate text-lg font-black">{row.title}</h2>
-        <p className="mt-2 min-h-10 text-sm leading-5 text-slate-400">{row.metadataLine}</p>
+        <p className="mt-2 min-h-10 text-sm leading-5 text-slate-400">{row.businessProblem}</p>
         <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Next action</p>
-          <p className="mt-2 text-sm font-semibold text-white">{row.nextStep}</p>
+          <p className="mt-2 text-sm font-semibold text-white">{row.requiredActionLabel}</p>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-slate-400">
+          <span>{row.rewardLabel}</span>
+          <span>{row.solutionsLabel}</span>
+          <span>{row.deadlineLabel}</span>
         </div>
         <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-800">
           <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-blue-500" style={{ width: `${row.progressPercent ?? 0}%` }} />

@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,7 +67,7 @@ assert.ok(wizard.includes("aria-expanded={open}") && wizard.includes("aria-contr
 assert.ok(wizard.includes("const open = !ready || expanded"), "invalid readiness must auto-expand instead of hiding errors");
 assert.ok(wizard.includes("hidden={!open}"), "ready launch readiness details must collapse by default");
 assert.ok(wizard.includes("Review before launch"), "funding UI must show a concise pre-launch review summary");
-assert.ok(wizard.includes("Campaign, prize, dates, cover and wallet"), "collapsed review summary must describe its contents");
+assert.ok(wizard.includes("Business challenge, prize, dates, cover and wallet"), "collapsed review summary must describe its contents");
 assert.ok(wizard.includes("View summary"), "review details must open from an explicit summary CTA");
 assert.ok(wizard.includes("Launch readiness"), "funding UI must show final readiness before PIN");
 assert.ok(wizard.includes("All requirements ready"), "ready launch readiness must use compact summary copy");
@@ -108,7 +108,7 @@ assert.ok(draftRoute.includes("brandName: context.brandName ?? context.displayNa
 assert.ok(draftRoute.includes("launchReadiness: validateCreateChallengeLaunchReadiness(draft, { deadlinePolicy })"), "draft API must return the shared publish readiness contract");
 assert.ok(coverRoute.includes("launchReadiness: validateCreateChallengeLaunchReadiness(updated, { deadlinePolicy })"), "cover upload/remove must return refreshed launch readiness");
 assert.ok(readiness.includes("validateCreateChallengeLaunchReadiness"), "shared launch readiness validator must exist");
-assert.ok(readiness.includes("Add a campaign cover before publishing."), "shared validator must enforce campaign cover before any launch transaction");
+assert.ok(readiness.includes("Add a business challenge cover before publishing."), "shared validator must enforce business challenge cover before any launch transaction");
 assert.ok(readiness.includes("allowedFormats.length > 0"), "shared validator must enforce allowed submission types");
 assert.ok(fundingService.includes("assertLaunchReadinessBeforeFinancialAction(draft, \"/api/create-challenge/approve\")"), "approval service must block missing deterministic publish requirements before creating Circle approval");
 assert.ok(fundingService.includes("assertLaunchReadinessBeforeFinancialAction(draft, \"/api/create-challenge/fund\")"), "funding service must block missing deterministic publish requirements before creating Circle funding");

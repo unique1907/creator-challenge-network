@@ -84,8 +84,8 @@ type CampaignWorkspaceTabsProps = {
 };
 
 const tabs: { id: WorkspaceTab; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "review", label: "Review" },
+  { id: "overview", label: "Business Challenge Overview" },
+  { id: "review", label: "Evaluation" },
   { id: "funding", label: "Funding" },
   { id: "settlement", label: "Settlement" },
   { id: "blockchain", label: "Blockchain" },
@@ -364,15 +364,15 @@ function ReviewTab({
 
   if (!selectedEntry || !selectedReview) {
     return (
-      <Section title="Review">
-        <EmptyState text="No anonymous submissions are available for review yet." />
+      <Section title="Evaluation">
+        <EmptyState text="No anonymous solutions are available for evaluation yet." />
       </Section>
     );
   }
 
   return (
     <section className="mt-5 grid gap-5 xl:grid-cols-[0.85fr_1.2fr_0.95fr]">
-      <Section title={`Anonymous submissions (${entries.length}/${entries.length})`}>
+      <Section title={`Anonymous solutions (${entries.length}/${entries.length})`}>
         <div className="space-y-3">
           {entries.map((entry) => {
             const completed = reviews[entry.blindEntryId]?.status === "COMPLETED";
@@ -401,13 +401,13 @@ function ReviewTab({
         </div>
       </Section>
 
-      <Section title="Submission Preview">
+      <Section title="Solution Preview">
         <div className="rounded-xl border border-white/10 bg-slate-950/40 p-5">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">{selectedEntry.anonymousEntryCode}</p>
           <h3 className="mt-3 text-2xl font-bold text-white">{selectedEntry.title}</h3>
           <p className="mt-4 text-sm leading-6 text-slate-300">{selectedEntry.description}</p>
           <div className="mt-5 grid gap-3">
-            <ExternalUrlInfo label="Primary asset" value={selectedEntry.primaryAssetUrl} linkLabel="Open main project" />
+            <ExternalUrlInfo label="Primary supporting asset" value={selectedEntry.primaryAssetUrl} linkLabel="Open main project" />
             <SupportingLinksInfo links={selectedEntry.supportingLinks} />
             <Info label="Submitted" value={new Date(selectedEntry.submittedAt).toLocaleString()} />
           </div>
@@ -563,9 +563,9 @@ function EvaluationPanel({
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error?.message ?? "Review could not be saved.");
       onSaved(data.review as SubmissionReviewRecord);
-      setStatus("Review saved.");
+      setStatus("Evaluation saved.");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Review could not be saved.");
+      setStatus(error instanceof Error ? error.message : "Evaluation could not be saved.");
     } finally {
       setSaving(false);
     }
@@ -574,6 +574,7 @@ function EvaluationPanel({
   return (
     <Section title="Evaluation Panel">
       <div className="space-y-5">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">Blind evaluation</p>
         <div className="rounded-lg border border-white/10 bg-slate-950/40 p-4">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Judging Criteria</p>
           {reviewCriteria.length ? (
@@ -585,7 +586,7 @@ function EvaluationPanel({
               ))}
             </ul>
           ) : (
-            <p className="mt-3 text-sm text-slate-400">No campaign-specific judging criteria were saved for this challenge.</p>
+            <p className="mt-3 text-sm text-slate-400">No business-challenge-specific judging criteria were saved for this challenge.</p>
           )}
         </div>
         <ScoreControl label="Creativity" value={creativity} onChange={setCreativity} disabled={reviewLocked} />
@@ -599,7 +600,7 @@ function EvaluationPanel({
             disabled={reviewLocked}
             rows={7}
             className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950/70 p-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50"
-            placeholder="Private review notes for this anonymous entry."
+            placeholder="Private evaluation notes for this anonymous solution."
           />
         </label>
         <button
@@ -608,12 +609,12 @@ function EvaluationPanel({
           disabled={saving || reviewLocked}
           className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
         >
-          {saving ? "Saving Review" : "Save Review"}
+          {saving ? "Saving Evaluation" : "Save Evaluation"}
         </button>
         {status ? <p className="text-sm font-bold text-cyan-100">{status}</p> : null}
         {reviewLocked ? (
           <div className="rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-4 text-sm text-emerald-100">
-            Review locked. Winner: {finalizedWinnerCodes.length ? finalizedWinnerCodes.join(", ") : "anonymous entry selected"}.
+            Evaluation locked. Selected solution: {finalizedWinnerCodes.length ? finalizedWinnerCodes.join(", ") : "anonymous entry selected"}.
           </div>
         ) : null}
         <button
@@ -633,10 +634,10 @@ function EvaluationPanel({
           disabled={!allCompleted || reviewLocked || finalizing}
           className="w-full rounded-lg border border-emerald-300/40 px-5 py-3 text-sm font-bold text-emerald-100 transition enabled:hover:bg-emerald-300/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
         >
-          {finalizing ? "Finalizing Review" : reviewLocked ? "Review Finalized" : "Finalize Review"}
+          {finalizing ? "Finalizing Evaluation" : reviewLocked ? "Evaluation Finalized" : "Finalize Evaluation"}
         </button>
         <p className="text-xs leading-5 text-slate-500">
-          Finalize Review becomes active after every anonymous submission receives a completed evaluation.
+          Finalize Evaluation becomes active after every anonymous submission receives a completed evaluation.
         </p>
         {confirmOpen ? (
           <FinalizeReviewModal
@@ -674,13 +675,13 @@ function EvaluationPanel({
                   ok: response.ok,
                   body: data,
                 });
-                if (!response.ok) throw new Error(data?.error?.message ?? "Review could not be finalized.");
+                if (!response.ok) throw new Error(data?.error?.message ?? "Evaluation could not be finalized.");
                 const codes = Array.isArray(data?.winner?.selectedAnonymousEntryCodes) ? data.winner.selectedAnonymousEntryCodes : winnerPreviewCodes;
-                setStatus("Review finalized. Winner is locked.");
+                setStatus("Evaluation finalized. Selected solution is locked.");
                 setConfirmOpen(false);
                 onFinalized(codes);
               } catch (error) {
-                const message = error instanceof Error ? error.message : "Review could not be finalized.";
+                const message = error instanceof Error ? error.message : "Evaluation could not be finalized.";
                 traceFinalizeReview("catch", {
                   draftId,
                   message,
@@ -854,13 +855,13 @@ function SettlementTab({
 
   return (
     <div className="mt-5 space-y-5">
-      <Section title="Winner Summary">
+      <Section title="Selected Solution Summary">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <Info label="Anonymous winner" value={winnerCodes.length ? winnerCodes.join(", ") : "Anonymous winner locked"} />
+          <Info label="Anonymous selected solution" value={winnerCodes.length ? winnerCodes.join(", ") : "Anonymous selected solution locked"} />
           <Info label="Prize amount" value={prizePool} />
           <Info label="Destination wallet" value={maskValue(current?.winnerWalletAddresses?.[0])} />
-          <Info label="Winner status" value={settlementDisplayStatus} />
-          <Info label="Review locked" value={current?.finalizedAt ? "Yes" : "No"} />
+          <Info label="Solution status" value={settlementDisplayStatus} />
+          <Info label="Evaluation locked" value={current?.finalizedAt ? "Yes" : "No"} />
         </div>
       </Section>
 

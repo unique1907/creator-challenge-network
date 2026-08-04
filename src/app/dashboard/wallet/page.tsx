@@ -40,10 +40,10 @@ export default async function BrandWalletPage() {
           </dl>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link href="/dashboard/campaigns" className="inline-flex h-10 items-center rounded-lg border border-white/10 px-4 text-sm font-black text-white transition hover:bg-white/[0.05]">
-              View Campaign Funding
+              View Business Challenge Funding
             </Link>
             <Link href="/create-challenge?new=1" prefetch className="inline-flex h-10 items-center rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-4 text-sm font-black text-white">
-              + New Challenge
+              + New Business Challenge
             </Link>
           </div>
         </section>

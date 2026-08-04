@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 function read(path) {
@@ -76,7 +76,7 @@ includes(storePath, "isSmokeTest: current.challenge.isSmokeTest", "draft persist
 for (const validation of [
   "Challenge title must be 5-100 characters.",
   "At least one judging criterion is required.",
-  "Primary deliverable is required.",
+  "Expected Outcome must be at least 10 characters.",
   "Usage-rights acknowledgement is required.",
   "Creator acknowledgement is required.",
   "Brand cancellation acknowledgement is required.",

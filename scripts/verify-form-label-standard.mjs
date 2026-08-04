@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 function read(path) {
@@ -44,11 +44,11 @@ includes(brandIdentity, "optional />", "Optional company fields must use the opt
 includes(brandIdentity, "readOnly", "Brand identity read-only fields must be marked");
 includes(brandProfilePage, "<FormLabel readOnly", "Brand profile read-only company identity must be marked");
 
-includes(createChallenge, "<FormLabel required>Category</FormLabel>", "Challenge category must be marked required");
-includes(createChallenge, "label=\"Challenge title\" required", "Challenge title must be marked required");
-includes(createChallenge, "label=\"Supporting deliverables\" optional", "Supporting deliverables must be marked optional");
+includes(createChallenge, "<FormLabel required>Business Domain</FormLabel>", "Business Domain must be marked required");
+includes(createChallenge, "label=\"Business challenge title\" required", "Business challenge title must be marked required");
+includes(createChallenge, "label=\"Supporting assets\" optional", "Supporting assets must be marked optional");
 includes(createChallenge, "label=\"Reference links\" optional", "Reference links must be marked optional");
-includes(createChallenge, "Optional while drafting · Required before publish", "Campaign cover must show draft/publish distinction");
+includes(createChallenge, "Optional while drafting - Required before publish", "Business challenge cover must show draft/publish distinction");
 includes(createChallenge, "label=\"Total prize pool in test USDC\"", "Prize pool field must remain present");
 includes(createChallenge, "<FormLabel required>Judging criteria</FormLabel>", "Judging criteria must show required-before-publish intent");
 includes(createChallenge, "label=\"Usage rights summary\" required", "Usage rights summary must be marked required");

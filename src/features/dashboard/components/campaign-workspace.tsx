@@ -51,18 +51,18 @@ type ActivityItem = {
 };
 
 const lifecycleOrder: { id: LifecycleState; label: string }[] = [
-  { id: "draft", label: "Draft" },
+  { id: "draft", label: "Problem Draft" },
   { id: "funding", label: "Funding" },
-  { id: "published", label: "Published" },
-  { id: "review", label: "Review" },
-  { id: "winner", label: "Winner" },
+  { id: "published", label: "Open for Solutions" },
+  { id: "review", label: "Evaluation" },
+  { id: "winner", label: "Selection" },
   { id: "settlement", label: "Settlement" },
   { id: "completed", label: "Completed" },
 ];
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard" },
-  { label: "Campaigns", href: "/dashboard/campaigns" },
+  { label: "Business Challenges", href: "/dashboard/campaigns" },
   { label: "Wallet", href: "/dashboard/wallet" },
   { label: "Payments", href: "/dashboard/payments" },
   { label: "Settings", href: "/dashboard/settings/profile" },
@@ -139,15 +139,15 @@ function statusLabel(state: LifecycleState) {
     case "settlement":
       return "Settlement";
     case "winner":
-      return "Winner ready";
+      return "Selection ready";
     case "review":
-      return "In review";
+      return "In evaluation";
     case "published":
-      return "Published";
+      return "Open for Solutions";
     case "funding":
       return "Funding";
     default:
-      return "Draft";
+      return "Problem Draft";
   }
 }
 
@@ -169,7 +169,7 @@ function activityFeed(input: CampaignWorkspaceProps): ActivityItem[] {
   const { draft, fundingAttempts, approvalAttempts, winnerAttempt, verification, blindEntries } = input;
   const events: ActivityItem[] = [
     {
-      label: "Campaign created",
+      label: "Business challenge created",
       detail: draft.challenge.brandName || CREATE_CHALLENGE_BRAND_ACCOUNT_ID,
       at: draft.updatedAt,
       tone: "blue",
@@ -196,7 +196,7 @@ function activityFeed(input: CampaignWorkspaceProps): ActivityItem[] {
       : []),
     ...(draft.deployment.publicationStatus === "live"
       ? [{
-          label: "Published",
+          label: "Opened",
           detail: draft.challenge.slug ?? "Public challenge is live",
           at: draft.updatedAt,
           tone: "blue" as const,
@@ -210,7 +210,7 @@ function activityFeed(input: CampaignWorkspaceProps): ActivityItem[] {
     })),
     ...(winnerAttempt?.finalizedAt
       ? [{
-          label: "Winner selected",
+          label: "Solution selected",
           detail: `${winnerAttempt.selectedWinnerEntryIds.length} anonymous entry`,
           at: winnerAttempt.finalizedAt,
           tone: "amber" as const,
@@ -264,11 +264,11 @@ function primaryActions(input: {
   if (state === "draft" || state === "funding") {
     actions.push({ label: "Continue Funding", href: `/create-challenge?draftId=${encodeURIComponent(draftId)}`, primary: true });
   } else if (draft.deployment.publicationStatus === "ready-to-publish") {
-    actions.push({ label: "Publish Campaign", href: `/create-challenge?draftId=${encodeURIComponent(draftId)}`, primary: true });
+    actions.push({ label: "Open Business Challenge", href: `/create-challenge?draftId=${encodeURIComponent(draftId)}`, primary: true });
   } else if (state === "published") {
     actions.push({ label: "View Public Challenge", href: publicSlug, primary: false });
   } else if (state === "review" && submissionCount > 0) {
-    actions.push({ label: "Open Blind Review", href: "#review", primary: true });
+    actions.push({ label: "Evaluate Solutions", href: "#review", primary: true });
     actions.push({ label: "View Public Challenge", href: publicSlug, primary: false });
   } else if (state === "winner" || winnerAttempt?.state === "READY_FOR_FINAL_SELECTION") {
     actions.push({ label: "Approve Payout", href: `/dashboard/challenges/${encodeURIComponent(draftId)}#settlement`, primary: true });
@@ -336,7 +336,7 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
         : "In progress";
   const overviewCards = [
     { label: "Prize Pool", value: `${draft.prizePool.totalAmount.toLocaleString()} USDC`, detail: `Top ${draft.prizePool.winnerCount}`, tone: "blue" as const },
-    { label: "Review Progress", value: reviewProgress, detail: winnerAttempt?.finalizedAt ? "locked" : "anonymous reviews", tone: "violet" as const },
+    { label: "Evaluation Progress", value: reviewProgress, detail: winnerAttempt?.finalizedAt ? "locked" : "blind evaluation", tone: "violet" as const },
     { label: "Submissions", value: String(submissionCount), detail: "entries", tone: "amber" as const },
     { label: "Funding Status", value: isVerified ? "Verified" : statusLabel(state), detail: draft.funding.escrowStatus, tone: "green" as const },
     { label: "Next Action", value: nextAction, detail: actions.length > 1 ? `${actions.length} actions available` : "current lifecycle", tone: "blue" as const },
@@ -412,8 +412,8 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
         </nav>
 
         <div className="absolute inset-x-5 bottom-28 rounded-xl border border-violet-300/20 bg-gradient-to-br from-violet-600/25 to-blue-600/10 p-5">
-          <p className="text-lg font-bold">Campaign Ops</p>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Track funding, submissions, review and settlement from one workspace.</p>
+        <p className="text-lg font-bold">Solution Ops</p>
+        <p className="mt-2 text-sm leading-6 text-slate-300">Track funding, solution submissions, evaluation and settlement from one workspace.</p>
         </div>
 
         <div className="absolute inset-x-5 bottom-6 flex items-center gap-3 border-t border-white/10 pt-5">
@@ -456,7 +456,7 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
             ) : null}
             <div className="flex flex-wrap items-start justify-between gap-5">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-200">Campaign Workspace</p>
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-200">Business Challenge Workspace</p>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <h1 className="max-w-4xl text-3xl font-bold tracking-tight md:text-4xl">
                     {draft.challenge.title || "Untitled campaign"}
@@ -476,12 +476,12 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
               <Info label="Current State" value={statusLabel(state)} />
               <Info label="Deadline" value={formatDate(draft.reviewRules.submissionDeadline)} />
               <Info label="Funding Status" value={isVerified ? "Verified" : draft.funding.fundingStatus} />
-              <Info label="Review Progress" value={reviewProgress} />
+              <Info label="Evaluation Progress" value={reviewProgress} />
               <Info label="Next Action" value={nextAction} />
             </div>
             <div className="mt-3 grid gap-3 text-slate-300 md:grid-cols-3">
               <Info label="Brand" value={draft.challenge.brandName || "Brand not set"} quiet />
-              <Info label="Campaign ID" value={mask(challengeId)} quiet />
+              <Info label="Challenge ID" value={mask(challengeId)} quiet />
               <Info label="Wallet" value={mask(draft.funding.walletAddress)} quiet />
             </div>
           </section>

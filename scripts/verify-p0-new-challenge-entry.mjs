@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 function read(path) {
@@ -52,7 +52,7 @@ includes(wizard, "if (!rendersImmediateShell) {\n          setStep(payload.draft
 includes(wizard, "/create-challenge?draftId=", "successful creation must replace the URL with the canonical draft id");
 includes(wizard, "const draftReadyForActions = Boolean(draft?.challenge.id ?? draftId);", "actions must depend on canonical draft identity");
 includes(wizard, "!draftReadyForActions", "save/continue must remain disabled until canonical draft identity exists");
-includes(wizard, "Start New Challenge", "recovery screen must remain available for idle/manual recovery paths");
+includes(wizard, "Start a Business Challenge", "recovery screen must remain available for idle/manual recovery paths");
 includes(route, 'url.searchParams.get("new") === "1"', "new draft API route must remain explicit");
 includes(route, "createNewCreateChallengeDraft({", "new draft route must create exactly through the canonical store path");
 includes(route, "ccnAccountId: context.ccnAccountId", "new draft route must keep owner-scoped account id");
@@ -62,7 +62,7 @@ includes(loading, "Brand flow", "route transition loading state must show the Br
 includes(loading, "Challenge Details", "route transition loading state must show the Challenge Details shell");
 includes(loading, "Preparing draft...", "route transition loading state must use new-draft preparation copy");
 excludes(loading, "Loading saved draft", "route transition loading state must not show saved-draft recovery copy");
-excludes(loading, "Start New Challenge", "route transition loading state must not show recovery action");
+excludes(loading, "Start a Business Challenge", "route transition loading state must not show recovery action");
 
 assert.equal(
   count(wizard, "const draftInitializationPending = Boolean(draft && !draft.challenge.id);"),

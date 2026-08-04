@@ -6,8 +6,8 @@ import type {
 export const createChallengeSteps: CreateChallengeStep[] = [
   {
     id: "basics",
-    label: "Challenge Details",
-    description: "Challenge identity and creative brief.",
+    label: "Business Problem",
+    description: "Problem, outcome, and solution brief.",
   },
   {
     id: "prize-pool",
@@ -27,7 +27,7 @@ export const createChallengeSteps: CreateChallengeStep[] = [
   {
     id: "publish",
     label: "Publish",
-    description: "Verify funding and open submissions.",
+    description: "Verify funding and open for solutions.",
   },
 ];
 
@@ -35,7 +35,7 @@ export const demoCreateChallengeDraft: CreateChallengeDraftState = {
   challenge: {
     title: "",
     brandName: "",
-    category: "Motion Design",
+    category: "Customer Growth",
     market: "Arc Testnet",
     summary: "",
     description: "",
@@ -75,7 +75,7 @@ export const demoCreateChallengeDraft: CreateChallengeDraftState = {
     aiAllowed: false,
     allowedFormats: ["MP4", "MOV", "PDF", "PNG", "JPG"],
     usageRights:
-      "The winning creator transfers the predefined usage rights after selection.",
+      "The selected creator transfers the predefined usage rights after selection.",
     submissionDeadline: "",
     reviewDeadline: "",
     judgingCriteria: [""],

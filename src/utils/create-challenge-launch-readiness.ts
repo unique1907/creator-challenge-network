@@ -34,15 +34,12 @@ export function validateCreateChallengeStep(
       errors.push("Challenge title must be 5-100 characters.");
     }
     if (!draft.challenge.brandName.trim()) errors.push("Brand name is required.");
-    if (!draft.challenge.category.trim()) errors.push("Category is required.");
+    if (!draft.challenge.category.trim()) errors.push("Business Domain is required.");
     if (!draft.challenge.summary.trim() || draft.challenge.summary.length > 240) {
-      errors.push("Short summary is required and must be 240 characters or less.");
+      errors.push("Business problem summary is required and must be 240 characters or less.");
     }
-    if (draft.challenge.description.trim().length < 50) {
-      errors.push("Full creative brief must be at least 50 characters.");
-    }
-    if (!draft.challenge.primaryDeliverable.trim()) {
-      errors.push("Primary deliverable is required.");
+    if (draft.challenge.description.trim().length < 10) {
+      errors.push("Expected Outcome must be at least 10 characters.");
     }
     if (!draft.challenge.usageRightsAcknowledged) {
       errors.push("Usage-rights acknowledgement is required.");
@@ -148,14 +145,14 @@ export function validateCreateChallengeLaunchReadiness(
 
   items.push(
     basics.valid
-      ? readyItem("campaign-content", "Campaign content", "basics")
-      : correctionItem("campaign-content", "Campaign content", "basics", firstError(basics.errors, "Complete campaign content before launch.")),
+      ? readyItem("campaign-content", "Business challenge content", "basics")
+      : correctionItem("campaign-content", "Business challenge content", "basics", firstError(basics.errors, "Complete business challenge content before launch.")),
   );
 
   items.push(
     draft.challenge.coverImageKey?.trim()
-      ? readyItem("campaign-cover", "Campaign cover", "basics")
-      : missingItem("campaign-cover", "Campaign cover", "basics", "Add a campaign cover before publishing."),
+      ? readyItem("campaign-cover", "Business Challenge Cover", "basics")
+      : missingItem("campaign-cover", "Business Challenge Cover", "basics", "Add a business challenge cover before publishing."),
   );
 
   items.push(

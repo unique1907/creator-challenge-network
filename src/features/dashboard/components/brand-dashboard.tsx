@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+﻿/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { CCNLogo } from "@/components/ui/ccn-logo";
 import { AiTemplatesBetaButton, BrandAccountMenu, BrandNotifications } from "@/features/dashboard/components/brand-workspace-navigation";
@@ -25,14 +25,16 @@ function visualClass(tone: BrandDashboardCampaignRow["visualTone"]) {
   return "from-violet-600 via-indigo-950 to-slate-950";
 }
 
-function stepIcon(step: BrandDashboardJourneyStep) {
+function stepIcon(step: BrandDashboardJourneyStep, index: number) {
   if (step.status === "complete") return "OK";
-  if (step.id === "draft") return "D";
-  if (step.id === "funding") return "$";
-  if (step.id === "published") return "P";
-  if (step.id === "review") return "R";
-  if (step.id === "winner") return "W";
-  return "S";
+  return String(index + 1);
+}
+
+function stepCaption(step: BrandDashboardJourneyStep) {
+  if (step.status === "complete") return "Completed";
+  if (step.status === "current" && step.id === "published") return "Open";
+  if (step.status === "current") return "In Progress";
+  return "Pending";
 }
 
 export function BrandDashboard({
@@ -53,22 +55,22 @@ export function BrandDashboard({
 
   return (
     <main className="min-h-screen bg-[#030711] text-white">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[268px] border-r border-white/10 bg-[#050a14]/95 px-5 py-6 xl:flex xl:flex-col">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[312px] border-r border-white/10 bg-[#050a14]/95 px-6 py-7 xl:flex xl:flex-col">
         <Link href="/" className="flex items-center gap-3">
           <CCNLogo size="lg" priority />
         </Link>
 
-        <nav className="mt-12 space-y-2 text-sm font-semibold" aria-label="Brand workspace navigation">
+        <nav className="mt-12 space-y-2 text-base font-semibold" aria-label="Brand workspace navigation">
           {[
             ["Dashboard", "/dashboard", true, true],
-            ["Campaigns", "/dashboard/campaigns", false, true],
+            ["Business Challenges", "/dashboard/campaigns", false, true],
             ["Wallet", "/dashboard/wallet", false, true],
             ["Payments", "/dashboard/payments", false, true],
           ].map(([label, href, active, operational]) => (
             <Link
               key={String(label)}
               href={String(href)}
-              className={`flex h-12 items-center gap-3 rounded-lg border px-4 ${
+              className={`flex h-[52px] items-center gap-3 rounded-lg border px-4 ${
                 active
                   ? "border-violet-500/50 bg-violet-600/25 text-white shadow-lg shadow-violet-950/20"
                   : operational
@@ -76,35 +78,32 @@ export function BrandDashboard({
                     : "border-transparent text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-300"
               }`}
             >
-              <span className="grid h-6 w-6 place-items-center rounded-md border border-white/15 text-xs">{String(label).slice(0, 1)}</span>
-              {label}
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-white/15 text-xs">{String(label).slice(0, 1)}</span>
+              <span className="truncate">{label}</span>
             </Link>
           ))}
         </nav>
 
         <div className="mt-8 border-t border-white/10 pt-6">
           <p className="px-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Manage</p>
-          <nav className="mt-4 space-y-2 text-sm font-semibold" aria-label="Management navigation">
+          <nav className="mt-4 space-y-2 text-base font-semibold" aria-label="Management navigation">
             <AiTemplatesBetaButton />
-            {[
-              ["Settings", "/dashboard/settings"],
-            ].map(([label, href]) => (
+            {[["Settings", "/dashboard/settings"]].map(([label, href]) => (
               <Link
                 key={label}
                 href={href}
-                className="flex h-11 items-center gap-3 rounded-lg px-4 text-slate-300 transition hover:bg-white/[0.04] hover:text-white"
+                className="flex h-12 items-center gap-3 rounded-lg px-4 text-slate-300 transition hover:bg-white/[0.04] hover:text-white"
               >
-                <span className="grid h-5 w-5 place-items-center rounded border border-white/15 text-[10px]">{label.slice(0, 1)}</span>
+                <span className="grid h-6 w-6 place-items-center rounded border border-white/15 text-[10px]">{label.slice(0, 1)}</span>
                 {label}
               </Link>
             ))}
           </nav>
         </div>
 
-        <div className="mt-auto mb-4 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.06] p-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Arc Testnet</p>
-          <p className="mt-2 text-sm font-semibold text-white">Connected</p>
-          <p className="mt-1 text-xs leading-5 text-slate-400">Circle wallet infrastructure ready for USDC settlement.</p>
+        <div className="mt-auto mb-4 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-cyan-100">Arc Testnet</p>
+          <p className="mt-1 text-sm font-semibold text-white">Connected</p>
         </div>
 
         <BrandAccountMenu
@@ -117,28 +116,28 @@ export function BrandDashboard({
         />
       </aside>
 
-      <section className="min-h-screen px-5 py-6 xl:ml-[268px] xl:px-9">
+      <section className="min-h-screen px-5 py-7 xl:ml-[312px] xl:px-10">
         <header className="flex flex-wrap items-start justify-between gap-5">
           <div>
-            <h1 className="text-3xl font-black tracking-tight md:text-4xl">{greeting}</h1>
-            <p className="mt-3 text-lg text-slate-400">{viewModel.primaryMessage}</p>
+            <h1 className="text-[42px] font-black tracking-tight md:text-[52px]">{greeting}</h1>
+            <p className="mt-4 text-xl text-slate-300">{viewModel.primaryMessage}</p>
           </div>
           <div className="flex items-center gap-4">
             <BrandNotifications notifications={viewModel.notifications} />
-            <Link href={walletChip?.href ?? "/dashboard/wallet"} className="hidden rounded-xl border border-white/10 bg-white/[0.03] px-5 py-3 transition hover:border-blue-300/30 sm:block">
-              <p className="flex items-center gap-2 text-xs text-slate-400">
-                Brand Wallet
+            <Link href={walletChip?.href ?? "/dashboard/wallet"} className="hidden rounded-xl border border-white/10 bg-white/[0.03] px-6 py-4 transition hover:border-blue-300/30 sm:block">
+              <p className="flex items-center gap-2 text-sm text-slate-400">
+                Wallet Balance
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden="true" />
               </p>
-              <p className="mt-1 text-lg font-black">{walletChip?.balanceLabel ?? "Unavailable"}</p>
-              <p className="mt-1 text-xs text-slate-400">Arc Testnet {walletChip?.walletAddressMasked ? `- ${walletChip.walletAddressMasked}` : ""}</p>
+              <p className="mt-1 text-2xl font-black">{walletChip?.balanceLabel ?? "Unavailable"}</p>
+              <p className="mt-1 text-xs text-slate-400">on Arc Testnet {walletChip?.walletAddressMasked ? `- ${walletChip.walletAddressMasked}` : ""}</p>
             </Link>
           </div>
         </header>
 
-        <div className="mt-8 grid gap-5 2xl:grid-cols-[minmax(0,1fr)_350px]">
-          <div className="space-y-5">
-            <NextActionHero viewModel={viewModel} />
+        <div className="mt-8 grid gap-6 2xl:grid-cols-[minmax(0,1fr)_430px]">
+          <div className="space-y-6">
+            <ActiveBusinessChallenge viewModel={viewModel} />
             <Journey steps={viewModel.journeySteps} />
             <CampaignRows rows={viewModel.campaignRows} />
           </div>
@@ -149,93 +148,104 @@ export function BrandDashboard({
   );
 }
 
-function NextActionHero({ viewModel }: { viewModel: BrandDashboardViewModel }) {
+function ActiveBusinessChallenge({ viewModel }: { viewModel: BrandDashboardViewModel }) {
   const campaign = viewModel.primaryCampaign;
   if (!campaign) {
     return (
-      <section className="grid gap-6 rounded-xl border border-white/10 bg-[#0c1020] p-6 shadow-2xl shadow-violet-950/10 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.65fr)]">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-200">First Run</p>
-          <h2 className="mt-4 text-3xl font-black tracking-tight md:text-4xl">Launch your first creative challenge</h2>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300">
-            Define the brief, fund the prize and receive global creative submissions.
-          </p>
-          <Link href="/create-challenge?new=1" prefetch className="mt-6 inline-flex h-12 items-center rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-7 text-sm font-black text-white shadow-lg shadow-violet-950/30">
-            Create your first challenge
-          </Link>
-          <Link href="/#how-it-works" className="ml-3 mt-6 inline-flex h-12 items-center rounded-lg border border-white/10 px-6 text-sm font-black text-white transition hover:bg-white/[0.05]">
-            Explore how CCN works
-          </Link>
-        </div>
-        <CampaignIdentityPanel campaign={null} />
+      <section className="rounded-xl border border-white/10 bg-[#0c1020] p-7 shadow-2xl shadow-violet-950/10">
+        <p className="text-sm font-black uppercase tracking-[0.18em] text-violet-200">Active Business Challenge</p>
+        <h2 className="mt-5 text-3xl font-black tracking-tight md:text-4xl">What business problem are you trying to solve?</h2>
+        <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">Turn a real business challenge into globally sourced, actionable solutions.</p>
+        <Link href="/create-challenge?new=1" prefetch className="mt-6 inline-flex h-12 items-center rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-7 text-sm font-black text-white shadow-lg shadow-violet-950/30">
+          Describe Your Business Problem
+        </Link>
       </section>
     );
   }
-  const primaryIssue = campaign ? heroPrimaryIssue(campaign) : "Campaign details are missing.";
-  const reviewAttention = viewModel.primaryTitle === "New submission received";
+
+  const attentionLabel = campaign.solutionCount > 1
+    ? "Solutions Ready for Evaluation"
+    : campaign.solutionCount === 1
+      ? "New Solution Received"
+      : "Active Business Challenge";
+
   return (
-    <section className="grid gap-6 rounded-xl border border-white/10 bg-[#0c1020] p-6 shadow-2xl shadow-violet-950/10 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.65fr)]">
-      <div>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-200">{reviewAttention ? "New submission received" : "Needs Attention"}</p>
-        <h2 className="mt-4 text-3xl font-black tracking-tight md:text-4xl">
-          {reviewAttention ? campaign.title : "Complete your campaign before publishing."}
-        </h2>
-        <div className="mt-6 rounded-xl border border-amber-300/20 bg-amber-300/10 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">Primary issue</p>
-          <p className="mt-2 text-lg font-black text-white">{primaryIssue}</p>
+    <section className="rounded-xl border border-white/10 bg-[#0c1020] p-7 shadow-2xl shadow-violet-950/10">
+      <div className="flex flex-wrap items-start justify-between gap-5">
+        <div className="min-w-0">
+          <p className="text-sm font-black uppercase tracking-[0.18em] text-violet-200">{attentionLabel}</p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <h2 className="max-w-4xl text-3xl font-black tracking-tight md:text-4xl">{campaign.title}</h2>
+            <span className={`rounded-md border px-3 py-1.5 text-xs font-black uppercase ${statusClass(campaign.statusTone)}`}>{campaign.statusLabel}</span>
+          </div>
         </div>
-        <p className="mt-4 text-sm font-semibold text-slate-300">Estimated time: 2 min.</p>
-        <Link href={viewModel.primaryAction.href} className="mt-6 inline-flex h-12 items-center rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-7 text-sm font-black text-white shadow-lg shadow-violet-950/30">
-          {viewModel.primaryAction.label} -&gt;
-        </Link>
-        <Link href="/create-challenge?new=1" prefetch className="ml-3 mt-6 inline-flex h-12 items-center rounded-lg border border-white/10 px-6 text-sm font-black text-white transition hover:bg-white/[0.05]">
-          + New Challenge
+        <Link href="/create-challenge?new=1" prefetch className="inline-flex h-12 items-center rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-violet-950/30">
+          + New Business Challenge
         </Link>
       </div>
 
-      <CampaignIdentityPanel campaign={campaign} />
+      <div className="mt-7 grid gap-7 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-xl border border-white/10 bg-slate-950/30 p-5">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Business Problem</p>
+          <p className={`mt-3 text-xl font-bold leading-8 ${campaign.hasBusinessProblem ? "text-white" : "text-slate-400"}`}>{campaign.businessProblem}</p>
+          {(campaign.hasGoal || campaign.hasExpectedOutcome) ? (
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {campaign.hasGoal ? <Metric label="Goal" value={campaign.goalLabel} /> : null}
+              {campaign.hasExpectedOutcome ? <Metric label="Expected Outcome" value={campaign.expectedOutcomeLabel} /> : null}
+            </div>
+          ) : null}
+          <Link href={campaign.href} className="mt-5 inline-flex text-base font-bold text-violet-200">
+            View Full Brief -&gt;
+          </Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <MetricCard label="Reward" value={campaign.rewardLabel} detail={campaign.fundingStatusLabel} />
+          <MetricCard label="Deadline" value={campaign.deadlineLabel} />
+          <MetricCard label="Solutions" value={campaign.solutionsLabel} />
+          <MetricCard label="Funding" value={campaign.fundingStatusLabel} />
+        </div>
+      </div>
+
+      {campaign.briefIncomplete ? (
+        <div className="mt-6 rounded-lg border border-amber-300/20 bg-amber-300/10 px-5 py-4">
+          <p className="text-base font-black text-amber-100">Brief incomplete</p>
+          <p className="mt-1 text-base leading-7 text-slate-300">Add problem summary, goal, expected outcome and deadline.</p>
+        </div>
+      ) : null}
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-5">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Required Action</p>
+          <p className="mt-1 text-lg font-semibold text-white">{campaign.requiredActionDescription}</p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Link href={viewModel.primaryAction.href} className="inline-flex h-11 items-center rounded-lg bg-violet-600 px-5 text-sm font-black text-white transition hover:bg-violet-500">
+            {viewModel.primaryAction.label}
+          </Link>
+          <Link href={campaign.href} className="inline-flex h-11 items-center rounded-lg border border-white/10 px-5 text-sm font-black text-white transition hover:bg-white/[0.05]">
+            View Full Brief
+          </Link>
+        </div>
+      </div>
     </section>
   );
 }
 
-function heroPrimaryIssue(campaign: BrandDashboardCampaignRow) {
-  if (campaign.status === "review") return "Open Blind Review to evaluate anonymous submissions.";
-  if (campaign.nextStep.toLowerCase().includes("prize")) return "Prize & Winners is still missing.";
-  return `${campaign.nextStep.replace(/^Next:\s*/i, "")} needs attention.`;
+function Metric({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className={`mt-2 text-lg font-bold leading-7 ${muted ? "text-slate-400" : "text-white"}`}>{value}</p>
+    </div>
+  );
 }
 
-function CampaignIdentityPanel({ campaign }: { campaign: BrandDashboardCampaignRow | null }) {
-  const rows = campaign
-    ? [
-        ["Campaign", campaign.title],
-        ["Status", campaign.statusLabel],
-        ["Current Phase", campaign.lifecycleContext],
-        ["Required Action", campaign.nextStep],
-        ["Last Updated", campaign.updatedLabel],
-      ]
-    : [
-        ["Campaign", "No active campaign"],
-        ["Status", "Not started"],
-        ["Current Phase", "Draft"],
-      ];
-
+function MetricCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-slate-950/45 p-5">
-      <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Campaign Identity</p>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Operational snapshot</p>
-        </div>
-        {campaign ? <span className={`rounded-md border px-2.5 py-1 text-[10px] font-black uppercase ${statusClass(campaign.statusTone)}`}>{campaign.statusLabel}</span> : null}
-      </div>
-      <dl className="divide-y divide-white/10">
-        {rows.map(([label, value]) => (
-          <div key={label} className="grid grid-cols-[120px_1fr] gap-4 py-3">
-            <dt className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</dt>
-            <dd className="min-w-0 truncate text-sm font-semibold text-slate-100">{value}</dd>
-          </div>
-        ))}
-      </dl>
+    <div className="rounded-lg border border-white/10 bg-slate-950/35 p-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-2 text-xl font-black leading-7 text-white">{value}</p>
+      {detail ? <p className="mt-1 text-base font-semibold text-emerald-300">{detail}</p> : null}
     </div>
   );
 }
@@ -243,7 +253,7 @@ function CampaignIdentityPanel({ campaign }: { campaign: BrandDashboardCampaignR
 function Journey({ steps }: { steps: BrandDashboardJourneyStep[] }) {
   return (
     <section className="rounded-xl border border-white/10 bg-white/[0.035] p-6">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">Campaign Journey</p>
+      <p className="text-sm font-black uppercase tracking-[0.18em] text-violet-200">Solution Journey</p>
       <div className="mt-6 grid gap-5 md:grid-cols-6 md:gap-3">
         {steps.map((step, index) => (
           <div key={step.id} className="relative text-center">
@@ -265,12 +275,10 @@ function Journey({ steps }: { steps: BrandDashboardJourneyStep[] }) {
                   ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-100"
                   : "border-white/10 bg-slate-900 text-slate-500"
             }`}>
-              {stepIcon(step)}
+              {stepIcon(step, index)}
             </div>
-            <p className={`mt-3 text-sm font-semibold ${step.status === "future" ? "text-slate-400" : "text-white"}`}>{step.label}</p>
-            <p className={`mt-1 text-xs ${step.status === "current" ? "text-violet-200" : "text-slate-500"}`}>
-              {step.status === "current" ? "Now" : step.status === "complete" ? "Done" : "Next"}
-            </p>
+            <p className={`mt-3 text-base font-bold ${step.status === "future" ? "text-slate-400" : "text-white"}`}>{step.label}</p>
+            <p className={`mt-1 text-base ${step.status === "current" ? "text-violet-200" : "text-slate-500"}`}>{stepCaption(step)}</p>
           </div>
         ))}
       </div>
@@ -282,55 +290,65 @@ function CampaignRows({ rows }: { rows: BrandDashboardCampaignRow[] }) {
   return (
     <section id="campaigns" className="scroll-mt-20 rounded-xl border border-white/10 bg-white/[0.035] p-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">Your Campaigns</h2>
-        <Link href="/dashboard/campaigns" className="text-sm font-semibold text-blue-300">View all campaigns -&gt;</Link>
+        <h2 className="text-sm font-black uppercase tracking-[0.18em] text-violet-200">Your Business Challenges</h2>
+        <Link href="/dashboard/campaigns" className="text-sm font-semibold text-violet-200">View all challenges -&gt;</Link>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {["All", "Draft", "Funding", "Live", "Review", "Completed", "Archived"].map((filter, index) => (
+      <div className="mt-5 flex flex-wrap gap-2">
+        {["All", "Problem Draft", "Funding", "Open for Solutions", "Evaluation", "Selection", "Completed", "Archived"].map((filter, index) => (
           <button
             key={filter}
             type="button"
-            className={`h-9 rounded-lg border px-4 text-xs font-bold ${index === 0 ? "border-violet-400/50 bg-violet-600 text-white" : "border-white/10 bg-slate-950/40 text-slate-300"}`}
+            className={`h-10 rounded-lg border px-4 text-sm font-bold ${index === 0 ? "border-violet-400/50 bg-violet-600 text-white" : "border-white/10 bg-slate-950/40 text-slate-300"}`}
           >
             {filter}
           </button>
         ))}
       </div>
 
-      <div className="mt-4 space-y-3">
-        {rows.length ? rows.map((row) => (
-          <article key={row.draftId} className="grid gap-5 rounded-xl border border-white/10 bg-slate-950/35 p-4 transition hover:border-white/20 md:grid-cols-[minmax(300px,1.35fr)_minmax(180px,0.65fr)_auto] md:items-center">
-            <div className="flex items-center gap-4">
-              <CampaignThumb row={row} />
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="truncate text-lg font-black">{row.title}</h3>
-                  <span className={`rounded-md border px-2 py-1 text-[10px] font-black uppercase ${statusClass(row.statusTone)}`}>{row.statusLabel}</span>
-                </div>
-                <p className="mt-2 text-sm font-semibold leading-5 text-white">{row.nextStep}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">{row.metadataLine}</p>
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{row.progressLabel}</p>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
-                <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-blue-500" style={{ width: `${row.progressPercent ?? 0}%` }} />
-              </div>
-              <p className="mt-2 text-xs text-slate-400">{row.lifecycleContext}</p>
-            </div>
-            <Link href={row.href} className="inline-flex h-10 items-center justify-center rounded-lg border border-violet-400/40 bg-violet-600/20 px-5 text-sm font-black text-white transition hover:bg-violet-600/35">
-              {row.actionLabel}
-            </Link>
-          </article>
-        )) : (
-          <div className="rounded-xl border border-white/10 bg-slate-950/35 p-6">
-            <p className="text-lg font-black">Create your first challenge</p>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Create challenge -&gt; Fund -&gt; Publish -&gt; Review -&gt; Select Winner -&gt; Settle -&gt; Completed.</p>
-            <Link href="/create-challenge?new=1" prefetch className="mt-5 inline-flex h-10 items-center rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-5 text-sm font-black text-white">
-              Create your first challenge
-            </Link>
+      <div className="mt-5 overflow-x-auto">
+        <div className="min-w-[1120px]">
+          <div className="grid grid-cols-[minmax(280px,1.15fr)_minmax(260px,1fr)_150px_140px_150px_160px_52px] gap-4 border-b border-white/10 px-3 pb-3 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+            <span>Challenge</span>
+            <span>Problem</span>
+            <span>Reward</span>
+            <span>Solutions</span>
+            <span>Deadline</span>
+            <span>Status</span>
+            <span />
           </div>
-        )}
+          <div className="divide-y divide-white/10">
+            {rows.length ? rows.map((row) => (
+              <article key={row.draftId} className="grid grid-cols-[minmax(280px,1.15fr)_minmax(260px,1fr)_150px_140px_150px_160px_52px] gap-4 px-4 py-5 text-base transition hover:bg-white/[0.025]">
+                <div className="flex min-w-0 items-center gap-4">
+                  <CampaignThumb row={row} />
+                  <div className="min-w-0">
+                    <h3 className="truncate text-lg font-black text-white">{row.title}</h3>
+                    <p className="mt-1 text-base text-slate-400">{row.updatedLabel}</p>
+                  </div>
+                </div>
+                <p className={`self-center leading-7 ${row.hasBusinessProblem ? "text-slate-200" : "text-slate-400"}`}>{row.businessProblem}</p>
+                <div className="self-center">
+                  <p className="font-bold text-white">{row.rewardLabel}</p>
+                  <p className="mt-1 text-base text-emerald-300">{row.fundingStatusLabel}</p>
+                </div>
+                <p className="self-center text-lg font-bold text-white">{row.solutionsLabel}</p>
+                <p className="self-center text-slate-300">{row.deadlineLabel}</p>
+                <div className="self-center">
+                  <span className={`inline-flex rounded-md border px-2.5 py-1 text-xs font-black ${statusClass(row.statusTone)}`}>{row.currentPhaseLabel}</span>
+                </div>
+                <Link href={row.href} aria-label={`Open ${row.title}`} className="self-center text-center text-xl font-black text-slate-400 transition hover:text-white">...</Link>
+              </article>
+            )) : (
+              <div className="rounded-xl border border-white/10 bg-slate-950/35 p-6">
+                <p className="text-lg font-black">What business problem are you trying to solve?</p>
+                <p className="mt-2 max-w-2xl text-base leading-7 text-slate-300">Business Problem -&gt; Business Challenge -&gt; Solutions -&gt; Evaluation -&gt; Selection -&gt; Settlement.</p>
+                <Link href="/create-challenge?new=1" prefetch className="mt-5 inline-flex h-10 items-center rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-5 text-sm font-black text-white">
+                  Describe Your Business Problem
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -338,26 +356,33 @@ function CampaignRows({ rows }: { rows: BrandDashboardCampaignRow[] }) {
 
 function RightColumn({ viewModel }: { viewModel: BrandDashboardViewModel }) {
   return (
-    <aside className="space-y-5">
+    <aside className="space-y-6">
       <section className="rounded-xl border border-white/10 bg-white/[0.035] p-5">
-        <h2 className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">Wallet Quick Actions</h2>
-        <div className="mt-5 divide-y divide-white/10">
+        <h2 className="text-sm font-black uppercase tracking-[0.18em] text-violet-200">Today&apos;s Priorities</h2>
+        <div className="mt-5 space-y-4">
+          {viewModel.priorities.map((item) => (
+            <Link key={`${item.label}-${item.detail}`} href={item.href} className="block rounded-lg border border-white/10 bg-slate-950/35 p-4 transition hover:border-violet-300/30">
+              <span className="block text-lg font-black text-white">{item.label}</span>
+              <span className="mt-2 block text-base leading-7 text-slate-300">{item.detail}</span>
+              <span className="mt-4 inline-flex text-base font-bold text-violet-200">{item.ctaLabel} -&gt;</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-white/10 bg-white/[0.035] p-5">
+        <h2 className="text-sm font-black uppercase tracking-[0.18em] text-violet-200">Wallet Quick Actions</h2>
+        <div className="mt-4 grid grid-cols-3 gap-2">
           {viewModel.walletQuickActions.map((action) => (
             action.available && action.href ? (
-              <Link key={action.label} href={action.href} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
-                <span>
-                  <span className="block text-sm font-black text-white">{action.label}</span>
-                  <span className="mt-1 block text-sm leading-5 text-slate-300">{action.detail}</span>
-                </span>
-                <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-800 text-lg">+</span>
+              <Link key={action.label} href={action.href} className="rounded-lg border border-white/10 bg-slate-950/35 p-3 text-center transition hover:border-blue-300/30">
+                <span className="block text-base font-black text-white">{action.label}</span>
+                <span className="mt-2 block text-sm text-slate-400">{action.detail}</span>
               </Link>
             ) : (
-              <div key={action.label} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0 opacity-60">
-                <span>
-                  <span className="block text-sm font-black text-white">{action.label}</span>
-                  <span className="mt-1 block text-sm leading-5 text-slate-300">{action.detail}</span>
-                </span>
-                <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-800 text-lg">+</span>
+              <div key={action.label} className="rounded-lg border border-white/10 bg-slate-950/35 p-3 text-center opacity-60">
+                <span className="block text-base font-black text-white">{action.label}</span>
+                <span className="mt-2 block text-sm text-slate-400">{action.detail}</span>
               </div>
             )
           ))}
@@ -366,13 +391,13 @@ function RightColumn({ viewModel }: { viewModel: BrandDashboardViewModel }) {
 
       <section className="rounded-xl border border-white/10 bg-white/[0.035] p-5">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">Recent Activity</h2>
-          <Link href="/dashboard/campaigns" className="text-xs font-bold text-blue-300">View all</Link>
+          <h2 className="text-sm font-black uppercase tracking-[0.18em] text-violet-200">Recent Activity</h2>
+          <Link href="/dashboard/campaigns" className="text-sm font-bold text-violet-200">View all</Link>
         </div>
         <div className="mt-5 space-y-5">
           {viewModel.recentActivity.length ? viewModel.recentActivity.map((item) => (
             <Link key={`${item.label}-${item.detail}`} href={item.href} className="flex gap-3">
-              <span className={`mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-black ${
+              <span className={`mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-black ${
                 item.tone === "green"
                   ? "bg-emerald-500 text-slate-950"
                   : item.tone === "amber"
@@ -382,9 +407,9 @@ function RightColumn({ viewModel }: { viewModel: BrandDashboardViewModel }) {
                       : "bg-blue-500 text-white"
               }`}>{item.label.slice(0, 1)}</span>
               <span>
-                <span className="block text-sm font-semibold text-white">{item.label}</span>
-                <span className="mt-1 block text-sm leading-5 text-slate-300">{item.detail}</span>
-                <span className="mt-1 block text-xs text-slate-400">{item.at}</span>
+                <span className="block text-base font-bold text-white">{item.label}</span>
+                <span className="mt-2 block text-base leading-7 text-slate-300">{item.detail}</span>
+                <span className="mt-1 block text-sm text-slate-400">{item.at}</span>
               </span>
             </Link>
           )) : (
@@ -395,27 +420,26 @@ function RightColumn({ viewModel }: { viewModel: BrandDashboardViewModel }) {
 
       <section className="rounded-xl border border-blue-400/30 bg-gradient-to-br from-[#0b1228] to-[#111833] p-6">
         <div className="flex items-center gap-3">
-          <span className="grid h-9 w-9 place-items-center rounded-full border-2 border-cyan-300 text-cyan-200">A</span>
+          <span className="grid h-10 w-10 place-items-center rounded-full border-2 border-cyan-300 text-cyan-200">A</span>
           <div>
             <h2 className="text-2xl font-black">Arc</h2>
             <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-cyan-200">Programmable Money Hackathon</p>
           </div>
         </div>
         <p className="mt-5 text-lg font-semibold leading-7 text-slate-100">Built on Arc.</p>
-        <p className="mt-2 text-sm leading-6 text-slate-300">Powered by Circle and USDC for hosted wallet approvals, escrow funding and creator settlement.</p>
+        <p className="mt-2 text-base leading-7 text-slate-300">Powered by Circle and USDC for hosted wallet approvals, escrow funding and creator settlement.</p>
         <p className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-emerald-200">Arc Testnet - Connected</p>
         <Link href="/dashboard/about-arc" className="mt-5 inline-flex rounded-lg border border-blue-400/30 px-4 py-3 text-sm font-semibold text-blue-200">
-          Learn about the Arc integration -&gt;
+          Learn about Arc -&gt;
         </Link>
       </section>
     </aside>
   );
 }
 
-function CampaignThumb({ row, size = "normal" }: { row: BrandDashboardCampaignRow; size?: "normal" | "large" }) {
-  const dimensions = size === "large" ? "h-14 w-14" : "h-16 w-24";
+function CampaignThumb({ row }: { row: BrandDashboardCampaignRow }) {
   return (
-    <div className={`${dimensions} shrink-0 overflow-hidden rounded-lg bg-gradient-to-br ${visualClass(row.visualTone)}`} aria-hidden="true">
+    <div className={`h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br ${visualClass(row.visualTone)}`} aria-hidden="true">
       {row.media.imageUrl ? (
         <img src={row.media.imageUrl} alt="" className="h-full w-full object-cover" />
       ) : (
