@@ -104,6 +104,7 @@ export type DeploymentState = {
   errorMessage: string;
   challengeId: string;
   publicationStatus: "draft" | "ready-to-publish" | "live";
+  publishedAt?: string;
 };
 
 export type CreateChallengeDraftState = {

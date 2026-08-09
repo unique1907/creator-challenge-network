@@ -46,7 +46,7 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Creator Challenge Network</p>
         {setupRequired ? (
           <div className="mt-5 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
-            Your account is signed in. Continue setup for the selected workspace before accessing protected tools.
+            Your account is signed in. Finish account setup before opening your dashboard.
           </div>
         ) : null}
         {roleConflict ? (

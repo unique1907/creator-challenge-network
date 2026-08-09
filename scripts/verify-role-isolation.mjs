@@ -48,7 +48,9 @@ assert.ok(brandOnboardingForm.includes("<FormLabel required>"), "Brand onboardin
 assert.ok(!brandNavigation.includes("Switch workspace"), "Brand account menu must not show Switch workspace.");
 assert.ok(!brandNavigation.includes('href="/dashboard/creator"'), "Brand account menu must not link to Creator workspace.");
 assert.ok(brandNavigation.includes("Brand Workspace"), "Brand account menu must include Brand Workspace.");
-assert.ok(brandNavigation.includes("Brand Profile"), "Brand account menu must include Brand Profile.");
+assert.ok(brandNavigation.includes("Profile"), "Brand account menu must include Profile.");
+assert.ok(!brandNavigation.includes('href="/dashboard/wallet"'), "Brand account menu must not duplicate Wallet when Wallet remains in the sidebar.");
+assert.ok(brandNavigation.includes("Settings"), "Brand account menu must include Settings.");
 assert.ok(brandNavigation.includes("Company Settings"), "Brand account menu must include Company Settings.");
 assert.ok(!creatorWorkspace.includes("Brand Workspace"), "Creator workspace header must not expose Brand Workspace switch.");
 assert.ok(creatorWorkspace.includes('href="/" className="flex items-center gap-3"'), "Creator logo must link to the public landing page while staying in the Creator shell.");

@@ -49,7 +49,8 @@ const APPROVAL_TOPIC =
   "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925";
 const CCN_ESCROW_DEPLOYMENT_TX =
   "0xfd01e623896253221bc4724b42fb26d6d041dac41f25b47520d53bbd5c02b4a7";
-const LOG_BLOCK_SPAN = BigInt(9_999);
+const LOG_BLOCK_CHUNK_SIZE = BigInt(500);
+const LOG_CHUNK_RETRY_ATTEMPTS = 2;
 const VERIFICATION_CACHE_TTL_MS = 12_000;
 
 const verificationCache = new Map<string, { expiresAt: number; value: CanonicalFundingVerification }>();
@@ -295,6 +296,10 @@ function isRpcLimitError(error?: RpcResponse<unknown>["error"]) {
   return Boolean(error && (error.code === -32011 || /limit|rate/i.test(error.message)));
 }
 
+function isRecoverableLogRpcError(error: unknown): error is CircleSpikeError {
+  return error instanceof CircleSpikeError && error.safe.code === -32603;
+}
+
 function rpcDelay(attempt: number) {
   const jitter = Math.floor(Math.random() * 125);
   return new Promise((resolve) => setTimeout(resolve, 350 * 2 ** attempt + jitter));
@@ -314,6 +319,27 @@ function safeRpcRefreshError(method: string, attempts: number, code?: number) {
     endpoint: `${ARC_RPC_URL}:${method}`,
     code,
   });
+}
+
+function logRangeVerificationError(from: bigint, to: bigint, code?: string | number) {
+  console.warn("[ccn-funding-rpc]", JSON.stringify({
+    endpoint: ARC_RPC_URL,
+    method: "eth_getLogs",
+    fromBlock: `0x${from.toString(16)}`,
+    toBlock: `0x${to.toString(16)}`,
+    code,
+    message: "Arc event verification is temporarily unavailable.",
+  }));
+  return new CircleSpikeError({
+    message: `Arc event verification is temporarily unavailable for blocks ${from.toString()}-${to.toString()}. No funding transaction was submitted. Retry verification before funding.`,
+    status: 503,
+    endpoint: `${ARC_RPC_URL}:eth_getLogs`,
+    code,
+  });
+}
+
+function logScanDelay(attempt: number) {
+  return new Promise((resolve) => setTimeout(resolve, 250 * attempt));
 }
 
 type RpcCall = { method: string; params: unknown[] };
@@ -431,62 +457,130 @@ async function getDeploymentBlockNumber() {
   return receipt?.blockNumber ? BigInt(receipt.blockNumber) : BigInt(0);
 }
 
-async function getChallengeFundedLogs(escrow: string, challengeId: string, sponsor: string) {
-  const sponsorTopic = `0x${addressWord(sponsor)}`;
+async function getLogsForRange(input: {
+  address: string;
+  topics: string[];
+  fromBlock: bigint;
+  toBlock: bigint;
+}) {
+  for (let attempt = 1; attempt <= LOG_CHUNK_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      return await rpc<ReceiptLog[]>("eth_getLogs", [
+        {
+          address: input.address,
+          fromBlock: `0x${input.fromBlock.toString(16)}`,
+          toBlock: `0x${input.toBlock.toString(16)}`,
+          topics: input.topics,
+        },
+      ]);
+    } catch (error) {
+      if (!isRecoverableLogRpcError(error) || attempt === LOG_CHUNK_RETRY_ATTEMPTS) {
+        if (isRecoverableLogRpcError(error)) {
+          throw logRangeVerificationError(input.fromBlock, input.toBlock, error.safe.code);
+        }
+        throw error;
+      }
+      await logScanDelay(attempt);
+    }
+  }
+  return [];
+}
+
+async function scanDecodedLogs<T>(input: {
+  address: string;
+  topics: string[];
+  decode: (log: ReceiptLog) => T | null;
+  direction?: "forward" | "backward";
+  stopOnFirstMatch?: boolean;
+  exactBlock?: string;
+}) {
+  if (input.exactBlock) {
+    const block = BigInt(input.exactBlock);
+    return (await getLogsForRange({
+      address: input.address,
+      topics: input.topics,
+      fromBlock: block,
+      toBlock: block,
+    })).map(input.decode).filter((log): log is T => Boolean(log));
+  }
+
   const latestHex = await rpc<string>("eth_blockNumber", []);
   const latest = BigInt(latestHex);
   const deploymentBlock = await getDeploymentBlockNumber();
-  const logs: ReceiptLog[] = [];
-  for (let from = deploymentBlock; from <= latest; from += LOG_BLOCK_SPAN + BigInt(1)) {
-    const to = from + LOG_BLOCK_SPAN > latest ? latest : from + LOG_BLOCK_SPAN;
-    const page = await rpc<ReceiptLog[]>("eth_getLogs", [
-      {
-        address: escrow,
-        fromBlock: `0x${from.toString(16)}`,
-        toBlock: `0x${to.toString(16)}`,
-        topics: [CHALLENGE_FUNDED_TOPIC, challengeId, sponsorTopic],
-      },
-    ]);
-    logs.push(...page);
+  const logs: T[] = [];
+  const chunkSpan = LOG_BLOCK_CHUNK_SIZE - BigInt(1);
+
+  if (input.direction === "backward") {
+    for (let to = latest; to >= deploymentBlock;) {
+      const from = to - chunkSpan < deploymentBlock ? deploymentBlock : to - chunkSpan;
+      const page = (await getLogsForRange({
+        address: input.address,
+        topics: input.topics,
+        fromBlock: from,
+        toBlock: to,
+      })).map(input.decode).filter((log): log is T => Boolean(log));
+      logs.push(...page);
+      if (input.stopOnFirstMatch && page.length > 0) break;
+      if (from === deploymentBlock) break;
+      to = from - BigInt(1);
+    }
+    return logs;
   }
-  return logs.map(decodeChallengeFundedLog).filter((log): log is ChallengeFundedLog => Boolean(log));
+
+  for (let from = deploymentBlock; from <= latest;) {
+    const to = from + chunkSpan > latest ? latest : from + chunkSpan;
+    const page = (await getLogsForRange({
+      address: input.address,
+      topics: input.topics,
+      fromBlock: from,
+      toBlock: to,
+    })).map(input.decode).filter((log): log is T => Boolean(log));
+    logs.push(...page);
+    if (input.stopOnFirstMatch && page.length > 0) break;
+    from = to + BigInt(1);
+  }
+  return logs;
+}
+
+async function getChallengeFundedLogs(escrow: string, challengeId: string, sponsor: string, options: { exactBlock?: string } = {}) {
+  const sponsorTopic = `0x${addressWord(sponsor)}`;
+  return scanDecodedLogs({
+    address: escrow,
+    topics: [CHALLENGE_FUNDED_TOPIC, challengeId, sponsorTopic],
+    decode: decodeChallengeFundedLog,
+    stopOnFirstMatch: true,
+    exactBlock: options.exactBlock,
+  });
 }
 async function getApprovalLogs(owner: string, spender: string) {
   const ownerTopic = `0x${addressWord(owner)}`;
   const spenderTopic = `0x${addressWord(spender)}`;
-  const latestHex = await rpc<string>("eth_blockNumber", []);
-  const latest = BigInt(latestHex);
-  const deploymentBlock = await getDeploymentBlockNumber();
-  const logs: ReceiptLog[] = [];
-  for (let from = deploymentBlock; from <= latest; from += LOG_BLOCK_SPAN + BigInt(1)) {
-    const to = from + LOG_BLOCK_SPAN > latest ? latest : from + LOG_BLOCK_SPAN;
-    const page = await rpc<ReceiptLog[]>("eth_getLogs", [
-      {
-        address: ARC_TESTNET_USDC_CONTRACT,
-        fromBlock: `0x${from.toString(16)}`,
-        toBlock: `0x${to.toString(16)}`,
-        topics: [APPROVAL_TOPIC, ownerTopic, spenderTopic],
-      },
-    ]);
-    logs.push(...page);
-  }
-  return logs.map(decodeApprovalLog).filter((log): log is ApprovalLog => Boolean(log));
+  return scanDecodedLogs({
+    address: ARC_TESTNET_USDC_CONTRACT,
+    topics: [APPROVAL_TOPIC, ownerTopic, spenderTopic],
+    decode: decodeApprovalLog,
+    direction: "backward",
+    stopOnFirstMatch: true,
+  });
 }
 async function getTransactionByHash(hash: string) {
   return rpc<Transaction | null>("eth_getTransactionByHash", [hash]);
 }
 
-function receiptContainsChallengeFundedEvent(receipt: Receipt | null, intent: ReturnType<typeof getFundingIntentFromDraft>, sponsor: string) {
+function getChallengeFundedEventFromReceipt(receipt: Receipt | null, intent: ReturnType<typeof getFundingIntentFromDraft>, sponsor: string) {
   const sponsorTopic = `0x${addressWord(sponsor)}`;
-  return Boolean(
-    receipt?.logs?.some(
+  const log = receipt?.logs?.find(
       (log) =>
         log.address.toLowerCase() === intent.escrowContractAddress.toLowerCase() &&
         log.topics[0]?.toLowerCase() === CHALLENGE_FUNDED_TOPIC.toLowerCase() &&
         log.topics[1]?.toLowerCase() === intent.challengeId.toLowerCase() &&
         log.topics[2]?.toLowerCase() === sponsorTopic.toLowerCase(),
-    ),
   );
+  return log ? decodeChallengeFundedLog(log) : null;
+}
+
+function receiptContainsChallengeFundedEvent(receipt: Receipt | null, intent: ReturnType<typeof getFundingIntentFromDraft>, sponsor: string) {
+  return Boolean(getChallengeFundedEventFromReceipt(receipt, intent, sponsor));
 }
 type FundingAccountScope = { ccnAccountId?: string };
 
@@ -639,20 +733,25 @@ async function buildCanonicalFundingVerification(
   };
   let fundingLogs: ChallengeFundedLog[] = [];
   let approvalLogs: ApprovalLog[] = [];
-  try {
-    [fundingLogs, approvalLogs] = await Promise.all([
-      getChallengeFundedLogs(intent.escrowContractAddress, intent.challengeId, walletAddress),
-      getApprovalLogs(walletAddress, intent.escrowContractAddress),
-    ]);
-  } catch (error) {
-    if (!(error instanceof CircleSpikeError) || error.safe.status !== 503) {
-      throw error;
-    }
+  const persistedFundingTx = ((draft.funding.transactionHash as `0x${string}` | "") || null);
+  let fundingTx = persistedFundingTx;
+  let receipt = fundingTx ? await getReceipt(fundingTx) : null;
+  const receiptFundedEvent = getChallengeFundedEventFromReceipt(receipt, intent, walletAddress);
+  if (receiptFundedEvent) {
+    fundingLogs = [receiptFundedEvent];
+  } else if (receipt?.blockNumber) {
+    fundingLogs = await getChallengeFundedLogs(intent.escrowContractAddress, intent.challengeId, walletAddress, { exactBlock: receipt.blockNumber });
+  } else if (escrow.isFunded) {
+    fundingLogs = await getChallengeFundedLogs(intent.escrowContractAddress, intent.challengeId, walletAddress);
+  }
+  const persistedApprovalTx = ((draft.funding.approvalTransactionHash as `0x${string}` | "") || null);
+  if (!persistedApprovalTx && BigInt(allowance) >= BigInt(intent.totalRequired)) {
+    approvalLogs = await getApprovalLogs(walletAddress, intent.escrowContractAddress);
   }
   const challengeFundedEvent = fundingLogs.length === 1 ? fundingLogs[0] : null;
-  const fundingTx = challengeFundedEvent?.transactionHash ?? (draft.funding.transactionHash as `0x${string}` | "" || null);
-  const approvalTx = (draft.funding.approvalTransactionHash as `0x${string}` | "" || null) ?? latestApprovalTx(approvalLogs, intent.totalRequired);
-  const receipt = fundingTx ? await getReceipt(fundingTx) : null;
+  fundingTx = challengeFundedEvent?.transactionHash ?? persistedFundingTx;
+  if (!receipt && fundingTx) receipt = await getReceipt(fundingTx);
+  const approvalTx = persistedApprovalTx ?? latestApprovalTx(approvalLogs, intent.totalRequired);
   const transaction = fundingTx ? await getTransactionByHash(fundingTx) : null;
   const receiptSuccess = receipt?.status === "0x1";
   const txDestinationMatches = Boolean(transaction?.to && transaction.to.toLowerCase() === intent.escrowContractAddress.toLowerCase());
@@ -812,7 +911,7 @@ function assertLaunchReadinessBeforeFinancialAction(
   const readiness = validateCreateChallengeLaunchReadiness(draft, { deadlinePolicy });
   if (readiness.valid) return;
   throw new CircleSpikeError({
-    message: readiness.errors[0] ?? "Complete required campaign details before launch.",
+    message: readiness.errors[0] ?? "Complete required Business Challenge details before launch.",
     status: 400,
     code: readiness.items.find((item) => item.status !== "ready")?.id === "campaign-cover"
       ? "CAMPAIGN_COVER_REQUIRED"
@@ -1775,7 +1874,7 @@ function assertLaunchReadinessBeforePublish(draft: Awaited<ReturnType<typeof get
   const readiness = validateCreateChallengeLaunchReadiness(draft, { deadlinePolicy });
   if (readiness.valid) return;
   throw new CircleSpikeError({
-    message: readiness.errors[0] ?? "Complete required campaign details before publishing.",
+    message: readiness.errors[0] ?? "Complete required Business Challenge details before publishing.",
     status: 400,
     code: readiness.items.find((item) => item.status !== "ready")?.id === "campaign-cover"
       ? "CAMPAIGN_COVER_REQUIRED"
@@ -1787,6 +1886,7 @@ function assertLaunchReadinessBeforePublish(draft: Awaited<ReturnType<typeof get
 export async function verifyAndPublishChallenge(userToken: unknown, draftId?: string, input: FundingAccountScope = {}) {
   // Successful publish responses preserve published: true in every success branch.
   const trusted = await getTrustedPublishEvidence(draftId, input);
+  const publishedAt = new Date().toISOString();
   if (trusted.draft.deployment.publicationStatus === "live" && trusted.record) {
     return publishedResult({ draft: trusted.draft, intent: trusted.intent, record: trusted.record });
   }
@@ -1799,7 +1899,7 @@ export async function verifyAndPublishChallenge(userToken: unknown, draftId?: st
     await assertNoPublishedSlugConflict(publishDraft);
     const updated = await patchCreateChallengeDraft({
       funding: { fundingStatus: "live", escrowStatus: "verified", eventVerified: true } as never,
-      deployment: { status: "success", publicationStatus: "live" } as never,
+      deployment: { status: "success", publicationStatus: "live", publishedAt } as never,
     }, publishDraft.challenge.id, { ccnAccountId: trusted.intent.ccnAccountId });
     return publishedResult({ draft: updated, intent: trusted.intent, record: trusted.record });
   }
@@ -1819,7 +1919,7 @@ export async function verifyAndPublishChallenge(userToken: unknown, draftId?: st
   await assertNoPublishedSlugConflict(publishDraft);
   const updated = await patchCreateChallengeDraft({
     funding: { fundingStatus: "live", escrowStatus: "verified", eventVerified: true } as never,
-    deployment: { status: "success", publicationStatus: "live" } as never,
+    deployment: { status: "success", publicationStatus: "live", publishedAt } as never,
   }, publishDraft.challenge.id, { ccnAccountId: verified.intent.ccnAccountId });
 
   return {

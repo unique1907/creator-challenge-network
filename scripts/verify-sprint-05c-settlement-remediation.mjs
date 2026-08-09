@@ -33,8 +33,8 @@ assertContains(service, "mismatches.push(\"platformFee\")", "readiness must reje
 assertContains(service, "mismatches.push(\"prizeDistribution\")", "readiness must reject distribution mismatches");
 assertContains(service, "mismatches.push(\"winnerCount\")", "readiness must reject winner count mismatches");
 assertContains(service, "mismatches.push(\"sponsor\")", "readiness must reject sponsor wallet mismatches");
-assertContains(service, "mismatches.push(\"submissionDeadline\")", "readiness must reject submission deadline mismatches");
-assertContains(service, "mismatches.push(\"reviewDeadline\")", "readiness must reject review deadline mismatches");
+assertContains(service, "mismatches.push(\"submissionDeadlineMismatch\")", "readiness must reject submission deadline mismatches");
+assertContains(service, "mismatches.push(\"reviewDeadlineMismatch\")", "readiness must reject review deadline mismatches");
 assertContains(service, "mismatches.push(\"contractStatus\")", "readiness must reject non-funded contract status");
 assertContains(service, "assertVerifiedWinnerPayoutWallets", "service must verify winner payout wallets");
 assertContains(service, "getVerifiedCreatorPayoutMapping(winner.creatorAccountId)", "winner wallet check must use the canonical Creator Foundation payout resolver");

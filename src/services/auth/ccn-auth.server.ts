@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { primaryRoleForAccount, resolveOrCreateCcnAccount } from "@/services/creator-foundation/creator-foundation.server";
+import { resolveBrandAccountIdentity } from "@/services/auth/brand-identity.server";
 import { createSupabaseServerClient } from "@/services/supabase/server";
 import type { CcnAccount, CcnPrimaryRole } from "@/types/creator-foundation";
 
@@ -16,6 +17,8 @@ export type AuthenticatedCcnContext = {
   email?: string;
   displayName: string;
   brandName?: string | null;
+  avatarImageKey?: string | null;
+  avatarImageUrl?: string | null;
   brandOnboardingComplete: boolean;
   provider: AuthProvider;
   primaryRole: CcnPrimaryRole | null;
@@ -91,6 +94,7 @@ function contextFromAccount(input: { user: User; account: CcnAccount }): Authent
     });
   }
   const primaryRole = primaryRoleForAccount(input.account);
+  const brandIdentity = resolveBrandAccountIdentity(input.account);
   if (input.account.is_brand && input.account.is_creator) {
     throw new CcnAuthError({
       message: "This account has conflicting Brand and Creator roles and needs support remediation.",
@@ -103,7 +107,9 @@ function contextFromAccount(input: { user: User; account: CcnAccount }): Authent
     ccnAccountId: input.account.account_id,
     email: input.user.email,
     displayName: safeDisplayName(input.account, input.user),
-    brandName: input.account.brand_name?.trim() || null,
+    brandName: brandIdentity.brandName,
+    avatarImageKey: brandIdentity.avatarImageKey,
+    avatarImageUrl: brandIdentity.avatarImageUrl,
     brandOnboardingComplete: brandOnboardingComplete(input.account),
     provider: providerFromUser(input.user),
     primaryRole,
@@ -120,6 +126,8 @@ function demoBrandContext(): AuthenticatedCcnContext {
     email: "demo-brand@example.invalid",
     displayName: "Firat Kaya",
     brandName: "Firat Kaya",
+    avatarImageKey: null,
+    avatarImageUrl: null,
     brandOnboardingComplete: true,
     provider: "development",
     primaryRole: "brand",
@@ -136,6 +144,8 @@ function demoCreatorContext(): AuthenticatedCcnContext {
     email: "demo-creator@example.invalid",
     displayName: "Demo Creator",
     brandName: null,
+    avatarImageKey: null,
+    avatarImageUrl: null,
     brandOnboardingComplete: false,
     provider: "development",
     primaryRole: "creator",

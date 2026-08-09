@@ -14,13 +14,16 @@ function isLoopbackOrigin(origin: string) {
 }
 
 export function getPublicSiteOrigin() {
+  if (typeof window !== "undefined" && window.location.origin) {
+    return normalizeSiteOrigin(window.location.origin);
+  }
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   return normalizeSiteOrigin(configured || DEFAULT_PUBLIC_SITE_URL);
 }
 
 export function getRequestRedirectOrigin(requestUrl: string) {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (configured) return normalizeSiteOrigin(configured);
   const requestOrigin = new URL(requestUrl).origin;
-  return isLoopbackOrigin(requestOrigin) ? DEFAULT_PUBLIC_SITE_URL : requestOrigin;
+  if (isLoopbackOrigin(requestOrigin)) return requestOrigin;
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  return configured ? normalizeSiteOrigin(configured) : requestOrigin;
 }

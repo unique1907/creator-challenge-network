@@ -77,30 +77,30 @@ export function BrandProfileForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-8 rounded-xl border border-white/10 bg-white/[0.035] p-5">
-      <div className="grid gap-5 md:grid-cols-[160px_1fr]">
+    <form onSubmit={onSubmit} className="mt-3 rounded-xl border border-white/10 bg-white/[0.035] p-2.5">
+      <div className="grid gap-2.5 md:grid-cols-[104px_1fr]">
         <div>
-          <div className="grid h-28 w-28 place-items-center overflow-hidden rounded-full border border-white/10 bg-slate-900">
+          <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-full border border-white/10 bg-slate-900">
             {avatarState.imageUrl ? (
               <img src={avatarState.imageUrl} alt="Profile avatar" className="h-full w-full object-cover" />
             ) : (
-              <span className="text-2xl font-black text-slate-300">{displayName.slice(0, 2).toUpperCase() || "CC"}</span>
+              <span className="text-base font-semibold text-slate-300">{displayName.slice(0, 2).toUpperCase() || "CC"}</span>
             )}
           </div>
-          <label className="mt-4 inline-flex h-10 cursor-pointer items-center rounded-lg border border-white/10 px-4 text-sm font-black text-white transition hover:bg-white/[0.05]">
-            <FormLabel optional className="text-sm text-white">Upload avatar</FormLabel>
+          <label className="mt-2 inline-flex h-7 cursor-pointer items-center rounded-md border border-white/10 px-2.5 text-[11px] font-semibold text-white transition hover:bg-white/[0.05]">
+            <FormLabel optional className="text-[11px] text-white">Upload avatar</FormLabel>
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={onAvatar} className="sr-only" />
           </label>
           {avatarState.imageKey ? (
-            <button type="button" onClick={() => setAvatarState({ imageKey: null, imageUrl: null })} className="mt-3 block text-sm font-semibold text-slate-300">
+            <button type="button" onClick={() => setAvatarState({ imageKey: null, imageUrl: null })} className="mt-1.5 block text-[11px] font-semibold text-slate-300">
               Remove avatar
             </button>
           ) : null}
         </div>
-        <div className="grid gap-4">
+        <div className="grid gap-2">
           <label className="block">
             <FormLabel required>Display name</FormLabel>
-            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required aria-required="true" className="mt-2 h-11 w-full rounded-md border border-white/10 bg-slate-950/80 px-3 text-sm text-white outline-none transition focus:border-cyan-200" />
+            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required aria-required="true" className="mt-1 h-8 w-full rounded-md border border-white/10 bg-slate-950/80 px-2.5 text-[12px] text-white outline-none transition focus:border-cyan-200" />
           </label>
           <Info label="Email" value={email} readOnly />
           <Info label="Role" value="Brand" readOnly />
@@ -108,8 +108,8 @@ export function BrandProfileForm({
           <Info label="Brand Wallet" value={`${walletSummary.label} - ${walletSummary.detail}`} readOnly />
         </div>
       </div>
-      {status ? <p className="mt-4 text-sm font-semibold text-cyan-100">{status}</p> : null}
-      <button type="submit" disabled={pending} className="mt-5 inline-flex h-10 items-center rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-5 text-sm font-black text-white disabled:opacity-50">
+      {status ? <p className="mt-2 text-[12px] font-medium text-cyan-100">{status}</p> : null}
+      <button type="submit" disabled={pending} className="mt-2 inline-flex h-7 items-center rounded-md bg-gradient-to-r from-violet-600 to-blue-600 px-2.5 text-[11px] font-semibold text-white disabled:opacity-50">
         Save profile
       </button>
     </form>
@@ -175,40 +175,40 @@ export function BrandCompanyForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-8 rounded-xl border border-white/10 bg-white/[0.035] p-5">
-      <div className="grid gap-5 md:grid-cols-[180px_1fr]">
+    <form onSubmit={onSubmit} className="mt-3 rounded-xl border border-white/10 bg-white/[0.035] p-2.5">
+      <div className="grid gap-2.5 md:grid-cols-[126px_1fr]">
         <div>
-          <div className="grid aspect-[4/1] w-full max-w-xs place-items-center overflow-hidden rounded-xl border border-white/10 bg-slate-900 px-4 py-3">
+          <div className="grid aspect-[4/1] w-full max-w-xs place-items-center overflow-hidden rounded-md border border-white/10 bg-slate-900 px-2 py-1.5">
             {logoState.imageUrl ? (
               <img src={logoState.imageUrl} alt="Brand logo" className="max-h-full max-w-full object-contain" />
             ) : (
-              <span className="text-2xl font-black text-slate-300">{form.brandName.slice(0, 2).toUpperCase() || "BR"}</span>
+              <span className="text-base font-semibold text-slate-300">{form.brandName.slice(0, 2).toUpperCase() || "BR"}</span>
             )}
           </div>
-          <label className="mt-4 inline-flex h-10 cursor-pointer items-center rounded-lg border border-white/10 px-4 text-sm font-black text-white transition hover:bg-white/[0.05]">
-            <FormLabel optional className="text-sm text-white">Upload logo</FormLabel>
+          <label className="mt-2 inline-flex h-7 cursor-pointer items-center rounded-md border border-white/10 px-2.5 text-[11px] font-semibold text-white transition hover:bg-white/[0.05]">
+            <FormLabel optional className="text-[11px] text-white">Upload logo</FormLabel>
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={onLogo} className="sr-only" />
           </label>
           {logoState.imageKey ? (
-            <button type="button" onClick={() => setLogoState({ imageKey: null, imageUrl: null })} className="mt-3 block text-sm font-semibold text-slate-300">
+            <button type="button" onClick={() => setLogoState({ imageKey: null, imageUrl: null })} className="mt-1.5 block text-[11px] font-semibold text-slate-300">
               Remove logo
             </button>
           ) : null}
         </div>
-        <div className="grid gap-4">
+        <div className="grid gap-2">
           <Text label="Company / Brand name" value={form.brandName} onChange={(value) => field("brandName", value)} required />
           <Text label="Website" value={form.websiteUrl} onChange={(value) => field("websiteUrl", value)} placeholder="https://example.com" optional />
           <label className="block">
             <FormLabel optional>Short company description</FormLabel>
-            <textarea value={form.companyDescription} onChange={(event) => field("companyDescription", event.target.value)} rows={4} className="mt-2 w-full rounded-md border border-white/10 bg-slate-950/80 px-3 py-3 text-sm leading-6 text-white outline-none transition focus:border-cyan-200" />
+            <textarea value={form.companyDescription} onChange={(event) => field("companyDescription", event.target.value)} rows={2} className="mt-1 w-full rounded-md border border-white/10 bg-slate-950/80 px-2.5 py-1.5 text-[12px] leading-4 text-white outline-none transition focus:border-cyan-200" />
           </label>
           <Text label="LinkedIn" value={form.linkedinUrl} onChange={(value) => field("linkedinUrl", value)} placeholder="https://linkedin.com/company/..." optional />
           <Text label="Instagram" value={form.instagramUrl} onChange={(value) => field("instagramUrl", value)} placeholder="https://instagram.com/..." optional />
           <Text label="X" value={form.xUrl} onChange={(value) => field("xUrl", value)} placeholder="https://x.com/..." optional />
         </div>
       </div>
-      {status ? <p className="mt-4 text-sm font-semibold text-cyan-100">{status}</p> : null}
-      <button type="submit" disabled={pending} className="mt-5 inline-flex h-10 items-center rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-5 text-sm font-black text-white disabled:opacity-50">
+      {status ? <p className="mt-2 text-[12px] font-medium text-cyan-100">{status}</p> : null}
+      <button type="submit" disabled={pending} className="mt-2 inline-flex h-7 items-center rounded-md bg-gradient-to-r from-violet-600 to-blue-600 px-2.5 text-[11px] font-semibold text-white disabled:opacity-50">
         Save company settings
       </button>
     </form>
@@ -233,18 +233,18 @@ function Text({
   return (
     <label className="block">
       <FormLabel required={required} optional={optional}>{label}</FormLabel>
-      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} required={required} aria-required={required ? "true" : undefined} className="mt-2 h-11 w-full rounded-md border border-white/10 bg-slate-950/80 px-3 text-sm text-white outline-none transition focus:border-cyan-200" />
+      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} required={required} aria-required={required ? "true" : undefined} className="mt-1 h-8 w-full rounded-md border border-white/10 bg-slate-950/80 px-2.5 text-[12px] text-white outline-none transition focus:border-cyan-200" />
     </label>
   );
 }
 
 function Info({ label, value, readOnly = false }: { label: string; value: string; readOnly?: boolean }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-slate-950/35 p-4">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        <FormLabel readOnly={readOnly} className="text-xs text-slate-400">{label}</FormLabel>
+    <div className="rounded-md border border-white/10 bg-slate-950/35 p-1.5">
+      <dt className="text-[9px] font-semibold uppercase tracking-[0.06em] text-slate-400">
+        <FormLabel readOnly={readOnly} className="text-[9px] text-slate-400">{label}</FormLabel>
       </dt>
-      <dd className="mt-2 break-all text-sm font-bold text-white">{value}</dd>
+      <dd className="mt-0.5 break-all text-[11px] font-medium text-white">{value}</dd>
     </div>
   );
 }

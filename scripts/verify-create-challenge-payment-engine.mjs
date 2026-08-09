@@ -72,7 +72,7 @@ assert.ok(draftRoute.includes("draftId is required unless new=1 or list=1"), "dr
 assert.ok(draftRoute.includes("getCreateChallengeDraftForAccount"), "draft GET must use owner-scoped exact draft lookup");
 
 const wizard = read("src/features/create-challenge/components/real-flow/create-challenge-wizard.tsx");
-assert.ok(wizard.includes("Choose Continue Draft or Start New Challenge to begin."), "wizard must not silently create a draft without explicit choice");
+assert.ok(wizard.includes("Choose Continue Problem Draft or New Business Challenge to begin."), "wizard must not silently create a draft without explicit choice");
 assert.ok(!wizard.includes(': "/api/create-challenge/draft?new=1";'), "wizard must not auto-create a draft on missing draftId fallback");
 assert.ok(wizard.includes("const blockingError: SafeError | null = error;"), "backend errors must render regardless of payment state");
 assert.ok(wizard.includes('"RECONCILE"') && wizard.includes('"PUBLISH"'), "reconcile/publish error scopes must be represented");

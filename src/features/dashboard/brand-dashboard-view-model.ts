@@ -1,4 +1,5 @@
 ﻿import type { CreateChallengeDraftSummary } from "@/services/create-challenge/create-challenge-store.server";
+import { classifyChallengeLifecycle } from "@/services/create-challenge/public-challenge-eligibility";
 import { resolveCampaignCover, type CampaignMedia } from "@/services/media/brand-media.server";
 import type { CreateChallengeStepId } from "@/types/create-challenge";
 import { parseChallengeDeadline } from "@/utils/challenge-deadlines";
@@ -9,9 +10,18 @@ export type BrandDashboardLifecycleState =
   | "funding"
   | "ready-to-publish"
   | "review"
+  | "closed-no-submissions"
+  | "closed-not-enough-submissions"
   | "winner-ready"
   | "settlement"
   | "completed";
+
+export type BrandDashboardSimplifiedBucket =
+  | "Drafts"
+  | "Active"
+  | "Needs Action"
+  | "Closed"
+  | "Completed";
 
 export type BrandDashboardAction = {
   label: string;
@@ -33,10 +43,15 @@ export type BrandDashboardCampaignRow = {
   identityToken: string;
   isUnnamedDraft: boolean;
   status: BrandDashboardLifecycleState;
+  bucket: BrandDashboardSimplifiedBucket;
   statusLabel: string;
   statusTone: "blue" | "green" | "amber" | "violet" | "slate";
   updatedLabel: string;
   updatedAt: string;
+  publishedAt: string | null;
+  submissionDeadline: string;
+  reviewDeadline: string;
+  completedAt: string | null;
   metadataLine: string;
   lifecycleContext: string;
   nextStep: string;
@@ -65,6 +80,7 @@ export type BrandDashboardCampaignRow = {
 };
 
 export type BrandDashboardActivity = {
+  key: string;
   label: string;
   detail: string;
   href: string;
@@ -117,6 +133,7 @@ export type BrandDashboardViewModel = {
   campaignHealth: string;
   primaryCampaign: BrandDashboardCampaignRow | null;
   journeySteps: BrandDashboardJourneyStep[];
+  allCampaignRows: BrandDashboardCampaignRow[];
   campaignRows: BrandDashboardCampaignRow[];
   recentActivity: BrandDashboardActivity[];
   notifications: BrandDashboardNotification[];
@@ -146,6 +163,7 @@ const technicalNamePatterns = [
 ];
 
 const unnamedTitlePatterns = [/^untitled\s+(challenge|draft|campaign)$/i, /^new\s+(challenge|draft|campaign)$/i];
+const reservedPlatformBrandNames = new Set(["ccn creator challenge network", "creator challenge network"]);
 
 const setupSteps: Array<{ id: CreateChallengeStepId; label: string }> = [
   { id: "basics", label: "Business problem details" },
@@ -173,6 +191,7 @@ function isMeaningfulTitle(value: string | null | undefined) {
 function isMeaningfulBrandName(value: string | null | undefined) {
   const text = meaningfulText(value);
   if (!text) return false;
+  if (reservedPlatformBrandNames.has(text.toLowerCase())) return false;
   return !/^brand\s+not\s+set$/i.test(text);
 }
 
@@ -247,19 +266,28 @@ function identityTokenForDraft(draft: CreateChallengeDraftSummary) {
 }
 
 export function lifecycleStateFromDraft(draft: CreateChallengeDraftSummary, solutionCount = 0): BrandDashboardLifecycleState {
-  if (draft.winnerFinalizationState === "PAYOUT_CONFIRMED" || draft.payoutConfirmedAt) return "completed";
-  if (
-    draft.winnerFinalizationState === "TRANSACTION_SUBMITTED" ||
-    draft.winnerFinalizationState === "RECONCILIATION_REQUIRED" ||
-    draft.winnerFinalizationState === "ACTION_REQUIRED" ||
-    draft.winnerFinalizationState === "APPROVAL_CREATED_RECONCILIATION_REQUIRED" ||
-    draft.winnerFinalizedAt
-  ) {
-    return "settlement";
-  }
-  if (draft.winnerFinalizationState === "READY_FOR_FINAL_SELECTION") return "winner-ready";
-  if (draft.publicationStatus === "live" && solutionCount > 0) return "review";
-  if (draft.publicationStatus === "live" || draft.publicationStatus === "ready-to-publish") return "ready-to-publish";
+  const classification = classifyChallengeLifecycle({
+    publicationStatus: draft.publicationStatus,
+    fundingStatus: draft.fundingStatus,
+    escrowStatus: draft.escrowStatus,
+    eventVerified: draft.eventVerified,
+    fundingTransactionHash: draft.transactionHash,
+    slug: draft.slug,
+    submissionDeadline: draft.submissionDeadline,
+    submittedCount: solutionCount,
+    winnerFinalizationState: draft.winnerFinalizationState,
+    winnerFinalizedAt: draft.winnerFinalizedAt,
+    payoutConfirmedAt: draft.payoutConfirmedAt,
+  });
+
+  if (classification.lifecycle === "completed") return "completed";
+  if (classification.lifecycle === "settlement") return "settlement";
+  if (classification.lifecycle === "selection") return "winner-ready";
+  if (classification.lifecycle === "review") return "review";
+  if (classification.lifecycle === "closed-no-submissions") return "closed-no-submissions";
+  if (classification.lifecycle === "closed-not-enough-submissions") return "closed-not-enough-submissions";
+  if (classification.lifecycle === "live") return "ready-to-publish";
+  if (draft.publicationStatus === "ready-to-publish") return "ready-to-publish";
   if (draft.fundingStatus === "funded" || draft.fundingStatus === "live" || draft.escrowStatus === "verified") return "ready-to-publish";
   if (
     draft.fundingStatus === "approval-pending" ||
@@ -271,10 +299,23 @@ export function lifecycleStateFromDraft(draft: CreateChallengeDraftSummary, solu
   return "draft";
 }
 
+export function simplifiedBucketFromDraft(
+  draft: CreateChallengeDraftSummary,
+  state: BrandDashboardLifecycleState,
+): BrandDashboardSimplifiedBucket {
+  if (state === "completed") return "Completed";
+  if (state === "closed-no-submissions" || state === "closed-not-enough-submissions") return "Closed";
+  if (state === "review" || state === "winner-ready" || state === "settlement") return "Needs Action";
+  if (draft.publicationStatus === "live" && (draft.fundingStatus === "funded" || draft.fundingStatus === "live")) return "Active";
+  if (state === "funding" || state === "ready-to-publish") return "Needs Action";
+  return "Drafts";
+}
+
 function journeyState(state: BrandDashboardLifecycleState): BrandDashboardJourneyStep["id"] {
   if (state === "empty") return "draft";
   if (state === "ready-to-publish") return "published";
   if (state === "review") return "review";
+  if (state === "closed-no-submissions" || state === "closed-not-enough-submissions") return "review";
   if (state === "winner-ready") return "winner";
   if (state === "completed") return "settlement";
   if (state === "settlement") return "settlement";
@@ -293,6 +334,10 @@ function stateLabel(state: BrandDashboardLifecycleState) {
       return "Open for Solutions";
     case "review":
       return "Evaluation";
+    case "closed-no-submissions":
+      return "Closed - No Submissions";
+    case "closed-not-enough-submissions":
+      return "Closed — Not Enough Submissions";
     case "winner-ready":
       return "Selection";
     case "settlement":
@@ -304,6 +349,7 @@ function stateLabel(state: BrandDashboardLifecycleState) {
 
 function statusTone(state: BrandDashboardLifecycleState): BrandDashboardCampaignRow["statusTone"] {
   if (state === "review" || state === "completed") return "green";
+  if (state === "closed-no-submissions" || state === "closed-not-enough-submissions") return "slate";
   if (state === "funding") return "amber";
   if (state === "winner-ready" || state === "settlement") return "violet";
   if (state === "draft") return "blue";
@@ -322,6 +368,10 @@ function actionForState(state: BrandDashboardLifecycleState, draftId?: string): 
       return { label: "Open Business Challenge", href: draftId ? campaignHref(draftId) : "/dashboard", primary: true };
     case "review":
       return { label: "Evaluate Solutions", href: draftId ? campaignHref(draftId, "review") : "/dashboard", primary: true };
+    case "closed-no-submissions":
+      return { label: "Review Closed Challenge", href: draftId ? campaignHref(draftId) : "/dashboard", primary: true };
+    case "closed-not-enough-submissions":
+      return { label: "View Closed Challenge", href: draftId ? campaignHref(draftId) : "/dashboard", primary: false };
     case "winner-ready":
       return { label: "Select Solution", href: draftId ? campaignHref(draftId, "review") : "/dashboard", primary: true };
     case "settlement":
@@ -343,6 +393,10 @@ function titleForState(state: BrandDashboardLifecycleState) {
       return "Open your business challenge";
     case "review":
       return "Evaluate solutions";
+    case "closed-no-submissions":
+      return "Review closed challenge";
+    case "closed-not-enough-submissions":
+      return "Closed - not enough submissions";
     case "winner-ready":
       return "Select the best solution";
     case "settlement":
@@ -361,7 +415,11 @@ function contextForState(state: BrandDashboardLifecycleState) {
     case "ready-to-publish":
       return "Escrow verified";
     case "review":
-      return "Ready for evaluation";
+      return "Solutions ready for evaluation";
+    case "closed-no-submissions":
+      return "Closed without Solution Proposals";
+    case "closed-not-enough-submissions":
+      return "Closed with too few eligible Solution Proposals";
     case "winner-ready":
       return "Solution selection ready";
     case "settlement":
@@ -382,6 +440,10 @@ function progressForState(state: BrandDashboardLifecycleState) {
     case "ready-to-publish":
       return { label: "Lifecycle", percent: 70 };
     case "review":
+      return { label: "Lifecycle", percent: 80 };
+    case "closed-no-submissions":
+      return { label: "Lifecycle", percent: 80 };
+    case "closed-not-enough-submissions":
       return { label: "Lifecycle", percent: 80 };
     case "winner-ready":
       return { label: "Lifecycle", percent: 88 };
@@ -422,6 +484,10 @@ function requiredActionDescription(state: BrandDashboardLifecycleState) {
       return "Open the funded challenge for solution proposals.";
     case "review":
       return "Review solution proposals and select the strongest approach.";
+    case "closed-no-submissions":
+      return "Submission window closed without receiving Solution Proposals.";
+    case "closed-not-enough-submissions":
+      return "This Business Challenge received fewer eligible Solution Proposals than the configured Winner count.";
     case "winner-ready":
       return "Confirm the selected solution and prepare settlement.";
     case "settlement":
@@ -458,6 +524,7 @@ function campaignRows(drafts: CreateChallengeDraftSummary[], solutionCounts = ne
   return drafts.map((draft, index) => {
     const solutionCount = solutionCounts.get(draft.draftId) ?? 0;
     const status = lifecycleStateFromDraft(draft, solutionCount);
+    const bucket = simplifiedBucketFromDraft(draft, status);
     const action = actionForState(status, draft.draftId);
     const progress = progressForState(status);
     const isUnnamedDraft = !isMeaningfulTitle(draft.title);
@@ -476,10 +543,15 @@ function campaignRows(drafts: CreateChallengeDraftSummary[], solutionCounts = ne
       identityToken: identityTokenForDraft(draft),
       isUnnamedDraft,
       status,
+      bucket,
       statusLabel: stateLabel(status),
       statusTone: statusTone(status),
       updatedLabel: updated,
       updatedAt: draft.updatedAt,
+      publishedAt: draft.publishedAt,
+      submissionDeadline: draft.submissionDeadline,
+      reviewDeadline: draft.reviewDeadline,
+      completedAt: draft.payoutConfirmedAt ?? draft.winnerFinalizedAt,
       metadataLine,
       lifecycleContext: contextForState(status),
       nextStep: isUnnamedDraft && status === "draft" ? `Next: ${nextSetupStep(draft.currentStep)}` : contextForState(status),
@@ -514,52 +586,81 @@ function campaignRows(drafts: CreateChallengeDraftSummary[], solutionCounts = ne
   });
 }
 
-function campaignSortScore(row: BrandDashboardCampaignRow, submissionDraftIds: Set<string>) {
-  if (submissionDraftIds.has(row.draftId)) return 0;
-  if (row.status === "review") return 10;
-  if (row.status === "winner-ready") return 20;
-  if (row.status === "funding") return 30;
-  if (row.status === "ready-to-publish") return 35;
-  if (row.status === "settlement") return 40;
-  if (row.status === "completed") return 50;
-  if (row.status === "draft" && !row.isUnnamedDraft) return 60;
-  if (row.status === "draft") return 90;
-  return 100;
+function isHeroActionable(row: BrandDashboardCampaignRow) {
+  return row.status !== "completed" && row.status !== "closed-no-submissions" && row.status !== "closed-not-enough-submissions";
 }
 
-function submissionRecencyByDraft(items: BrandDashboardSubmissionNotification[]) {
-  const recency = new Map<string, number>();
-  for (const item of items) {
-    const submittedAt = new Date(item.submittedAt).getTime();
-    if (!item.draftId || Number.isNaN(submittedAt)) continue;
-    const current = recency.get(item.draftId) ?? 0;
-    if (submittedAt > current) recency.set(item.draftId, submittedAt);
+function timestamp(value?: string | null) {
+  if (!value) return Number.NaN;
+  const parsed = parseChallengeDeadline(value);
+  const date = parsed ? new Date(parsed.iso) : new Date(value);
+  const time = date.getTime();
+  return Number.isFinite(time) ? time : Number.NaN;
+}
+
+function compareAscNullLast(left: number, right: number) {
+  const leftValid = Number.isFinite(left);
+  const rightValid = Number.isFinite(right);
+  if (leftValid && rightValid && left !== right) return left - right;
+  if (leftValid !== rightValid) return leftValid ? -1 : 1;
+  return 0;
+}
+
+function compareDescNullLast(left: number, right: number) {
+  const leftValid = Number.isFinite(left);
+  const rightValid = Number.isFinite(right);
+  if (leftValid && rightValid && left !== right) return right - left;
+  if (leftValid !== rightValid) return leftValid ? -1 : 1;
+  return 0;
+}
+
+function brandBucketPriority(bucket: BrandDashboardSimplifiedBucket) {
+  if (bucket === "Needs Action") return 0;
+  if (bucket === "Active") return 1;
+  if (bucket === "Drafts") return 2;
+  if (bucket === "Closed") return 3;
+  return 4;
+}
+
+function compareRowsWithinBucket(left: BrandDashboardCampaignRow, right: BrandDashboardCampaignRow) {
+  if (left.bucket === "Active" && right.bucket === "Active") {
+    const byDeadline = compareAscNullLast(timestamp(left.submissionDeadline), timestamp(right.submissionDeadline));
+    if (byDeadline) return byDeadline;
+  } else if (left.bucket === "Needs Action" && right.bucket === "Needs Action") {
+    const byStatus =
+      left.status === "review" && right.status !== "review"
+        ? -1
+        : right.status === "review" && left.status !== "review"
+          ? 1
+          : 0;
+    if (left.status === "review" && right.status === "review") {
+      const byReviewDeadline = compareAscNullLast(timestamp(left.reviewDeadline), timestamp(right.reviewDeadline));
+      if (byReviewDeadline) return byReviewDeadline;
+    }
+    if (byStatus) return byStatus;
+  } else if (left.bucket === "Drafts" && right.bucket === "Drafts") {
+    const byUpdated = compareDescNullLast(timestamp(left.updatedAt), timestamp(right.updatedAt));
+    if (byUpdated) return byUpdated;
+  } else if (left.bucket === "Completed" && right.bucket === "Completed") {
+    const byCompleted = compareDescNullLast(timestamp(left.completedAt), timestamp(right.completedAt));
+    if (byCompleted) return byCompleted;
   }
-  return recency;
+
+  const byUpdated = compareDescNullLast(timestamp(left.updatedAt), timestamp(right.updatedAt));
+  if (byUpdated) return byUpdated;
+  if (left.isUnnamedDraft !== right.isUnnamedDraft) return left.isUnnamedDraft ? 1 : -1;
+  return left.title.localeCompare(right.title);
 }
 
-function compareRowsByPriority(submissionDraftIds: Set<string>, submissionRecency: Map<string, number>) {
-  return (left: BrandDashboardCampaignRow, right: BrandDashboardCampaignRow) => {
-    const leftScore = campaignSortScore(left, submissionDraftIds);
-    const rightScore = campaignSortScore(right, submissionDraftIds);
-    if (leftScore !== rightScore) return leftScore - rightScore;
-    const leftSubmissionAt = submissionRecency.get(left.draftId) ?? 0;
-    const rightSubmissionAt = submissionRecency.get(right.draftId) ?? 0;
-    if (leftSubmissionAt !== rightSubmissionAt) {
-      return rightSubmissionAt - leftSubmissionAt;
-    }
-    const leftUpdated = new Date(left.updatedAt).getTime();
-    const rightUpdated = new Date(right.updatedAt).getTime();
-    if (!Number.isNaN(leftUpdated) && !Number.isNaN(rightUpdated) && rightUpdated !== leftUpdated) {
-      return rightUpdated - leftUpdated;
-    }
-    if (left.isUnnamedDraft !== right.isUnnamedDraft) return left.isUnnamedDraft ? 1 : -1;
-    return left.title.localeCompare(right.title);
-  };
+export function compareBrandDashboardRows(left: BrandDashboardCampaignRow, right: BrandDashboardCampaignRow) {
+  const leftPriority = brandBucketPriority(left.bucket);
+  const rightPriority = brandBucketPriority(right.bucket);
+  if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+  return compareRowsWithinBucket(left, right);
 }
 
-function firstByPriority(rows: BrandDashboardCampaignRow[], submissionDraftIds: Set<string>, submissionRecency: Map<string, number>) {
-  return [...rows].sort(compareRowsByPriority(submissionDraftIds, submissionRecency))[0] ?? null;
+function firstByPriority(rows: BrandDashboardCampaignRow[]) {
+  return [...rows].filter(isHeroActionable).sort(compareBrandDashboardRows)[0] ?? null;
 }
 
 function journeySteps(state: BrandDashboardLifecycleState): BrandDashboardJourneyStep[] {
@@ -581,13 +682,14 @@ function journeySteps(state: BrandDashboardLifecycleState): BrandDashboardJourne
 }
 
 function activityForRows(rows: BrandDashboardCampaignRow[]): BrandDashboardActivity[] {
-  const solutionRows = rows.filter((row) => row.solutionCount > 0);
+  const solutionRows = rows.filter((row) => row.status === "review" && row.solutionCount > 0);
   const solutionTotal = solutionRows.reduce((total, row) => total + row.solutionCount, 0);
   const activities: BrandDashboardActivity[] = [];
 
   if (solutionTotal > 0) {
     const latest = [...solutionRows].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
     activities.push({
+      key: `solutions:${solutionRows.map((row) => row.draftId).sort().join(",")}`,
       label: pluralize(solutionTotal, "new solution"),
       detail: `Across ${pluralize(solutionRows.length, "business challenge")}`,
       href: latest?.href ?? "/dashboard/campaigns?filter=open-for-solutions",
@@ -600,8 +702,9 @@ function activityForRows(rows: BrandDashboardCampaignRow[]): BrandDashboardActiv
   for (const row of rows) {
     if (activities.length >= 3) break;
     if (row.solutionCount > 0) continue;
-    if (!["funding", "ready-to-publish", "winner-ready", "settlement", "completed", "draft"].includes(row.status)) continue;
+    if (!["funding", "ready-to-publish", "closed-no-submissions", "closed-not-enough-submissions", "winner-ready", "settlement", "completed", "draft"].includes(row.status)) continue;
     activities.push({
+      key: `draft:${row.draftId}:${row.status}`,
       label: row.status === "completed" ? "Settlement completed" : row.requiredActionLabel,
       detail: row.title,
       href: row.href,
@@ -623,6 +726,9 @@ function notificationForRow(row: BrandDashboardCampaignRow): BrandDashboardNotif
   }
   if (row.status === "review") {
     return { id: `review:${row.draftId}:submissions`, title: "Solutions awaiting evaluation", campaignName: row.title, statusLabel: "Needs action", href: campaignHref(row.draftId, "review"), tone: row.statusTone };
+  }
+  if (row.status === "closed-no-submissions" || row.status === "closed-not-enough-submissions") {
+    return { id: `closed:${row.draftId}:not-actionable`, title: row.statusLabel, campaignName: row.title, statusLabel: "Recent", href: row.href, tone: row.statusTone };
   }
   if (row.status === "winner-ready") {
     return { id: `winner:${row.draftId}:ready`, title: "Selected solution ready", campaignName: row.title, statusLabel: "Needs action", href: campaignHref(row.draftId, "review"), tone: row.statusTone };
@@ -719,8 +825,13 @@ function prioritiesForRows(rows: BrandDashboardCampaignRow[]): BrandDashboardPri
 }
 
 function notificationsForRows(rows: BrandDashboardCampaignRow[], submissions: BrandDashboardSubmissionNotification[]) {
+  const actionableSubmissionDraftIds = new Set(
+    rows
+      .filter((row) => row.status === "review")
+      .map((row) => row.draftId),
+  );
   return [
-    ...submissionNotifications(submissions),
+    ...submissionNotifications(submissions.filter((item) => actionableSubmissionDraftIds.has(item.draftId))),
     ...rows
     .map(notificationForRow)
     .filter((item): item is BrandDashboardNotification => Boolean(item)),
@@ -733,38 +844,39 @@ export function buildBrandDashboardViewModel(
   identity: BrandDashboardBuildOptions = {},
 ): BrandDashboardViewModel {
   const submissions = identity.submissionNotifications ?? [];
-  const submissionDraftIds = new Set(submissions.map((item) => item.draftId));
-  const submissionRecency = submissionRecencyByDraft(submissions);
-  const sortedRows = campaignRows(drafts, solutionCountsByDraft(submissions)).sort(compareRowsByPriority(submissionDraftIds, submissionRecency));
+  const sourceRows = campaignRows(drafts, solutionCountsByDraft(submissions));
+  const sortedRows = [...sourceRows].sort(compareBrandDashboardRows);
+  const dashboardSummaryRows = [...sourceRows].sort(compareBrandDashboardRows);
   const rows = typeof identity.campaignLimit === "number"
-    ? sortedRows.slice(0, identity.campaignLimit)
+    ? dashboardSummaryRows.slice(0, identity.campaignLimit)
     : identity.campaignLimit === null
       ? sortedRows
-      : sortedRows.slice(0, 6);
-  const focus = firstByPriority(sortedRows, submissionDraftIds, submissionRecency);
+      : dashboardSummaryRows.slice(0, 6);
+  const focus = firstByPriority(sortedRows);
   const primaryState = focus?.status ?? "empty";
   const primaryAction = actionForState(primaryState, focus?.draftId);
   const brandDisplayName = isMeaningfulBrandName(identity.brandDisplayName)
     ? identity.brandDisplayName?.trim() ?? null
-    : rows.find((row) => isMeaningfulBrandName(row.brandName))?.brandName.trim() ?? null;
+    : null;
 
   return {
     workspace: "Brand Workspace",
     brandDisplayName,
     primaryAction,
     primaryMessage: "Turn your next business problem into a globally sourced solution.",
-    primaryTitle: submissionDraftIds.has(focus?.draftId ?? "") ? "New solution received" : titleForState(primaryState),
-    campaignHealth: focus ? contextForState(primaryState) : "No campaigns yet",
+    primaryTitle: focus?.solutionCount ? "New solution received" : titleForState(primaryState),
+    campaignHealth: focus ? contextForState(primaryState) : "No business challenges yet",
     primaryCampaign: focus,
     journeySteps: journeySteps(primaryState),
+    allCampaignRows: sortedRows,
     campaignRows: rows,
     recentActivity: activityForRows(rows),
     notifications: notificationsForRows(rows, submissions),
     priorities: prioritiesForRows(sortedRows),
     walletQuickActions: [
       addFundsAction(sortedRows),
-      { label: "Transactions", detail: "Payment evidence", available: true, href: "/dashboard/payments" },
-      { label: "Payment Account", detail: "Brand wallet", available: true, href: "/dashboard/wallet" },
+      { label: "Payments", detail: "Funding and settlement", available: true, href: "/dashboard/payments" },
+      { label: "Wallet", detail: "Testnet balance", available: true, href: "/dashboard/wallet" },
     ],
     sponsorVisible: true,
   };
@@ -774,7 +886,7 @@ function addFundsAction(rows: BrandDashboardCampaignRow[]): BrandDashboardWallet
   const fundable = rows.filter((row) => row.status === "funding");
   if (fundable.length === 1) {
     return {
-      label: "Add funds",
+      label: "Fund",
       detail: fundable[0]?.title ?? "Business challenge",
       available: true,
       href: campaignHref(fundable[0]!.draftId, "funding"),
@@ -782,14 +894,14 @@ function addFundsAction(rows: BrandDashboardCampaignRow[]): BrandDashboardWallet
   }
   if (fundable.length > 1) {
     return {
-      label: "Add funds",
+      label: "Fund",
       detail: "Choose a challenge",
       available: true,
       href: "/dashboard/campaigns?filter=funding",
     };
   }
   return {
-    label: "Add funds",
+    label: "Fund",
     detail: "No funding needed",
     available: false,
   };

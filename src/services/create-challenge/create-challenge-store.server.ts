@@ -255,6 +255,7 @@ export type CreateChallengeDraftSummary = {
   challengeId: string;
   fundingIntentId: string;
   title: string;
+  slug: string;
   brandName: string;
   currentStep: CreateChallengeStepId;
   category: string;
@@ -265,11 +266,14 @@ export type CreateChallengeDraftSummary = {
   fundingStatus: CreateChallengeDraftState["funding"]["fundingStatus"];
   escrowStatus: CreateChallengeDraftState["funding"]["escrowStatus"];
   eventVerified: boolean;
+  transactionHash: string;
   winnerCount: 1 | 3;
   submissionDeadline: string;
+  reviewDeadline: string;
   winnerFinalizationState: WinnerFinalizationState | null;
   winnerFinalizedAt: string | null;
   payoutConfirmedAt: string | null;
+  publishedAt: string | null;
   updatedAt: string;
 };
 
@@ -927,7 +931,7 @@ async function readSupabaseStore(): Promise<Store> {
     winnerAttempts,
     verifications,
   ] = await Promise.all([
-    supabase.from("ccn_challenge_drafts").select("draft_id,draft_state"),
+    supabase.from("ccn_challenge_drafts").select("draft_id,updated_at,draft_state"),
     supabase.from("ccn_challenge_funding_records").select("record_key,record_state"),
     supabase.from("ccn_wallet_approval_attempts").select("scope_key,attempt_state"),
     supabase.from("ccn_funding_attempts").select("scope_key,attempt_state"),
@@ -941,7 +945,17 @@ async function readSupabaseStore(): Promise<Store> {
 
   const store: Store = emptyStore();
   for (const row of drafts.data ?? []) {
-    store.drafts![row.draft_id] = row.draft_state as CreateChallengeDraftState;
+    const draft = row.draft_state as CreateChallengeDraftState;
+    store.drafts![row.draft_id] =
+      draft.deployment?.publicationStatus === "live" && !draft.deployment.publishedAt && row.updated_at
+        ? {
+            ...draft,
+            deployment: {
+              ...draft.deployment,
+              publishedAt: row.updated_at as string,
+            },
+          }
+        : draft;
   }
   for (const row of fundingRecords.data ?? []) {
     store.fundingRecords![row.record_key] = row.record_state as FundingRecordScope;
@@ -1161,6 +1175,7 @@ export async function listCreateChallengeDrafts(input: { ccnAccountId?: string }
         challengeId,
         fundingIntentId,
         title: normalized.challenge.title || "Untitled challenge",
+        slug: normalized.challenge.slug ?? "",
         brandName: normalized.challenge.brandName || "Brand not set",
         currentStep: normalized.deployment.currentStep,
         category: normalized.challenge.category || "Creative",
@@ -1171,11 +1186,14 @@ export async function listCreateChallengeDrafts(input: { ccnAccountId?: string }
         fundingStatus: normalized.funding.fundingStatus,
         escrowStatus: normalized.funding.escrowStatus,
         eventVerified: normalized.funding.eventVerified ?? false,
+        transactionHash: normalized.funding.transactionHash,
         winnerCount: normalized.prizePool.winnerCount,
         submissionDeadline: normalized.reviewRules.submissionDeadline,
+        reviewDeadline: normalized.reviewRules.reviewDeadline,
         winnerFinalizationState: winnerAttempt?.state ?? null,
         winnerFinalizedAt: winnerAttempt?.finalizedAt ?? null,
         payoutConfirmedAt: winnerAttempt?.payoutConfirmedAt ?? null,
+        publishedAt: normalized.deployment.publishedAt ?? null,
         updatedAt: normalized.updatedAt ?? "",
       } satisfies CreateChallengeDraftSummary;
     })

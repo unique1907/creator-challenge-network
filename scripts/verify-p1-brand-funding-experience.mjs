@@ -67,11 +67,13 @@ for (const label of [
   "Network fee handling",
   "Network",
 ]) {
-  requireText(`label="${label}"`, `Financial summary must keep ${label} visible.`);
+  requireText(`label="${label}"`, `Funding details must keep ${label} available.`);
 }
 
 requireText("max-w-[760px]", "Funding content must use the approved compact content width.");
 requireText("aria-live=\"polite\"", "Status card must expose semantic changing status.");
+requireText("<summary className=\"cursor-pointer font-bold text-white\">Funding details</summary>", "Funding summary details must use the existing summary disclosure pattern.");
+requireText("<div className=\"mt-4 grid gap-4 sm:grid-cols-2\">", "Funding details must reveal the existing responsive summary grid when expanded.");
 requireText("open={brandPresentation.autoExpandTechnicalDetails || undefined}", "Technical details must auto-expand only when presentation says so.");
 requireText("<summary className=\"cursor-pointer font-bold text-white\">Technical details</summary>", "Technical details accordion must exist.");
 requireText("<PaymentProgressPanel steps={steps} prominent={launchPipelineActive} />", "Full internal progress must remain accessible inside details.");

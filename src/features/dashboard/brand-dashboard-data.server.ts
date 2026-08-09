@@ -17,7 +17,7 @@ export async function getBrandDashboardSubmissionNotifications(
   return entriesByDraft.flatMap(({ draft, entries }) =>
     entries.map((entry) => ({
       draftId: draft.draftId,
-      campaignName: draft.title || "Untitled campaign",
+      campaignName: draft.title || "Untitled business challenge",
       anonymousEntryCode: entry.anonymousEntryCode,
       creatorDisplayName: entry.creatorDisplayName,
       submittedAt: entry.submittedAt,

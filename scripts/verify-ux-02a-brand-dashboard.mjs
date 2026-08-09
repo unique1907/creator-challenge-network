@@ -13,66 +13,67 @@ function includes(path, expected, message) {
   assert(source.includes(expected), `${message}: missing ${expected}`);
 }
 
+function excludes(path, rejected, message) {
+  const source = read(path);
+  assert(!source.includes(rejected), `${message}: found ${rejected}`);
+}
+
 const dashboardPath = "src/features/dashboard/components/brand-dashboard.tsx";
 const viewModelPath = "src/features/dashboard/brand-dashboard-view-model.ts";
 const pagePath = "src/app/dashboard/page.tsx";
 const packagePath = "package.json";
 
-const dashboard = read(dashboardPath);
 const page = read(pagePath);
 
 includes(viewModelPath, "export type BrandDashboardViewModel", "Dashboard view-model contract must exist");
 includes(viewModelPath, "workspace", "ViewModel must expose workspace");
 includes(viewModelPath, "primaryAction", "ViewModel must expose primaryAction");
 includes(viewModelPath, "primaryMessage", "ViewModel must expose primaryMessage");
-includes(viewModelPath, "primaryTitle", "ViewModel must expose primaryTitle");
-includes(viewModelPath, "campaignHealth", "ViewModel must expose campaignHealth");
 includes(viewModelPath, "primaryCampaign", "ViewModel must expose primaryCampaign");
-includes(viewModelPath, "journeySteps", "ViewModel must expose journeySteps");
-includes(viewModelPath, "campaignRows", "ViewModel must expose campaignRows");
-includes(viewModelPath, "recentActivity", "ViewModel must expose recentActivity");
-includes(viewModelPath, "notifications", "ViewModel must expose actionable notifications");
-includes(viewModelPath, "walletQuickActions", "ViewModel must expose walletQuickActions");
-includes(viewModelPath, "sponsorVisible", "ViewModel must expose sponsorVisible");
+includes(viewModelPath, "journeySteps", "ViewModel must expose journeySteps for workspace consistency");
+includes(viewModelPath, "campaignRows", "ViewModel must expose challenge rows");
+includes(viewModelPath, "recentActivity", "ViewModel must expose recent activity");
+includes(viewModelPath, "notifications", "ViewModel must expose actionable notifications for shared menu surfaces");
+includes(viewModelPath, "walletQuickActions", "ViewModel must expose wallet quick actions");
 
 [
-  "Create your first challenge",
-  "Continue Draft",
+  "Describe Your Business Problem",
+  "Continue Problem Draft",
   "Complete Funding",
-  "Publish Campaign",
-  "Open Blind Review",
-  "Select Winner",
+  "Open Business Challenge",
+  "Evaluate Solutions",
+  "Select Solution",
   "Complete Payout",
-  "View Report",
-].forEach((label) => includes(viewModelPath, label, `Lifecycle priority must include ${label}`));
+  "View Outcome Report",
+].forEach((label) => includes(viewModelPath, label, `Lifecycle action must include ${label}`));
 
 includes(pagePath, "buildBrandDashboardViewModel(drafts", "Server page must build the dashboard ViewModel");
 includes(pagePath, "viewModel={viewModel}", "BrandDashboard must receive the server-derived ViewModel");
 assert(!page.includes("fundChallenge"), "Dashboard page must not invoke funding behavior");
 assert(!page.includes("createWinnerPayoutApproval"), "Dashboard page must not invoke settlement behavior");
 
-includes(dashboardPath, "resolveBrandDashboardGreetingName", "Greeting must use sanitized brand/display fallback");
+includes(dashboardPath, "TopBar", "Dashboard must use a compact top bar");
+includes(dashboardPath, "Brand Workspace", "Dashboard must be work-oriented");
 includes(dashboardPath, "Welcome back.", "Greeting must support neutral fallback");
-includes(dashboardPath, "Needs Attention", "Hero must render the operational decision headline");
-includes(dashboardPath, "Complete your campaign before publishing.", "Hero must explain the required next decision");
-includes(dashboardPath, "New submission received", "Hero must support new-submission operational priority");
-includes(dashboardPath, "Primary issue", "Hero must focus the current blocker");
-includes(dashboardPath, "Estimated time: 2 min.", "Hero must include concise supporting effort information");
-includes(dashboardPath, "viewModel.primaryAction.label", "Hero primary CTA must use the current lifecycle action label");
-includes(dashboardPath, "Campaign Identity", "Hero must include a structured campaign identity panel");
-includes(dashboardPath, "viewModel.primaryAction.href", "Primary CTA must come from ViewModel");
-includes(dashboardPath, "viewModel.journeySteps", "Campaign journey must come from ViewModel");
-includes(dashboardPath, "viewModel.campaignRows", "Campaign rows must come from ViewModel");
-includes(dashboardPath, "viewModel.recentActivity", "Recent activity must come from ViewModel");
-includes(dashboardPath, "viewModel.walletQuickActions", "Wallet quick actions must come from ViewModel");
-includes(dashboardPath, "viewModel.notifications", "Notifications must come from ViewModel");
-includes(dashboardPath, "Create challenge -&gt; Fund -&gt; Publish -&gt; Review -&gt; Select Winner -&gt; Settle -&gt; Completed.", "Empty state must explain lifecycle");
-includes(dashboardPath, "Arc", "Dashboard must present Arc as ecosystem context");
-assert(!dashboard.includes("Good afternoon, Firat"), "Hardcoded greeting must be removed");
-assert(!dashboard.includes("unique120884"), "Technical generated usernames must not be displayed");
-assert(!dashboard.includes("status === \"live\" ? 42"), "Placeholder live submission count must be removed");
-assert(!dashboard.includes("status === \"review\" ? 156"), "Placeholder review submission count must be removed");
-assert(!dashboard.includes("index === 0 ? \"2m ago\""), "Presentation-only activity timestamps must be removed");
+includes(dashboardPath, "priorities.length ? <Priorities", "Dashboard must hide priorities when no real data exists");
+includes(dashboardPath, "BusinessChallenges", "Dashboard must render the dense challenge work queue");
+includes(dashboardPath, "RightRail", "Dashboard must render the compact right rail");
+includes(dashboardPath, "RailCard title=\"Wallet\"", "Dashboard must include small wallet rail card");
+includes(dashboardPath, "RailCard title=\"Payments\"", "Dashboard must include small payments rail card");
+includes(dashboardPath, "RailCard title=\"Recent activity\"", "Dashboard must include small activity rail card");
+includes(dashboardPath, "rows.slice(0, 8)", "Dashboard must target 6-8 visible rows");
+includes(dashboardPath, "winnerLabel(row.rewardLabel)", "Dashboard must show compact Top1/Top3");
+includes(dashboardPath, "viewModel.walletQuickActions", "Payments rail must use ViewModel quick actions");
+includes(dashboardPath, "Arc Testnet", "Dashboard must present Arc Testnet context");
+excludes(dashboardPath, "ActiveBusinessChallenge", "Rejected giant active challenge summary must not remain");
+excludes(dashboardPath, "Solution Journey", "Rejected challenge-detail lifecycle card must not remain");
+excludes(dashboardPath, "Good afternoon, Firat", "Hardcoded greeting must be removed");
+excludes(dashboardPath, "unique120884", "Technical generated usernames must not be displayed");
+excludes(dashboardPath, "status === \"live\" ? 42", "Placeholder live submission count must be removed");
+excludes(dashboardPath, "status === \"review\" ? 156", "Placeholder review submission count must be removed");
+excludes(dashboardPath, "index === 0 ? \"2m ago\"", "Presentation-only activity timestamps must be removed");
+excludes(dashboardPath, "Select Winner", "Brand dashboard must use selected solution language");
+excludes(dashboardPath, "Publish Campaign", "Brand dashboard must use Business Challenge language");
 
 includes(packagePath, "\"test:ux-02a-brand-dashboard\"", "Package script must expose focused UX-02A verification");
 

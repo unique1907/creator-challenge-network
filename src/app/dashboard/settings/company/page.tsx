@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getBrandAccountControlData } from "@/features/dashboard/brand-account-controls.server";
 import { BrandCompanyForm } from "@/features/dashboard/components/brand-identity-forms";
-import { buildBrandDashboardViewModel } from "@/features/dashboard/brand-dashboard-view-model";
+import { BrandAccountControls } from "@/features/dashboard/components/brand-workspace-navigation";
+import { normalizeBrandCompanyName } from "@/services/auth/brand-identity.server";
 import { getAuthenticatedCcnContext } from "@/services/auth/ccn-auth.server";
-import { listCreateChallengeDrafts } from "@/services/create-challenge/create-challenge-store.server";
 import { createSupabaseAdminClient } from "@/services/supabase/admin.server";
 import { resolveAccountImageUrl } from "@/services/media/brand-media.server";
 
@@ -18,16 +19,21 @@ export default async function CompanySettingsPage() {
   if (!context) redirect("/auth/sign-in");
   if (!context.brandAccess) redirect("/dashboard/creator");
 
-  const drafts = await listCreateChallengeDrafts({ ccnAccountId: context.ccnAccountId });
   const account = await getCompanySnapshot(context.authUserId);
-  const brandName = account?.brand_name ?? context.brandName ?? buildBrandDashboardViewModel(drafts).brandDisplayName ?? "Brand name not set";
+  const brandName = normalizeBrandCompanyName(account?.brand_name) ?? context.brandName ?? "";
+  const accountControls = await getBrandAccountControlData(context);
 
   return (
-    <main className="min-h-screen bg-[#030711] px-5 py-6 text-white xl:px-9">
+    <main className="min-h-screen bg-[#030711] px-3 py-3 text-white xl:px-5">
       <div className="mx-auto max-w-3xl">
-        <Link href="/dashboard" className="text-sm font-semibold text-blue-300">Back to dashboard</Link>
-        <h1 className="mt-4 text-3xl font-black tracking-tight">Company settings</h1>
-        <p className="mt-2 text-slate-400">Organization identity used for workspace context and creator-facing Brand attribution.</p>
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Link href="/dashboard" className="text-[12px] font-semibold text-blue-300">Back to dashboard</Link>
+            <h1 className="mt-1.5 text-lg font-semibold leading-[1.12] tracking-normal md:text-xl">Company settings</h1>
+            <p className="mt-1 text-[12px] text-slate-400">Organization identity used for workspace context and creator-facing Brand attribution.</p>
+          </div>
+          <BrandAccountControls {...accountControls} />
+        </header>
         <BrandCompanyForm
           initial={{
             brandName,

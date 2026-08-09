@@ -38,7 +38,7 @@ export const challenges: Challenge[] = [
     rewardUsdc: 1800,
     deadline: "2026-08-19",
     submissions: 27,
-    status: "funded",
+    status: "open",
     usageRights:
       "Winner transfers 6-month digital campaign usage rights for the selected concept.",
     escrowStatus: "Funding locked",

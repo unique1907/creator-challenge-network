@@ -54,7 +54,7 @@ export function SignUpEntry({ initialRole, nextPath }: { initialRole: AuthIntent
         Choose one primary role for this account. Use a separate sign-in for the other role.
       </p>
       <p className="mt-5 text-sm font-semibold text-slate-200">
-        <FormLabel required>Primary role</FormLabel>
+        <FormLabel required>Account type</FormLabel>
       </p>
       <div role="radiogroup" aria-label="Choose a required CCN primary role" aria-required="true" className="mt-3 grid gap-4 md:grid-cols-2">
         {roles.map((role) => {

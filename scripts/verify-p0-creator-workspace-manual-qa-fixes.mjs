@@ -15,6 +15,7 @@ const service = "src/services/creator-workspace/creator-workspace.server.ts";
 const foundation = "src/services/creator-foundation/creator-foundation.server.ts";
 const profileRoute = "src/app/api/creator/profile/route.ts";
 const mediaRoute = "src/app/api/creator/identity-media/route.ts";
+const publicEligibility = "src/services/create-challenge/public-challenge-eligibility.ts";
 const loadingFiles = [
   "src/app/dashboard/creator/loading.tsx",
   "src/app/dashboard/creator/discover/loading.tsx",
@@ -27,7 +28,7 @@ const loadingFiles = [
   "src/app/dashboard/creator/rewards/loading.tsx",
 ];
 
-for (const file of [workspace, profileForm, userMenu, service, foundation, profileRoute, mediaRoute, ...loadingFiles]) exists(file);
+for (const file of [workspace, profileForm, userMenu, service, foundation, profileRoute, mediaRoute, publicEligibility, ...loadingFiles]) exists(file);
 
 for (const file of loadingFiles) {
   excludes(file, "Loading this section", `${file} must not use the generic route loading copy.`);
@@ -38,7 +39,8 @@ for (const file of loadingFiles) {
 includes(service, "explainCreatorEligibility", "Creator discovery must use a shared eligibility explanation.");
 includes(service, "[creator-challenge-eligibility]", "Creator discovery must provide safe development diagnostics.");
 includes(service, "exclusionReasons", "Creator eligibility diagnostics must report exclusion reasons.");
-includes(service, 'fundingStatus !== "funded" && fundingStatus !== "live"', "Creator discovery must accept funded and live states.");
+includes(service, "isPublicLiveEligibleDraft", "Creator discovery must use the shared public-live helper.");
+includes(publicEligibility, 'fundingStatus !== "funded" && fundingStatus !== "live"', "Creator discovery must accept funded and live states.");
 excludes(service, "markers.includes", "Creator discovery must not title-filter demo/test challenges.");
 excludes(service, "draft.challenge.title.includes", "Creator discovery must not title-filter by title.");
 

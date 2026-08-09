@@ -441,7 +441,7 @@ export async function buildWinnerFinalizationSummary(input: {
     fundingIntentId: draft.funding.fundingIntentId,
   });
   if (!fundingEvidence?.eventVerified || !draft.funding.eventVerified) {
-    safeError("Escrow funding must be verified before final winner selection.");
+    safeError("The Prize Pool must be verified before you can finalize the Winner.");
   }
   if (
     draft.deployment.publicationStatus !== "live" &&
@@ -493,7 +493,7 @@ async function resolveFinalizedWinnerOperation(input: {
     safeError("Finalized payout attempt does not match this challenge.", 409);
   }
   if (attempt.fundingIntentId !== draft.funding.fundingIntentId) {
-    safeError("Finalized payout attempt does not match this funding intent.", 409);
+    safeError("This payout does not match the selected Winner or Prize Pool.", 409);
   }
   const winnerCount = draft.prizePool.winnerCount;
   if (attempt.winnerWalletAddresses.length !== winnerCount) {

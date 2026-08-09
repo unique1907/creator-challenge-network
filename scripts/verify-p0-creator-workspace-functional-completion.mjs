@@ -17,15 +17,17 @@ const notifications = "src/features/creator-workspace/components/creator-notific
 const profileForm = "src/features/creator-workspace/components/creator-profile-form.tsx";
 const walletActions = "src/features/creator-workspace/components/creator-wallet-actions.tsx";
 const fixture = "scripts/checkpoint3-canonical-fixture.mjs";
+const publicEligibility = "src/services/create-challenge/public-challenge-eligibility.ts";
 
-for (const file of [workspace, nav, service, foundation, profileRoute, notifications, profileForm, walletActions, fixture]) exists(file);
+for (const file of [workspace, nav, service, foundation, profileRoute, notifications, profileForm, walletActions, fixture, publicEligibility]) exists(file);
 
 includes(service, "ARC_TESTNET_USDC_CONTRACT", "Creator wallet balance must query the canonical Arc Testnet USDC token.");
 includes(service, "eth_call", "Creator wallet balance must use a read-only RPC call.");
 includes(service, "balanceStatus", "Wallet summary must distinguish ready/unavailable/error states.");
 includes(service, "Arc balance query failed. Use Refresh balance to try again.", "Balance failure must be honest and retriable.");
 includes(service, "getVerifiedCreatorPayoutWallet", "Wallet readiness must use canonical CREATOR_PAYOUT source.");
-includes(service, "fundingStatus !== \"funded\" && fundingStatus !== \"live\"", "Discover eligibility must accept funded and live canonical states.");
+includes(service, "isPublicLiveEligibleDraft", "Discover eligibility must use the shared public-live helper.");
+includes(publicEligibility, "fundingStatus !== \"funded\" && fundingStatus !== \"live\"", "Discover eligibility must accept funded and live canonical states.");
 excludes(service, "Demo", "Creator eligibility must not title-filter Demo challenges.");
 excludes(service, "Smoke", "Creator eligibility must not title-filter Smoke challenges.");
 includes(service, "No open challenges right now", "Overview next action must not contradict an empty Open Challenges section.");
@@ -57,7 +59,7 @@ includes(foundation, "upsert", "Creator profile persistence must be idempotent f
 includes(profileRoute, "updateCreatorProfile", "Creator profile route must use the server-side profile service.");
 includes(profileForm, "Will save as @", "Creator profile UI must show normalized username feedback.");
 
-includes(fixture, ".like(\"title\", \"Checkpoint 3%\")", "Supabase fixture cleanup must remove only stale Checkpoint 3 duplicate challenge rows.");
+includes(fixture, "String(title).startsWith(\"Checkpoint 3\")", "Supabase fixture cleanup must remove only stale Checkpoint 3 duplicate challenge rows.");
 includes(fixture, "circle_transaction_id", "Supabase fixture cleanup must remove stale fixture on-chain verification rows safely.");
 excludes(workspace, "/submit/", "Creator workspace must never reintroduce legacy /submit routes.");
 

@@ -29,14 +29,14 @@ export function CreatorSignInAction() {
   }
 
   return (
-    <div className="mt-6 space-y-3">
+    <div className="mt-3 space-y-2">
       <button
         type="button"
         onClick={() => void signIn()}
         disabled={pending}
-        className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-md bg-blue-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {pending ? "Signing in..." : "Continue as Demo Creator"}
+        {pending ? "Signing in..." : "Continue as Creator"}
       </button>
       {error ? <p className="text-sm text-rose-200">{error}</p> : null}
     </div>
@@ -190,15 +190,15 @@ export function CreatorPayoutWalletSetup({ appId, available, returnTo }: Creator
   if (available) return null;
 
   return (
-    <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.06] p-5 text-sm text-slate-300">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Payout wallet required</p>
-      <p className="mt-2 text-white">Set up your Creator payout wallet before saving or finalizing a submission.</p>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+    <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] p-2.5 text-[12px] text-slate-300">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-200">Payout wallet required</p>
+      <p className="mt-1 text-white">Set up your Creator payout wallet before saving or finalizing a submission.</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => void setupWallet()}
           disabled={pending}
-          className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-cyan-400 px-2.5 py-1.5 text-[12px] font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? "Setting up..." : "Set up payout wallet"}
         </button>
@@ -206,13 +206,13 @@ export function CreatorPayoutWalletSetup({ appId, available, returnTo }: Creator
           type="button"
           onClick={() => void refreshOnboarding().catch((error) => setError(error instanceof Error ? error.message : "Wallet status check failed."))}
           disabled={pending}
-          className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[12px] font-semibold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Check status
         </button>
       </div>
-      <p className="mt-3 text-slate-400">{status}</p>
-      {error ? <p className="mt-3 text-rose-200">{error}</p> : null}
+      <p className="mt-2 text-slate-400">{status}</p>
+      {error ? <p className="mt-2 text-rose-200">{error}</p> : null}
     </div>
   );
 }
@@ -269,21 +269,21 @@ export function CreatorSubmissionForm(props: SubmissionFormProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Creator submission</p>
-          <h2 className="mt-2 text-xl font-semibold text-white">Submit completed work</h2>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-200">Creator submission</p>
+          <h2 className="mt-0.5 text-base font-semibold text-white">Submit completed work</h2>
         </div>
         {props.isSubmitted ? (
-          <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+          <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100">
             Immutable
           </span>
         ) : null}
       </div>
 
-      <div className="mt-5 grid gap-4">
-        <label className="grid gap-2 text-sm font-medium text-slate-200">
+      <div className="mt-2.5 grid gap-2">
+        <label className="grid gap-1 text-[12px] font-medium text-slate-200">
           <FormLabel required>Submission title</FormLabel>
           <input
             value={title}
@@ -291,10 +291,10 @@ export function CreatorSubmissionForm(props: SubmissionFormProps) {
             disabled={props.isSubmitted}
             required
             aria-required="true"
-            className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 disabled:opacity-60"
+            className="h-8 rounded-md border border-white/10 bg-[#050916] px-2.5 text-[12px] text-white outline-none transition focus:border-cyan-300/60 disabled:opacity-60"
           />
         </label>
-        <label className="grid gap-2 text-sm font-medium text-slate-200">
+        <label className="grid gap-1 text-[12px] font-medium text-slate-200">
           <FormLabel required>Concept summary</FormLabel>
           <textarea
             value={description}
@@ -302,11 +302,11 @@ export function CreatorSubmissionForm(props: SubmissionFormProps) {
             disabled={props.isSubmitted}
             required
             aria-required="true"
-            rows={5}
-            className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 disabled:opacity-60"
+            rows={2}
+            className="rounded-md border border-white/10 bg-[#050916] px-2.5 py-1.5 text-[12px] leading-4 text-white outline-none transition focus:border-cyan-300/60 disabled:opacity-60"
           />
         </label>
-        <label className="grid gap-2 text-sm font-medium text-slate-200">
+        <label className="grid gap-1 text-[12px] font-medium text-slate-200">
           <FormLabel required>Main project link</FormLabel>
           <input
             value={primaryAssetUrl}
@@ -314,27 +314,27 @@ export function CreatorSubmissionForm(props: SubmissionFormProps) {
             disabled={props.isSubmitted}
             required
             aria-required="true"
-            className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 disabled:opacity-60"
+            className="h-8 rounded-md border border-white/10 bg-[#050916] px-2.5 text-[12px] text-white outline-none transition focus:border-cyan-300/60 disabled:opacity-60"
           />
         </label>
-        <label className="grid gap-2 text-sm font-medium text-slate-200">
+        <label className="grid gap-1 text-[12px] font-medium text-slate-200">
           <FormLabel optional>Supporting links</FormLabel>
           <textarea
             value={supportingLinks}
             onChange={(event) => setSupportingLinks(event.target.value)}
             disabled={props.isSubmitted}
-            rows={3}
-            className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60 disabled:opacity-60"
+            rows={2}
+            className="rounded-md border border-white/10 bg-[#050916] px-2.5 py-1.5 text-[12px] leading-4 text-white outline-none transition focus:border-cyan-300/60 disabled:opacity-60"
           />
         </label>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-3">
+      <div className="mt-2.5 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => void saveDraft()}
           disabled={props.isSubmitted || pending !== null}
-          className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[12px] font-semibold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending === "save" ? "Saving..." : "Save Draft"}
         </button>
@@ -342,13 +342,13 @@ export function CreatorSubmissionForm(props: SubmissionFormProps) {
           type="button"
           onClick={() => void finalize()}
           disabled={props.isSubmitted || pending !== null}
-          className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-cyan-400 px-2.5 py-1.5 text-[12px] font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {pending === "finalize" ? "Submitting..." : "Finalize Submission"}
+          {pending === "finalize" ? "Submitting..." : "Submit Solution Proposal"}
         </button>
       </div>
-      {status ? <p className="mt-3 text-sm text-emerald-200">{status}</p> : null}
-      {error ? <p className="mt-3 text-sm text-rose-200">{error}</p> : null}
+      {status ? <p className="mt-2 text-[12px] text-emerald-200">{status}</p> : null}
+      {error ? <p className="mt-2 text-[12px] text-rose-200">{error}</p> : null}
     </div>
   );
 }

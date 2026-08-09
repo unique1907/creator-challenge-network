@@ -6,7 +6,7 @@ import { SiteAuthActions } from "./site-auth-actions";
 const navItems = [
   { href: "/challenges", label: "Explore Challenges" },
   { href: "/#how-it-works", label: "How It Works" },
-  { href: "/#for-brands", label: "For Brands" },
+  { href: "/challenges", label: "Live Challenges" },
 ];
 
 export function SiteHeader({ authState }: { authState?: PublicAuthState }) {
@@ -17,7 +17,7 @@ export function SiteHeader({ authState }: { authState?: PublicAuthState }) {
           href="/"
           className="flex items-center rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-200"
         >
-          <CCNLogo size="lg" priority />
+          <CCNLogo size="xl" priority />
         </Link>
 
         <nav className="hidden items-center gap-11 lg:flex">

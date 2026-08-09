@@ -82,13 +82,13 @@ export async function GET(request: Request) {
     if (url.searchParams.get("new") === "1") {
       return NextResponse.json(createDraftPayload(await createNewCreateChallengeDraft({
         ccnAccountId: context.ccnAccountId,
-        brandName: context.brandName ?? context.displayName,
+        brandName: context.brandName,
       })));
     }
     if (url.searchParams.get("mode") === "smoke") {
       return NextResponse.json(createDraftPayload(await createNewSmokeTestCreateChallengeDraft({
         ccnAccountId: context.ccnAccountId,
-        brandName: context.brandName ?? context.displayName,
+        brandName: context.brandName,
       })));
     }
     const draftId = url.searchParams.get("draftId");

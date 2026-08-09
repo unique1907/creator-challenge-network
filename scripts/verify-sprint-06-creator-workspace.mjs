@@ -42,17 +42,19 @@ const session = "src/services/creator-session.server.ts";
 const submissions = "src/services/submissions/submission-store.server.ts";
 const lifecycle = "src/services/submissions/canonical-challenge-lifecycle.server.ts";
 const store = "src/services/create-challenge/create-challenge-store.server.ts";
+const publicEligibility = "src/services/create-challenge/public-challenge-eligibility.ts";
 
-for (const file of [service, component, navComponent, layout, loading, actions, session, submissions, lifecycle, store]) exists(file);
+for (const file of [service, component, navComponent, layout, loading, actions, session, submissions, lifecycle, store, publicEligibility]) exists(file);
 
 includes(service, "getVerifiedCreatorPayoutWallet", "creator wallet page must derive from canonical Creator Foundation payout wallet");
 includes(service, 'mappingStatus: "CREATOR_PAYOUT"', "creator wallet lookup must use CREATOR_PAYOUT scope");
 includes(service, 'purpose: "PAYOUT"', "creator wallet summary must preserve payout purpose");
 includes(service, "listCreateChallengeDraftStates", "discover must use canonical challenge draft state without per-record draft reloads");
-includes(service, 'publicationStatus !== "live"', "discover must require live publication status");
-includes(service, 'fundingStatus !== "funded" && fundingStatus !== "live"', "discover must accept canonical funded/live states");
-includes(service, "eventVerified !== true", "discover must require verified funding event");
-includes(service, "Date.now() < deadline.getTime()", "discover must respect active submission window");
+includes(service, "isPublicLiveEligibleDraft", "discover must delegate to the shared public live eligibility helper");
+includes(publicEligibility, 'publicationStatus !== "live"', "discover must require live publication status");
+includes(publicEligibility, 'fundingStatus !== "funded" && fundingStatus !== "live"', "discover must accept canonical funded/live states");
+includes(publicEligibility, "eventVerified !== true", "discover must require verified funding event");
+includes(publicEligibility, "now < deadline.unix * 1000", "discover must respect active submission window");
 includes(service, "listOnChainVerificationsForDraft", "rewards must inspect on-chain verification records");
 includes(service, 'record.eventType === "ChallengePayout"', "paid rewards must require payout evidence");
 includes(service, "record.receiptVerified", "paid rewards must require receipt verification");
@@ -66,7 +68,7 @@ includes(layout, "CreatorAuthGate", "creator layout must render a gated unauthen
 includes(loading, "Preparing Creator overview", "creator route loading must be route-aware and content-shaped.");
 excludes(component, "Brand Workspace", "Creator workspace must not expose Brand workspace switching under role isolation.");
 includes(component, "Creator Workspace", "creator workspace label must be visible");
-includes(component, "<CCNLogo size=\"lg\" priority />", "creator shell must reuse the canonical CCN logo component");
+includes(component, "<CCNLogo size=\"xl\" priority />", "creator shell must reuse the canonical CCN logo component");
 includes(component, "anonymousEntryCode", "submission detail/list must use anonymous entry code");
 excludes(component, "creatorAccountId", "creator UI must not render raw creator account IDs");
 excludes(component, "creatorWalletAddress", "creator UI must not render full raw wallet addresses");

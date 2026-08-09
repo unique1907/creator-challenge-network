@@ -7,6 +7,7 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "u
 const exists = (relativePath) => assert.ok(fs.existsSync(path.join(root, relativePath)), `${relativePath} must exist`);
 const includes = (file, text, message) => assert.ok(read(file).includes(text), message);
 const excludes = (file, text, message) => assert.ok(!read(file).includes(text), message);
+const matches = (file, pattern, message) => assert.ok(pattern.test(read(file)), message);
 
 const authActionsPath = "src/features/auth/components/auth-actions.tsx";
 const signupEntryPath = "src/features/auth/components/sign-up-entry.tsx";
@@ -38,8 +39,8 @@ for (const file of [
 }
 
 includes(signinPagePath, "Welcome back", "login page must retain required heading");
-includes(authActionsPath, "<FormLabel required>Email</FormLabel>", "password auth must render Email");
-includes(authActionsPath, "<FormLabel required>Password</FormLabel>", "password auth must render Password");
+matches(authActionsPath, /<FormLabel required(?: className=\{formLabelClassName\})?>Email<\/FormLabel>/, "password auth must render Email");
+matches(authActionsPath, /<FormLabel required(?: className=\{formLabelClassName\})?>Password<\/FormLabel>/, "password auth must render Password");
 includes(authActionsPath, "Log in", "password auth must render Log in button copy");
 includes(authActionsPath, "Forgot password?", "password auth must expose Forgot password link");
 includes(authActionsPath, "Create account", "password auth must link to Create account");
@@ -64,7 +65,7 @@ includes(signupEntryPath, "Create your account", "signup page must show required
 includes(signupEntryPath, "Brand", "signup must offer Brand role");
 includes(signupEntryPath, "Creator", "signup must offer Creator role");
 includes(signupEntryPath, "aria-required=\"true\"", "signup role selection must be required");
-includes(authActionsPath, "<FormLabel required>Confirm password</FormLabel>", "signup must require password confirmation");
+matches(authActionsPath, /<FormLabel required(?: className=\{formLabelClassName\})?>Confirm password<\/FormLabel>/, "signup must require password confirmation");
 includes(authActionsPath, "Password requirements: at least 8 characters", "signup must show password requirements");
 includes(authActionsPath, "password !== confirmPassword", "signup must validate password confirmation");
 includes(authActionsPath, "supabase.auth.signUp", "signup must use Supabase password signup");

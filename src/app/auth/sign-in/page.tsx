@@ -34,7 +34,7 @@ function signUpPath(input: { role: "brand" | "creator" | null; nextPath?: string
 
 function authErrorMessage(code?: string) {
   if (code === "callback_expired") return "That email link expired or was already used. Log in with your password or request a reset.";
-  if (code === "callback") return "Email callback could not be completed. Log in with your password or request a reset.";
+  if (code === "callback") return "We could not verify that email link. Log in with your password or request a reset.";
   if (code === "session") return "Your session could not be restored. Please sign in again.";
   return "";
 }
@@ -47,19 +47,19 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
   return (
     <main className="min-h-screen bg-[#050916] px-6 py-10 text-white">
-      <div className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-[#0c1222] p-8 shadow-2xl shadow-black/40">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Creator Challenge Network</p>
-        <h1 className="mt-3 text-3xl font-semibold">Welcome back</h1>
-        <p className="mt-3 text-slate-300">
+      <div className="mx-auto max-w-2xl rounded-3xl border border-[#D9DEE7] bg-[#F3F4F6] p-8 shadow-xl shadow-black/20">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-700">Creator Challenge Network</p>
+        <h1 className="mt-3 text-3xl font-semibold text-slate-950">Welcome back</h1>
+        <p className="mt-3 text-slate-600">
           Sign in to continue to your CCN workspace.
         </p>
-        {errorMessage ? <p className="mt-5 rounded-xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{errorMessage}</p> : null}
-        <AuthActions mode="sign-in" roleIntent={role} nextPath={nextPath} />
+        {errorMessage ? <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</p> : null}
+        <AuthActions mode="sign-in" roleIntent={role} nextPath={nextPath} surface="light" showCreateAccountLink={false} />
         <div className="mt-6 flex flex-col gap-3 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
-          <Link href={signUpPath({ role, nextPath })} className="text-blue-300 hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200">
+          <Link href={signUpPath({ role, nextPath })} className="text-blue-700 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-cyan-200">
             Create account
           </Link>
-          <Link href="/" className="text-slate-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200">
+          <Link href="/" className="text-blue-700 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-cyan-200">
             Back to home
           </Link>
         </div>

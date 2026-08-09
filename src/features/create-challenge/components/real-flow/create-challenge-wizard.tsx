@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
@@ -173,6 +173,8 @@ type ApprovalRecoveryResponse = {
   restoredState: "APPROVAL_PENDING" | "APPROVED" | "READY_FOR_APPROVAL" | "START_AGAIN";
 };
 
+const OTHER_BUSINESS_DOMAIN_OPTION = "Other";
+const CUSTOM_BUSINESS_DOMAIN_PLACEHOLDER = "e.g. Payments, Fintech, Developer Tools, AI Infrastructure";
 const categories = [
   "Brand Awareness",
   "Customer Growth",
@@ -184,8 +186,24 @@ const categories = [
   "Community Growth",
   "Customer Experience",
   "Operations",
-  "Other",
+  OTHER_BUSINESS_DOMAIN_OPTION,
 ];
+
+function isPredefinedBusinessDomain(value: string) {
+  return categories.includes(value);
+}
+
+function selectedBusinessDomainOption(value: string) {
+  return isPredefinedBusinessDomain(value) ? value : OTHER_BUSINESS_DOMAIN_OPTION;
+}
+
+function customBusinessDomainValue(value: string) {
+  return value && !isPredefinedBusinessDomain(value) ? value : "";
+}
+
+function businessDomainFromCustomValue(value: string) {
+  return value.trim() ? value : OTHER_BUSINESS_DOMAIN_OPTION;
+}
 
 function mask(value?: string | null) {
   if (!value) return "Not available";
@@ -334,8 +352,8 @@ function paymentProgressItems(
   const steps = [
     {
       label: "Preparing approval",
-      description: "Checking campaign readiness, wallet and allowance request.",
-      technology: "Canonical preflight",
+      description: "Checking Business Challenge details and wallet approval.",
+      technology: "Payment check",
     },
     {
       label: "Waiting for Approval PIN",
@@ -349,13 +367,13 @@ function paymentProgressItems(
     },
     {
       label: "Approval confirmed",
-      description: "The escrow can use the exact approved test USDC amount.",
-      technology: "USDC allowance",
+      description: "The approved test USDC amount is ready for the Prize Pool.",
+      technology: "Approved USDC amount",
     },
     {
       label: "Preparing prize funding",
       description: "Preparing the prize pool transaction.",
-      technology: "Canonical funding intent",
+      technology: "Prize Pool funding details",
     },
     {
       label: "Waiting for Funding PIN",
@@ -374,13 +392,13 @@ function paymentProgressItems(
     },
     {
       label: "Funding verified",
-      description: "Receipt and ChallengeFunded evidence are verified.",
-      technology: "Canonical verification",
+      description: "Receipt and payout transaction evidence are verified.",
+      technology: "Arc verification",
     },
     {
       label: "Publishing challenge",
       description: "Publishing your challenge for creators.",
-      technology: "Publish API",
+      technology: "Publishing",
     },
     {
       label: "Challenge live",
@@ -793,7 +811,7 @@ export function CreateChallengeWizard({
       .then((payload) => {
         if (!active) return;
         setDeadlinePolicy(payload.deadlinePolicy ?? null);
-        setDraft((current) => mergeInitializedDraft(current, payload.draft));
+        setDraft((current) => rendersImmediateShell ? payload.draft : mergeInitializedDraft(current, payload.draft));
         setDraftId(payload.draft.challenge.id ?? "");
         setLaunchReadiness(
           payload.launchReadiness ??
@@ -964,6 +982,7 @@ export function CreateChallengeWizard({
     const lower = message.toLowerCase();
     if (lower.includes("title")) return "#challenge-title";
     if (lower.includes("brand name")) return "#brand-name";
+    if (lower.includes("specify category")) return "#challenge-category-other";
     if (lower.includes("category") || lower.includes("business domain")) return "#challenge-category";
     if (lower.includes("short summary") || lower.includes("business problem")) return "#challenge-summary";
     if (lower.includes("creative brief") || lower.includes("expected outcome")) return "#challenge-description";
@@ -992,9 +1011,9 @@ export function CreateChallengeWizard({
     setLaunchReadiness(readiness ?? null);
     if (readiness?.valid) return true;
     const first = readiness?.items.find((item) => item.status !== "ready");
-    setStatus(first?.message ?? "Complete required campaign details before launch.");
+    setStatus(first?.message ?? "Complete required Business Challenge details before launch.");
     setError({
-      message: first?.message ?? "Complete required campaign details before launch.",
+      message: first?.message ?? "Complete required Business Challenge details before launch.",
       code: first?.id === "campaign-cover" ? "CAMPAIGN_COVER_REQUIRED" : "CAMPAIGN_LAUNCH_REQUIREMENTS_INCOMPLETE",
       scope: "PUBLISH",
       severity: "BLOCKING",
@@ -1032,7 +1051,7 @@ export function CreateChallengeWizard({
           setStep("publish");
           setStatus("Funding verified. Publish needs attention before the public challenge can go live.");
           setError({
-            message: readiness.errors[0] ?? "Complete required campaign details before publishing.",
+            message: readiness.errors[0] ?? "Complete required Business Challenge details before publishing.",
             code: readiness.items.find((item) => item.status !== "ready")?.id === "campaign-cover"
               ? "CAMPAIGN_COVER_REQUIRED"
               : "CAMPAIGN_LAUNCH_REQUIREMENTS_INCOMPLETE",
@@ -1512,7 +1531,7 @@ export function CreateChallengeWizard({
             setStep("publish");
             setStatus("Funding verified. Publish needs attention before the public challenge can go live.");
             setError({
-              message: readiness.errors[0] ?? "Complete required campaign details before publishing.",
+              message: readiness.errors[0] ?? "Complete required Business Challenge details before publishing.",
               code: readiness.items.find((item) => item.status !== "ready")?.id === "campaign-cover"
                 ? "CAMPAIGN_COVER_REQUIRED"
                 : "CAMPAIGN_LAUNCH_REQUIREMENTS_INCOMPLETE",
@@ -1731,17 +1750,17 @@ export function CreateChallengeWizard({
 
   if (!draft) {
     return (
-      <main className="min-h-screen bg-[#030a1f] px-6 py-10 text-white">
-        <div className="mx-auto max-w-5xl rounded-md border border-white/10 bg-white/[0.03] p-6">
-          <p className="text-sm text-slate-300">{statusHeader}</p>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight">Start a Business Challenge</h1>
-          <p className="mt-3 text-sm font-black text-cyan-100">Discover the World&apos;s Best Ideas.</p>
-          <p className="mt-1 text-sm text-slate-200">Turn business problems into winning solutions.</p>
-          <p className="mt-3 text-lg font-semibold text-white">What business problem are you trying to solve?</p>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Launch a business challenge, receive solutions from a global network of AI-augmented creators, and reward the best outcome.</p>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Describe the outcome you need - not just the asset you expect.</p>
-          <p className="mt-2 text-xs text-cyan-100">Example: &quot;We opened our first coffee shop, but customer traffic is below expectations.&quot;</p>
-          <button type="button" onClick={startNewTestDraft} disabled={pending || draftInitializationPending} className="mt-4 rounded-md bg-emerald-400 px-4 py-2 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
+      <main className="min-h-screen bg-[#030a1f] px-4 py-5 text-white">
+        <div className="mx-auto max-w-5xl rounded-md border border-white/10 bg-white/[0.03] p-2.5">
+          <p className="text-[12px] text-slate-300">{statusHeader}</p>
+          <h1 className="mt-1 text-xl font-bold tracking-tight">Start a Business Challenge</h1>
+          <p className="mt-1.5 text-[12px] font-black text-cyan-100">Discover the World&apos;s Best Ideas.</p>
+          <p className="mt-0.5 text-[12px] text-slate-200">Turn business problems into winning solutions.</p>
+          <p className="mt-1.5 text-base font-semibold text-white">What business problem are you trying to solve?</p>
+          <p className="mt-1 max-w-2xl text-[12px] leading-4 text-slate-300">Launch a business challenge, receive solutions from a global network of AI-augmented creators, and reward the best outcome.</p>
+          <p className="mt-1 max-w-2xl text-[12px] leading-4 text-slate-300">Describe the outcome you need - not just the asset you expect.</p>
+          <p className="mt-1 text-[11px] text-cyan-100">Example: &quot;We opened our first coffee shop, but customer traffic is below expectations.&quot;</p>
+          <button type="button" onClick={startNewTestDraft} disabled={pending || draftInitializationPending} className="mt-2.5 rounded-md bg-emerald-400 px-3 py-1.5 text-[12px] font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
             Start a Business Challenge
           </button>
         </div>
@@ -1752,52 +1771,52 @@ export function CreateChallengeWizard({
   return (
     <main className="min-h-screen bg-[#030a1f] text-white">
       <header className="border-b border-white/10 bg-slate-950/70">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-4 sm:px-8 lg:px-10">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2.5 px-4 py-2.5 sm:px-5 lg:px-6">
           <Link href="/dashboard" className="rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-200">
             <CCNLogo size="md" priority />
           </Link>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-slate-200">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-bold text-slate-200">
               {statusHeader}
             </span>
             <button
               type="button"
               onClick={() => void startNewTestDraft()}
               disabled={pending || draftInitializationPending}
-              className="rounded-md border border-cyan-200/40 px-4 py-2 text-sm font-bold text-cyan-100 disabled:opacity-50"
+              className="rounded-md border border-cyan-200/40 px-3 py-1.5 text-[12px] font-bold text-cyan-100 disabled:opacity-50"
             >
               New Business Challenge
             </button>
             <Link
               href="/dashboard"
-              className="rounded-md border border-white/15 px-4 py-2 text-sm font-bold text-slate-200 transition hover:bg-white/10"
+              className="rounded-md border border-white/15 px-3 py-1.5 text-[12px] font-bold text-slate-200 transition hover:bg-white/10"
             >
               Exit to Dashboard
             </Link>
           </div>
         </div>
       </header>
-      <div className="mx-auto grid max-w-7xl gap-6 px-6 py-10 sm:px-8 lg:grid-cols-[300px_1fr] lg:px-10">
-        <aside className="h-fit rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-cyan-200">
+      <div className="mx-auto grid max-w-7xl gap-2.5 px-3 py-3 sm:px-4 lg:grid-cols-[240px_1fr] lg:px-5">
+        <aside className="h-fit rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-cyan-200">
             Start a Business Challenge
           </p>
-          <div className="mt-4 space-y-2">
+          <div className="mt-2 space-y-1">
             {createChallengeSteps.map((item, index) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => navigateToStep(item.id)}
-                className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-cyan-200 ${
+                className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left transition focus:outline-none focus:ring-2 focus:ring-cyan-200 ${
                   step === item.id ? "bg-white/10 text-white" : "text-slate-300 hover:bg-white/5 hover:text-white"
                 }`}
               >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/15 text-xs font-bold">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/15 text-[10px] font-bold">
                   {index + 1}
                 </span>
                 <span>
-                  <span className="block text-sm font-bold">{item.label}</span>
-                  <span className="mt-1 block text-xs leading-5 text-slate-400">
+                  <span className="block text-[12px] font-bold">{item.label}</span>
+                  <span className="mt-0.5 block text-[10px] leading-3 text-slate-400">
                     {item.description}
                   </span>
                 </span>
@@ -1806,35 +1825,35 @@ export function CreateChallengeWizard({
           </div>
         </aside>
 
-        <section className="rounded-xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/40">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+        <section className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 shadow-lg shadow-slate-950/30">
+          <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <p className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-cyan-200">
                 Brand flow
               </p>
-              <h1 className="mt-2 text-3xl font-bold tracking-tight">
+                <h1 className="mt-0.5 text-xl font-bold tracking-tight">
                 {step === "basics" ? "Start a Business Challenge" : createChallengeSteps.find((item) => item.id === step)?.label}
               </h1>
               {step === "basics" ? (
-                <div className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-                  <p className="text-lg font-semibold text-white">What business problem are you trying to solve?</p>
-                  <p className="mt-2">Launch a business challenge, receive solutions from a global network of AI-augmented creators, and reward the best outcome.</p>
-                  <p className="mt-2">Describe the outcome you need - not just the asset you expect.</p>
-                  <p className="mt-2 text-cyan-100">Example: &quot;We opened our first coffee shop, but customer traffic is below expectations.&quot;</p>
+                <div className="mt-1 max-w-3xl text-[12px] leading-4 text-slate-300">
+                  <p className="text-[13px] font-semibold text-white">What business problem are you trying to solve?</p>
+                  <p className="mt-1">Launch a business challenge, receive solutions from a global network of AI-augmented creators, and reward the best outcome.</p>
+                  <p className="mt-1">Describe the outcome you need - not just the asset you expect.</p>
+                  <p className="mt-1 text-cyan-100">Example: &quot;We opened our first coffee shop, but customer traffic is below expectations.&quot;</p>
                 </div>
               ) : null}
             </div>
-            <p className="text-xs font-bold text-slate-400">Draft ID: {mask(draft.challenge.id)}</p>
+            <p className="text-[10px] font-bold text-slate-400">Draft ID: {mask(draft.challenge.id)}</p>
           </div>
 
-          <div className="mt-6 rounded-md border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-200">
+          <div className="mt-2 rounded-md border border-white/10 bg-slate-950/60 p-2 text-[11px] text-slate-200">
             Status: {statusHeader}
           </div>
 
           {validation?.errors.length ? (
-            <div className="mt-4 rounded-md border border-amber-300/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+            <div className="mt-2 rounded-md border border-amber-300/30 bg-amber-400/10 p-2.5 text-[12px] text-amber-100">
               <p className="font-bold">Please fix before continuing</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5">
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
                 {validation.errors.map((item) => (
                   <li key={item}>
                     <button
@@ -1851,21 +1870,21 @@ export function CreateChallengeWizard({
           ) : null}
 
           {blockingError ? (
-            <div className="mt-4 rounded-md border border-red-300/30 bg-red-400/10 p-4 text-sm text-red-100">
+            <div className="mt-2 rounded-md border border-red-300/30 bg-red-400/10 p-2.5 text-[12px] text-red-100">
               <p className="font-bold">Safe error</p>
-              <p className="mt-2">{blockingError.message}</p>
+              <p className="mt-1">{blockingError.message}</p>
               {blockingError.status || blockingError.code || blockingError.endpoint ? (
-                <details className="mt-3 rounded-md border border-red-200/20 bg-slate-950/50 p-3 text-xs text-red-100">
+                <details className="mt-2 rounded-md border border-red-200/20 bg-slate-950/50 p-2 text-[11px] text-red-100">
                   <summary className="cursor-pointer font-bold">Technical details</summary>
                   {blockingError.status ? <p className="mt-2">HTTP Status: {blockingError.status}</p> : null}
-                  {blockingError.code ? <p>Circle Code: {blockingError.code}</p> : null}
+                  {blockingError.code ? <p>Payment provider error. Technical code: {blockingError.code}</p> : null}
                   {blockingError.endpoint ? <p>Endpoint: {blockingError.endpoint}</p> : null}
                 </details>
               ) : null}
             </div>
           ) : null}
 
-          <div className="mt-8">
+          <div className="mt-2.5">
             {step === "basics" ? (
               <BasicsStep
                 draft={draft}
@@ -1929,7 +1948,7 @@ export function CreateChallengeWizard({
           </div>
 
           {step !== "publish" ? (
-          <div className="mt-8 flex flex-wrap justify-between gap-3 border-t border-white/10 pt-5">
+          <div className="mt-2.5 flex flex-wrap justify-between gap-2 border-t border-white/10 pt-2.5">
             <button
               type="button"
               onClick={() => setStep(previousStep(step))}
@@ -1939,11 +1958,11 @@ export function CreateChallengeWizard({
                 draft.funding.fundingStatus === "approval-pending" ||
                 draft.funding.fundingStatus === "funding-pending"
               }
-              className="rounded-md border border-white/15 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md border border-white/15 px-3 py-1.5 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-50"
             >
               Back
             </button>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => void saveDraft()}
@@ -1954,7 +1973,7 @@ export function CreateChallengeWizard({
                   draft.funding.fundingStatus === "funding-pending" ||
                   fundingIsVerified(draft)
                 }
-                className="rounded-md border border-cyan-200/40 px-4 py-2 text-sm font-bold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md border border-cyan-200/40 px-3 py-1.5 text-[12px] font-bold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Save Draft
               </button>
@@ -1963,7 +1982,7 @@ export function CreateChallengeWizard({
                   type="button"
                   onClick={() => void continueStep()}
                   disabled={pending || !draftReadyForActions || prizeStepHasMismatch || prizeStepHasInsufficientBalance}
-                  className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-5 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-3 py-1.5 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Continue
                 </button>
@@ -1998,7 +2017,7 @@ function TextInput({ id, label, value, onChange, placeholder, required = false, 
         required={required}
         aria-required={required ? "true" : undefined}
         readOnly={readOnly}
-        className="mt-2 h-11 w-full rounded-md border border-white/10 bg-slate-950/80 px-3 text-sm text-white outline-none transition focus:border-cyan-200 read-only:cursor-not-allowed read-only:text-slate-300"
+        className="mt-1 h-8 w-full rounded-md border border-white/10 bg-slate-950/80 px-2.5 text-[12px] text-white outline-none transition focus:border-cyan-200 read-only:cursor-not-allowed read-only:text-slate-300"
       />
     </label>
   );
@@ -2022,13 +2041,13 @@ function DecimalInput({ label, value, onChange, readOnly = false, required = fal
         onChange={(event) => onChange(event.target.value)}
         required={required}
         aria-required={required ? "true" : undefined}
-        className="mt-2 h-11 w-full rounded-md border border-white/10 bg-slate-950/80 px-3 text-sm text-white outline-none transition focus:border-cyan-200 read-only:cursor-not-allowed read-only:text-slate-300"
+        className="mt-1 h-8 w-full rounded-md border border-white/10 bg-slate-950/80 px-2.5 text-[12px] text-white outline-none transition focus:border-cyan-200 read-only:cursor-not-allowed read-only:text-slate-300"
       />
     </label>
   );
 }
 
-function TextArea({ id, label, value, onChange, rows = 4, maxLength, placeholder, required = false, optional = false }: {
+function TextArea({ id, label, value, onChange, rows = 2, maxLength, placeholder, required = false, optional = false }: {
   id?: string;
   label: string;
   value: string;
@@ -2051,7 +2070,7 @@ function TextArea({ id, label, value, onChange, rows = 4, maxLength, placeholder
         placeholder={placeholder}
         required={required}
         aria-required={required ? "true" : undefined}
-        className="mt-2 w-full rounded-md border border-white/10 bg-slate-950/80 px-3 py-3 text-sm leading-6 text-white outline-none transition focus:border-cyan-200"
+        className="mt-1 w-full rounded-md border border-white/10 bg-slate-950/80 px-2.5 py-1.5 text-[12px] leading-4 text-white outline-none transition focus:border-cyan-200"
       />
     </label>
   );
@@ -2167,23 +2186,23 @@ function CampaignCoverField({
   }
 
   return (
-    <section id="campaign-cover-field" className="rounded-md border border-white/10 bg-white/[0.03] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <section id="campaign-cover-field" className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="flex flex-wrap items-center gap-2">
             <FormLabel>Business Challenge Cover</FormLabel>
-            <span className="text-xs font-semibold text-slate-400">Optional while drafting - Required before publish</span>
+            <span className="text-[10px] font-semibold text-slate-400">Optional while drafting - Required before publish</span>
           </p>
-          <p className="mt-1 text-xs leading-5 text-slate-400">
+          <p className="mt-0.5 text-[10px] leading-4 text-slate-400">
             JPG, PNG or WebP. Optional while drafting, required before publish.
           </p>
         </div>
         {hasCover ? (
-          <span className="rounded-md border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-xs font-bold text-emerald-100">
+          <span className="rounded-md border border-emerald-300/30 bg-emerald-300/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-100">
             Saved
           </span>
         ) : (
-          <span className="rounded-md border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-xs font-bold text-amber-100">
+          <span className="rounded-md border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-100">
             Required before publish
           </span>
         )}
@@ -2209,20 +2228,20 @@ function CampaignCoverField({
           const file = event.dataTransfer.files?.[0];
           if (file) void upload(file);
         }}
-        className="mt-4 flex min-h-44 w-full items-center justify-center overflow-hidden rounded-md border border-dashed border-cyan-200/30 bg-slate-950/45 text-center text-sm font-bold text-cyan-100 transition hover:border-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-2 flex min-h-20 w-full items-center justify-center overflow-hidden rounded-md border border-dashed border-cyan-200/30 bg-slate-950/45 text-center text-[12px] font-bold text-cyan-100 transition hover:border-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {displayCoverUrl ? (
-          <img src={displayCoverUrl} alt="Business challenge cover preview" className="h-full max-h-72 w-full object-cover" />
+          <img src={displayCoverUrl} alt="Business challenge cover preview" className="h-full max-h-28 w-full object-cover" />
         ) : (
           <span>{pending ? "Uploading cover..." : hasCover ? "Replace business challenge cover" : "Drop image here or choose cover"}</span>
         )}
       </button>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={pending || draftInitializationPending}
-          className="rounded-md border border-white/15 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md border border-white/15 px-2.5 py-1.5 text-[11px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {hasCover ? "Replace cover" : "Choose cover"}
         </button>
@@ -2314,45 +2333,57 @@ function BasicsStep({ draft, cover, updateDraft, onCoverChange }: {
   updateDraft: (change: (current: CreateChallengeDraftState) => CreateChallengeDraftState) => void;
   onCoverChange: (cover: CampaignCoverView | null) => void;
 }) {
+  const selectedBusinessDomain = selectedBusinessDomainOption(draft.challenge.category);
+  const customBusinessDomain = customBusinessDomainValue(draft.challenge.category);
   const examples = categoryExamples(draft.challenge.category);
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-2.5">
       <TextInput id="challenge-title" label="Business challenge title" required value={draft.challenge.title} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, title: value } }))} placeholder={examples.title} />
-      <div className="rounded-md border border-white/10 bg-white/[0.03] p-3 text-sm">
-        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Public URL</p>
+      <div className="rounded-md border border-white/10 bg-white/[0.03] p-2 text-[12px]">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Public URL</p>
         <p className="mt-1 break-all font-mono text-slate-200">
           ccn.io/challenges/{draft.challenge.slug || "reserved-after-title"}
         </p>
-        <p className="mt-1 text-xs text-slate-500">Reserved automatically. Business challenge titles do not need to be unique.</p>
+        <p className="mt-0.5 text-[10px] text-slate-500">Reserved automatically. Business challenge titles do not need to be unique.</p>
       </div>
       <label className="block">
-        <FormLabel required>Business Domain</FormLabel>
+        <FormLabel required>Challenge Category</FormLabel>
         <select
           id="challenge-category"
-          value={draft.challenge.category}
+          value={selectedBusinessDomain}
           onChange={(event) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, category: event.target.value } }))}
           required
           aria-required="true"
-          className="mt-2 h-11 w-full rounded-md border border-white/10 bg-slate-950/80 px-3 text-sm text-white outline-none focus:border-cyan-200"
+          className="mt-1 h-8 w-full rounded-md border border-white/10 bg-slate-950/80 px-2.5 text-[12px] text-white outline-none focus:border-cyan-200"
         >
           {categories.map((category) => <option key={category}>{category}</option>)}
         </select>
       </label>
+      {selectedBusinessDomain === OTHER_BUSINESS_DOMAIN_OPTION ? (
+        <TextInput
+          id="challenge-category-other"
+          label="Specify category"
+          required
+          value={customBusinessDomain}
+          onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, category: businessDomainFromCustomValue(value) } }))}
+          placeholder={CUSTOM_BUSINESS_DOMAIN_PLACEHOLDER}
+        />
+      ) : null}
       <TextArea id="challenge-summary" label="Business problem summary" required value={draft.challenge.summary} maxLength={240} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, summary: value } }))} placeholder={examples.summary} />
       <TextInput id="challenge-description" label="Expected Outcome" required value={draft.challenge.description} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, description: value } }))} placeholder={examples.outcome} />
-      <p className="-mt-3 text-xs leading-5 text-slate-400">
+      <p className="-mt-1.5 text-[10px] leading-4 text-slate-400">
         Describe the business result you want to achieve.
       </p>
       <CampaignCoverField draft={draft} cover={cover} updateDraft={updateDraft} onCoverChange={onCoverChange} />
       <TextInput id="brand-name" label="Brand" required value={draft.challenge.brandName} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, brandName: value } }))} placeholder="Auto-filled from Company Settings" />
-      <details className="rounded-md border border-white/10 bg-white/[0.03] p-4">
-        <summary className="cursor-pointer text-sm font-bold text-slate-200">Advanced Details</summary>
-        <div className="mt-4 grid gap-5">
+      <details className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
+        <summary className="cursor-pointer text-[12px] font-bold text-slate-200">Advanced Details</summary>
+        <div className="mt-2 grid gap-2.5">
           <TextInput id="supporting-deliverables" label="Supporting assets" optional value={draft.challenge.supportingDeliverables.join(", ")} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, supportingDeliverables: value.split(",").map((item) => item.trim()).filter(Boolean) } }))} placeholder="research findings, customer interviews, market analysis, operational notes, reference materials" />
           <TextInput id="reference-links" label="Reference links" optional value={draft.challenge.referenceLinks.join(", ")} onChange={(value) => updateDraft((current) => ({ ...current, challenge: { ...current.challenge, referenceLinks: value.split(",").map((item) => item.trim()).filter(Boolean) } }))} placeholder="https://example.com/inspiration" />
         </div>
       </details>
-      <label className="flex gap-3 rounded-md border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-200">
+      <label className="flex gap-2 rounded-md border border-white/10 bg-white/[0.03] p-2.5 text-[12px] text-slate-200">
         <input
           id="usage-rights-acknowledgement"
           type="checkbox"
@@ -2440,17 +2471,17 @@ function PrizeStep({ draft, updateDraft, paymentAccount, paymentAccountPending, 
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
+    <div className="space-y-2.5">
+      <div className="grid gap-2 md:grid-cols-2">
         {([1, 3] as const).map((winnerCount) => (
           <button
             key={winnerCount}
             type="button"
             onClick={() => updateWinnerCount(winnerCount)}
-            className={`rounded-md border p-4 text-left transition ${draft.prizePool.winnerCount === winnerCount ? "border-cyan-200 bg-cyan-200/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"}`}
+            className={`rounded-md border p-2 text-left transition ${draft.prizePool.winnerCount === winnerCount ? "border-cyan-200 bg-cyan-200/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"}`}
           >
-            <span className="text-lg font-bold">Top {winnerCount}</span>
-            <span className="mt-1 block text-sm text-slate-300">
+            <span className="text-[13px] font-bold">Top {winnerCount}</span>
+            <span className="mt-0.5 block text-[11px] text-slate-300">
               {winnerCount === 1 ? "One winner receives the full prize pool." : "Three winners share the prize pool."}
             </span>
           </button>
@@ -2472,7 +2503,7 @@ function PrizeStep({ draft, updateDraft, paymentAccount, paymentAccountPending, 
       {draft.prizePool.winnerCount === 3 ? (
         <div>
           <p><FormLabel required>Distribution</FormLabel></p>
-          <div className="mt-2 grid gap-3 md:grid-cols-3">
+          <div className="mt-1.5 grid gap-2 md:grid-cols-3">
             {([
               ["recommended", "Recommended 60 / 30 / 10"],
               ["equal", "Equal split"],
@@ -2482,7 +2513,7 @@ function PrizeStep({ draft, updateDraft, paymentAccount, paymentAccountPending, 
                 key={value}
                 type="button"
                 onClick={() => updateDistributionMode(value)}
-                className={`rounded-md border px-4 py-3 text-left text-sm font-bold transition ${
+                className={`rounded-md border px-2.5 py-1.5 text-left text-[11px] font-bold transition ${
                   mode === value
                     ? "border-cyan-200 bg-cyan-200/10 text-white"
                     : "border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"
@@ -2493,23 +2524,23 @@ function PrizeStep({ draft, updateDraft, paymentAccount, paymentAccountPending, 
             ))}
           </div>
           {mode === "custom" ? (
-            <p className="mt-3 text-sm text-cyan-100">
+            <p className="mt-1 text-[11px] text-cyan-100">
               You can now edit each reward amount.
             </p>
           ) : null}
         </div>
       ) : null}
 
-      <div className="grid gap-3">
+      <div className="grid gap-2">
         {draft.prizePool.winnerCount === 1 ? (
-          <div className="rounded-md border border-white/10 bg-white/[0.03] p-4">
-            <p className="text-sm font-bold text-white">
+          <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+            <p className="text-[12px] font-bold text-white">
               Winner receives: {formatUsdcUnits(math.distributionUnits[0] ?? "0")} test USDC
             </p>
           </div>
         ) : (
           draft.prizePool.prizeDistribution.map((prize, index) => (
-            <label key={prize.place} className="grid gap-2 rounded-md border border-white/10 bg-white/[0.03] p-4 sm:grid-cols-[1fr_180px] sm:items-center">
+            <label key={prize.place} className="grid gap-1.5 rounded-md border border-white/10 bg-white/[0.03] p-2 sm:grid-cols-[1fr_132px] sm:items-center">
               <FormLabel required readOnly={mode !== "custom"} className="text-white">{prize.place} place</FormLabel>
               <input
                 type="text"
@@ -2519,20 +2550,20 @@ function PrizeStep({ draft, updateDraft, paymentAccount, paymentAccountPending, 
                 onChange={(event) => updateDistributionText(index, event.target.value)}
                 required
                 aria-required="true"
-                className="h-10 rounded-md border border-white/10 bg-slate-950/80 px-3 text-sm text-white outline-none focus:border-cyan-200 read-only:cursor-not-allowed read-only:text-slate-300"
+                className="h-8 rounded-md border border-white/10 bg-slate-950/80 px-2.5 text-[12px] text-white outline-none focus:border-cyan-200 read-only:cursor-not-allowed read-only:text-slate-300"
               />
             </label>
           ))
         )}
       </div>
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-1.5 md:grid-cols-4">
         <Info label="Allocated" value={`${allocated} test USDC`} readOnly />
         <Info label="Remaining" value={`${remaining} test USDC`} readOnly />
         <Info label="Platform fee" value={`${formatUsdcUnits(math.platformFeeUnits)} test USDC`} readOnly />
         <Info label="Total required" value={`${formatUsdcUnits(math.totalRequiredUnits)} test USDC`} readOnly />
       </div>
       {balanceNotice ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-300/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300/30 bg-amber-400/10 p-2 text-[12px] text-amber-100">
           <span>{balanceNotice}</span>
           <button
             type="button"
@@ -2545,7 +2576,7 @@ function PrizeStep({ draft, updateDraft, paymentAccount, paymentAccountPending, 
         </div>
       ) : null}
       {!balanceNotice && (paymentAccount?.accountStatus === "BALANCE_UNAVAILABLE" || paymentAccountError) ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-300/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300/30 bg-amber-400/10 p-2 text-[12px] text-amber-100">
           <span>Balance temporarily unavailable</span>
           <button
             type="button"
@@ -2558,17 +2589,17 @@ function PrizeStep({ draft, updateDraft, paymentAccount, paymentAccountPending, 
         </div>
       ) : null}
       {hasInsufficientBalance ? (
-        <div className="rounded-md border border-rose-300/30 bg-rose-400/10 p-4 text-sm text-rose-100">
+        <div className="rounded-md border border-rose-300/30 bg-rose-400/10 p-2 text-[12px] text-rose-100">
           <p className="font-bold">Insufficient test USDC</p>
-          <p className="mt-2">
+          <p className="mt-1">
             Required: {formatUsdcUnits(math.totalRequiredUnits)} test USDC. Available: {paymentAccount.balanceDisplay}.
           </p>
         </div>
       ) : null}
       {math.errors.length ? (
-        <div className="rounded-md border border-amber-300/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+        <div className="rounded-md border border-amber-300/30 bg-amber-400/10 p-2 text-[12px] text-amber-100">
           <p className="font-bold">Prize pool needs attention</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
+          <ul className="mt-1 list-disc space-y-0.5 pl-4">
             {math.errors.map((item) => (
               <li key={item}>{item}</li>
             ))}
@@ -2599,11 +2630,11 @@ function DateTimePicker({ label, value, onChange }: {
   onChange: (value: string) => void;
 }) {
   return (
-    <fieldset className="rounded-md border border-white/10 bg-white/[0.03] p-4">
+    <fieldset className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
       <legend className="px-1">
         <FormLabel required>{label}</FormLabel>
       </legend>
-      <div className="mt-2 grid gap-3 sm:grid-cols-2">
+      <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
         <label className="block">
           <FormLabel required className="text-xs uppercase tracking-wide text-slate-400">Date</FormLabel>
           <input
@@ -2614,7 +2645,7 @@ function DateTimePicker({ label, value, onChange }: {
             onClick={(event) => event.currentTarget.showPicker?.()}
             required
             aria-required="true"
-            className="mt-2 h-11 w-full rounded-md border border-white/10 bg-slate-950/80 px-3 text-sm text-white outline-none focus:border-cyan-200"
+            className="mt-1 h-8 w-full rounded-md border border-white/10 bg-slate-950/80 px-2.5 text-[12px] text-white outline-none focus:border-cyan-200"
           />
         </label>
         <label className="block">
@@ -2627,7 +2658,7 @@ function DateTimePicker({ label, value, onChange }: {
             onClick={(event) => event.currentTarget.showPicker?.()}
             required
             aria-required="true"
-            className="mt-2 h-11 w-full rounded-md border border-white/10 bg-slate-950/80 px-3 text-sm text-white outline-none focus:border-cyan-200"
+            className="mt-1 h-8 w-full rounded-md border border-white/10 bg-slate-950/80 px-2.5 text-[12px] text-white outline-none focus:border-cyan-200"
           />
         </label>
       </div>
@@ -2686,44 +2717,44 @@ function RulesStep({ draft, deadlinePolicy, updateDraft }: {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-md border border-emerald-300/20 bg-emerald-400/10 p-4 text-sm text-emerald-50">
+    <div className="space-y-2.5">
+      <div className="rounded-md border border-emerald-300/20 bg-emerald-400/10 p-2 text-[12px] text-emerald-50">
         Blind review is required for MVP. Brands see anonymous entries during review.
       </div>
             {smokeScheduleEnabled ? (
-        <div className="rounded-md border border-cyan-200/30 bg-cyan-300/10 p-4 text-sm text-cyan-50">
+        <div className="rounded-md border border-cyan-200/30 bg-cyan-300/10 p-2 text-[12px] text-cyan-50">
           <p className="font-bold">Smoke schedule active</p>
-          <p className="mt-2 text-cyan-100">
+          <p className="mt-1 text-cyan-100">
             Smoke schedule active - Submission lead: {minSubmissionLeadMinutes} minutes - Review gap: {minReviewGapMinutes} minutes
           </p>
-          <div className="mt-3 grid gap-2 font-mono text-xs text-cyan-100 sm:grid-cols-2">
+          <div className="mt-1.5 grid gap-1.5 font-mono text-[10px] text-cyan-100 sm:grid-cols-2">
             <span>Submission UTC: {draft.reviewRules.submissionDeadline ? new Date(draft.reviewRules.submissionDeadline).toISOString() : "Not set"}</span>
             <span>Review UTC: {draft.reviewRules.reviewDeadline ? new Date(draft.reviewRules.reviewDeadline).toISOString() : "Not set"}</span>
           </div>
         </div>
-      ) : null}<div className="grid gap-5 md:grid-cols-2">
+      ) : null}<div className="grid gap-2.5 md:grid-cols-2">
         <DateTimePicker label="Submission" value={draft.reviewRules.submissionDeadline} onChange={(value) => updateDraft((current) => ({ ...current, reviewRules: { ...current.reviewRules, submissionDeadline: value } }))} />
         <DateTimePicker label="Review" value={draft.reviewRules.reviewDeadline} onChange={(value) => updateDraft((current) => ({ ...current, reviewRules: { ...current.reviewRules, reviewDeadline: value } }))} />
       </div>
-      <p className="text-sm text-slate-300">Local timezone: {timezone}</p>
+      <p className="text-[12px] text-slate-300">Local timezone: {timezone}</p>
 
-      <div className="rounded-md border border-white/10 bg-white/[0.03] p-4">
+      <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
         <p>
           <FormLabel required>Judging criteria</FormLabel>
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           {criteria.map((item, index) => (
             <button
               key={`${item}-${index}`}
               type="button"
               onClick={() => removeCriterion(index)}
-              className="rounded-full border border-cyan-200/30 bg-cyan-200/10 px-3 py-1 text-sm font-bold text-cyan-50"
+              className="rounded-full border border-cyan-200/30 bg-cyan-200/10 px-2 py-0.5 text-[11px] font-bold text-cyan-50"
             >
               {item} x
             </button>
           ))}
         </div>
-        <div className="mt-3 flex flex-wrap gap-3">
+        <div className="mt-2 flex flex-wrap gap-2">
           <input
             id="judging-criterion-input"
             value={criterion}
@@ -2731,26 +2762,26 @@ function RulesStep({ draft, deadlinePolicy, updateDraft }: {
             maxLength={60}
             placeholder="Creative fit"
             aria-required="true"
-            className="h-11 min-w-64 flex-1 rounded-md border border-white/10 bg-slate-950/80 px-3 text-sm text-white outline-none focus:border-cyan-200"
+            className="h-8 min-w-56 flex-1 rounded-md border border-white/10 bg-slate-950/80 px-2.5 text-[12px] text-white outline-none focus:border-cyan-200"
           />
           <button
             type="button"
             onClick={addCriterion}
-            className="rounded-md border border-cyan-200/40 px-4 py-2 text-sm font-bold text-cyan-100"
+            className="rounded-md border border-cyan-200/40 px-2.5 py-1.5 text-[12px] font-bold text-cyan-100"
           >
             Add criterion
           </button>
         </div>
-        <p className="mt-2 text-xs text-slate-400">At least one criterion is required. Maximum 8.</p>
+        <p className="mt-1 text-[10px] text-slate-400">At least one criterion is required. Maximum 8.</p>
       </div>
 
-      <div className="rounded-md border border-white/10 bg-white/[0.03] p-4">
+      <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
         <p>
           <FormLabel required>Allowed submission types</FormLabel>
         </p>
-        <div className="mt-3 flex flex-wrap gap-3">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           {allowedFormatOptions.map((format) => (
-            <label key={format} className="flex items-center gap-2 rounded-md border border-white/10 bg-slate-950/60 px-3 py-2 text-sm font-bold text-slate-200">
+            <label key={format} className="flex items-center gap-1.5 rounded-md border border-white/10 bg-slate-950/60 px-2 py-1.5 text-[12px] font-bold text-slate-200">
               <input
                 type="checkbox"
                 checked={draft.reviewRules.allowedFormats.includes(format)}
@@ -2762,11 +2793,11 @@ function RulesStep({ draft, deadlinePolicy, updateDraft }: {
         </div>
       </div>
       <TextArea label="Usage rights summary" required value={draft.reviewRules.usageRights} onChange={(value) => updateDraft((current) => ({ ...current, reviewRules: { ...current.reviewRules, usageRights: value } }))} />
-      <label className="flex gap-3 rounded-md border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-200">
+      <label className="flex gap-2 rounded-md border border-white/10 bg-white/[0.03] p-2.5 text-[12px] text-slate-200">
         <input id="creator-acknowledgement" type="checkbox" checked={draft.reviewRules.creatorAcknowledgement} onChange={(event) => updateDraft((current) => ({ ...current, reviewRules: { ...current.reviewRules, creatorAcknowledgement: event.target.checked } }))} />
         <span>Creators must acknowledge that submitted work is complete and ready for review.</span>
       </label>
-      <label className="flex gap-3 rounded-md border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-200">
+      <label className="flex gap-2 rounded-md border border-white/10 bg-white/[0.03] p-2.5 text-[12px] text-slate-200">
         <input id="cancellation-acknowledgement" type="checkbox" checked={draft.reviewRules.cancellationAcknowledgement} onChange={(event) => updateDraft((current) => ({ ...current, reviewRules: { ...current.reviewRules, cancellationAcknowledgement: event.target.checked } }))} />
         <span>I understand that once submissions exist, the Brand cannot unilaterally cancel and refund.</span>
       </label>
@@ -2841,7 +2872,7 @@ function LaunchReadinessSummary({
   const panelId = "launch-readiness-details";
 
   return (
-    <section className="rounded-md border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-200">
+    <section className="rounded-md border border-white/10 bg-slate-950/60 p-3 text-[13px] text-slate-200">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-cyan-200">Launch readiness</p>
@@ -2899,23 +2930,23 @@ function ReviewBeforeLaunchSummary({ draft, totalRequired, brandPaymentWallet }:
   const panelId = "review-before-launch-details";
 
   return (
-    <section className="rounded-md border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-200">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className="rounded-md border border-white/10 bg-slate-950/60 p-2.5 text-[12px] text-slate-200">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-cyan-200">Review before launch</p>
-          <p className="mt-1 text-sm text-slate-300">Business challenge, prize, dates, cover and wallet</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-cyan-200">Review before launch</p>
+          <p className="mt-0.5 text-[12px] text-slate-300">Business challenge, prize, dates, cover and wallet</p>
         </div>
         <button
           type="button"
           aria-expanded={expanded}
           aria-controls={panelId}
           onClick={() => setExpanded((value) => !value)}
-          className="rounded-md border border-white/15 px-3 py-2 text-xs font-bold text-slate-100"
+          className="rounded-md border border-white/15 px-2.5 py-1.5 text-[11px] font-bold text-slate-100"
         >
           {expanded ? "Hide summary" : "View summary"}
         </button>
       </div>
-      <div id={panelId} hidden={!expanded} className="mt-3 grid gap-3 md:grid-cols-2">
+      <div id={panelId} hidden={!expanded} className="mt-2 grid gap-1.5 md:grid-cols-2">
         <Info label="Campaign" value={draft.challenge.title || "Untitled challenge"} />
         <Info label="Brand" value={draft.challenge.brandName || "Not set"} />
         <Info label="Prize pool" value={draft.prizePool.totalAmount.toLocaleString() + " test USDC"} />
@@ -2936,19 +2967,19 @@ function PaymentProgressPanel({ steps, prominent = false }: { steps: PaymentProg
   const showWaitingNotice = Boolean(prominent && activeProgressStep && activeProgressStep.status !== "pending" && !live);
 
   return (
-    <aside className={`h-fit rounded-xl border border-white/10 bg-white/[0.03] p-5 ${prominent ? "border-cyan-200/30 bg-cyan-300/[0.07]" : ""}`}>
-      <div className="flex items-start justify-between gap-3">
+    <aside className={`h-fit rounded-xl border border-white/10 bg-white/[0.03] p-2.5 ${prominent ? "border-cyan-200/30 bg-cyan-300/[0.07]" : ""}`}>
+      <div className="flex items-start justify-between gap-2">
         <div>
-          <p className={prominent ? "text-xl font-bold text-white" : "text-sm font-bold text-white"}>
+          <p className={prominent ? "text-base font-bold text-white" : "text-[12px] font-bold text-white"}>
             {prominent ? "Launch in progress" : "Launch progress"}
           </p>
-          <p className="mt-1 text-sm leading-6 text-slate-300">
+          <p className="mt-0.5 text-[11px] leading-4 text-slate-300">
             {prominent
               ? "Please keep this page open while we complete the launch. Approval, funding and Arc verification may take a few minutes."
               : "Approval, funding, verification and publish."}
           </p>
           {prominent ? (
-            <p className="mt-2 text-xs leading-5 text-slate-400">
+            <p className="mt-1 text-[10px] leading-4 text-slate-400">
               You can safely refresh this page. We will resume from the latest verified step.
             </p>
           ) : null}
@@ -2958,26 +2989,26 @@ function PaymentProgressPanel({ steps, prominent = false }: { steps: PaymentProg
         ) : null}
       </div>
       {activeProgressStep ? (
-        <div className={`mt-4 rounded-md border p-4 ${activeProgressStep.status === "warning" ? "border-amber-300/30 bg-amber-400/10" : activeProgressStep.status === "done" ? "border-emerald-300/25 bg-emerald-300/10" : "border-cyan-300/25 bg-cyan-300/10"}`}>
-          <p className={prominent ? "text-lg font-bold text-white" : "text-sm font-bold text-white"}>{activeProgressStep.label}</p>
+        <div className={`mt-2 rounded-md border p-2 ${activeProgressStep.status === "warning" ? "border-amber-300/30 bg-amber-400/10" : activeProgressStep.status === "done" ? "border-emerald-300/25 bg-emerald-300/10" : "border-cyan-300/25 bg-cyan-300/10"}`}>
+          <p className={prominent ? "text-[13px] font-bold text-white" : "text-[12px] font-bold text-white"}>{activeProgressStep.label}</p>
           {activeProgressStep.technology ? (
-            <p className="mt-1 text-xs font-bold uppercase tracking-wide text-cyan-100">{activeProgressStep.technology}</p>
+            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-cyan-100">{activeProgressStep.technology}</p>
           ) : null}
           {activeProgressStep.description ? (
-            <p className="mt-2 text-sm leading-6 text-slate-200">{activeProgressStep.description}</p>
+            <p className="mt-1 text-[11px] leading-4 text-slate-200">{activeProgressStep.description}</p>
           ) : null}
           {showWaitingNotice ? (
-            <p className="mt-3 rounded-md border border-white/10 bg-slate-950/60 p-3 text-xs leading-5 text-slate-300">
+            <p className="mt-2 rounded-md border border-white/10 bg-slate-950/60 p-2 text-[10px] leading-4 text-slate-300">
               Please wait - your transaction is still processing. Do not refresh repeatedly, submit another transaction, or close the wallet approval before completion.
             </p>
           ) : null}
         </div>
       ) : null}
-      <div className="mt-4 space-y-3">
+      <div className="mt-2 space-y-1.5">
         {steps.map((item) => {
           const statusLabel = item.status === "done" ? "Completed" : item.status === "active" ? "Current" : item.status === "warning" ? "Needs attention" : "Upcoming";
           return (
-            <div key={`${item.label}-${item.status}`} className="flex items-start gap-3 text-sm transition-colors">
+            <div key={`${item.label}-${item.status}`} className="flex items-start gap-2 text-[12px] transition-colors">
               <span
                 className={
                   item.status === "done"
@@ -2994,9 +3025,9 @@ function PaymentProgressPanel({ steps, prominent = false }: { steps: PaymentProg
               </span>
               <span>
                 <span className={item.status === "pending" ? "block text-slate-400" : "block font-bold text-white"}>{item.label}</span>
-                <span className="mt-1 block text-xs font-bold text-slate-500">{statusLabel}</span>
+                <span className="mt-0.5 block text-[10px] font-bold text-slate-500">{statusLabel}</span>
                 {item.status === "active" || item.status === "warning" ? (
-                  <span className="mt-1 block text-xs leading-5 text-slate-400">{item.description}</span>
+                  <span className="mt-0.5 block text-[10px] leading-4 text-slate-400">{item.description}</span>
                 ) : null}
               </span>
             </div>
@@ -3141,7 +3172,7 @@ function deriveBrandFundingPresentation(
       message: "Confirm the Brand payment account and prize details before launch.",
       guidance: "No funds move until you approve the wallet action.",
       tone: "neutral",
-      currentAction: state === "READY_FOR_APPROVAL" ? "Review & Launch" : "Check Payment Account",
+      currentAction: state === "READY_FOR_APPROVAL" ? "Review and fund Prize Pool" : "Check wallet balance",
       autoExpandTechnicalDetails: false,
     };
   }
@@ -3151,7 +3182,7 @@ function deriveBrandFundingPresentation(
     message: "Confirm the Brand payment account and prize details before launch.",
     guidance: "No funds move until you approve the wallet action.",
     tone: "neutral",
-    currentAction: "Check Payment Account",
+    currentAction: "Check wallet balance",
     autoExpandTechnicalDetails: false,
   };
 }
@@ -3177,18 +3208,18 @@ function BrandFundingStatusCard({ presentation, state }: {
             ? "border-cyan-300/30 bg-cyan-400/10"
             : "border-white/10 bg-white/[0.03]";
   return (
-    <section className={`rounded-xl border p-5 ${toneClass}`} aria-live="polite">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className={`rounded-xl border p-2.5 ${toneClass}`} aria-live="polite">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="max-w-2xl">
-          <p className="text-xs font-bold uppercase tracking-wide text-cyan-100">{presentation.currentAction}</p>
-          <h2 className="mt-2 text-2xl font-bold text-white">{presentation.headline}</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-200">{presentation.message}</p>
-          <p className="mt-2 text-sm leading-6 text-slate-300">{presentation.guidance}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-cyan-100">{presentation.currentAction}</p>
+          <h2 className="mt-1 text-base font-bold text-white">{presentation.headline}</h2>
+          <p className="mt-1 text-[11px] leading-4 text-slate-200">{presentation.message}</p>
+          <p className="mt-1 text-[11px] leading-4 text-slate-300">{presentation.guidance}</p>
         </div>
         {presentation.tone === "processing" ? (
           <span className="mt-1 h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-cyan-200/30 border-t-cyan-200 motion-reduce:animate-none" aria-label="Processing" />
         ) : (
-          <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-xs font-bold text-slate-200">
+          <span className="rounded-full border border-white/10 bg-slate-950/50 px-2 py-0.5 text-[10px] font-bold text-slate-200">
             {paymentStateHeaderStatus(state)}
           </span>
         )}
@@ -3210,22 +3241,22 @@ function BrandFundingPhaseSummary({ presentation }: {
   const activeIndex = brandFundingStageIndex(presentation.stage);
   const blocked = presentation.stage === "failed";
   return (
-    <section className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-      <div className="flex items-center justify-between gap-3">
+    <section className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-bold text-white">Launch progress</p>
-          <p className="mt-1 text-xs leading-5 text-slate-400">A simplified view of approval, funding, verification and publish.</p>
+          <p className="text-[12px] font-bold text-white">Launch progress</p>
+          <p className="mt-0.5 text-[10px] leading-4 text-slate-400">A simplified view of approval, funding, verification and publish.</p>
         </div>
-        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{Math.min(activeIndex + 1, phases.length)} of {phases.length}</p>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{Math.min(activeIndex + 1, phases.length)} of {phases.length}</p>
       </div>
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-5">
         {phases.map(({ stage, label }, index) => {
           const done = !blocked && index < activeIndex;
           const active = blocked ? index === 0 : index === activeIndex;
           return (
             <div
               key={stage}
-              className={`rounded-md border p-3 text-sm ${
+              className={`rounded-md border p-2 text-[11px] ${
                 done
                   ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-50"
                   : active
@@ -3235,8 +3266,8 @@ function BrandFundingPhaseSummary({ presentation }: {
                     : "border-white/10 bg-slate-950/40 text-slate-400"
               }`}
             >
-              <span className="block text-xs font-bold uppercase tracking-wide">{done ? "Done" : active ? "Now" : "Next"}</span>
-              <span className="mt-1 block font-bold">{label}</span>
+              <span className="block text-[9px] font-bold uppercase tracking-wide">{done ? "Done" : active ? "Now" : "Next"}</span>
+              <span className="mt-0.5 block font-bold">{label}</span>
             </div>
           );
         })}
@@ -3340,99 +3371,102 @@ function FundingStep({ draft, launchReadiness, preflight, paymentOverview, payme
   );
 
   return (
-    <div className="max-w-[760px] space-y-6">
-      <section className="space-y-5">
-        <h2 className="text-2xl font-bold">Fund Prize Pool</h2>
+    <div className="max-w-[760px] space-y-2.5">
+      <section className="space-y-2.5">
+        <h2 className="text-base font-bold">Fund Prize Pool</h2>
         <BrandFundingStatusCard presentation={brandPresentation} state={paymentState} />
         <BrandFundingPhaseSummary presentation={brandPresentation} />
-        <section className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-          <p className="text-sm font-bold text-white">Next action</p>
-          <div className="mt-4 flex flex-wrap gap-3">
+        <section className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+          <p className="text-[12px] font-bold text-white">Next action</p>
+          <div className="mt-2 flex flex-wrap gap-2">
             {(paymentState === "NOT_STARTED" || paymentState === "ACCOUNT_LOADING") ? (
-              <button type="button" onClick={onPreflight} disabled={pending || draftInitializationPending} className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Check Payment Account</button>
+              <button type="button" onClick={onPreflight} disabled={pending || draftInitializationPending} className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-3 py-1.5 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-50">Check wallet balance</button>
             ) : null}
             {paymentState === "BALANCE_LOADING" && !hasBalanceProblem ? (
-              <button type="button" disabled className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-4 py-2 text-sm font-bold opacity-60">Checking payment account...</button>
+              <button type="button" disabled className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-3 py-1.5 text-[12px] font-bold opacity-60">Checking payment account...</button>
             ) : null}
             {hasBalanceProblem ? (
-              <button type="button" onClick={onPreflight} disabled={pending || draftInitializationPending} className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Try Again</button>
+              <button type="button" onClick={onPreflight} disabled={pending || draftInitializationPending} className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-3 py-1.5 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-50">Try Again</button>
             ) : null}
             {paymentState === "INSUFFICIENT_BALANCE" ? (
-              <button type="button" onClick={onPreflight} disabled={pending || draftInitializationPending} className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Check Again</button>
+              <button type="button" onClick={onPreflight} disabled={pending || draftInitializationPending} className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-3 py-1.5 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-50">Check Again</button>
             ) : null}
             {paymentState === "READY_FOR_APPROVAL" ? (
               launchReady ? (
-                <button type="button" onClick={onApprove} disabled={pending || draftInitializationPending} className="rounded-md bg-emerald-400 px-4 py-2 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">Review & Launch {totalRequired}</button>
+                <button type="button" onClick={onApprove} disabled={pending || draftInitializationPending} className="rounded-md bg-emerald-400 px-3 py-1.5 text-[12px] font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">Review and fund Prize Pool {totalRequired}</button>
               ) : (
-                <button type="button" onClick={() => onFixLaunchReadiness()} disabled={pending || draftInitializationPending} className="rounded-md border border-amber-100/40 px-4 py-2 text-sm font-bold text-amber-100 disabled:cursor-not-allowed disabled:opacity-50">Fix required fields</button>
+                <button type="button" onClick={() => onFixLaunchReadiness()} disabled={pending || draftInitializationPending} className="rounded-md border border-amber-100/40 px-3 py-1.5 text-[12px] font-bold text-amber-100 disabled:cursor-not-allowed disabled:opacity-50">Fix required fields</button>
               )
             ) : null}
             {paymentState === "APPROVAL_PENDING" ? (
-              <span className="rounded-md border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-sm font-bold text-amber-100">Waiting for payment approval</span>
+              <span className="rounded-md border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[12px] font-bold text-amber-100">Waiting for payment approval</span>
             ) : null}
             {paymentState === "APPROVAL_PENDING" ? (
-              <button type="button" onClick={onRecoverApproval} disabled={pending || draftInitializationPending} className="rounded-md border border-white/15 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Check Approval Status</button>
+              <button type="button" onClick={onRecoverApproval} disabled={pending || draftInitializationPending} className="rounded-md border border-white/15 px-3 py-1.5 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-50">Check Approval Status</button>
             ) : null}
             {paymentState === "APPROVED" ? (
-              <button type="button" onClick={onFund} disabled={pending || draftInitializationPending} className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">Fund Prize Pool</button>
+              <button type="button" onClick={onFund} disabled={pending || draftInitializationPending} className="rounded-md bg-cyan-300 px-3 py-1.5 text-[12px] font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">Fund Prize Pool</button>
             ) : null}
             {paymentState === "FUNDING_PENDING" ? (
-              <span className="rounded-md border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-sm font-bold text-cyan-100">Securing prize pool on Arc</span>
+              <span className="rounded-md border border-cyan-300/30 bg-cyan-400/10 px-3 py-1.5 text-[12px] font-bold text-cyan-100">Securing prize pool on Arc</span>
             ) : null}
             {paymentState === "RECONCILING" ? (
-              <button type="button" onClick={onVerify} disabled={pending || draftInitializationPending} className="rounded-md bg-emerald-300 px-4 py-2 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">Verify funding</button>
+              <button type="button" onClick={onVerify} disabled={pending || draftInitializationPending} className="rounded-md bg-emerald-300 px-3 py-1.5 text-[12px] font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">Verify funding</button>
             ) : null}
             {paymentState === "FUNDED_VERIFIED" ? (
-              <button type="button" onClick={onContinueToPublish} disabled={pending || draftInitializationPending} className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Continue to Publish</button>
+              <button type="button" onClick={onContinueToPublish} disabled={pending || draftInitializationPending} className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-3 py-1.5 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-50">Continue to Publish</button>
             ) : null}
             {fundingTransactionExists && paymentState === "FUNDING_PENDING" ? (
-              <button type="button" onClick={() => onReconcile("funding", funding?.challengeId ?? draft.funding.fundingChallengeId)} disabled={(!funding?.challengeId && !draft.funding.fundingChallengeId) || pending} className="rounded-md border border-white/15 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">Check prize pool status</button>
+              <button type="button" onClick={() => onReconcile("funding", funding?.challengeId ?? draft.funding.fundingChallengeId)} disabled={(!funding?.challengeId && !draft.funding.fundingChallengeId) || pending} className="rounded-md border border-white/15 px-3 py-1.5 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-50">Check prize pool status</button>
             ) : null}
           </div>
         </section>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Info label="Prize pool" value={`${draft.prizePool.totalAmount.toLocaleString()} test USDC`} />
-          <Info label="Platform fee" value={`${draft.prizePool.platformFee.toLocaleString()} test USDC`} />
-          <Info label="Total required" value={totalRequired} />
-          <Info label="Available balance" value={availableBalance} />
-          <Info label="Estimated balance after funding" value={remainingBalance} />
-          <Info label="Network fee handling" value="Paid separately in test USDC" />
-          <Info label="Network" value="Arc Testnet" />
-          <Info label="Payment account" value={paymentAccount?.accountStatus === "READY" ? "Ready" : paymentAccountPending ? "Checking" : "Needs attention"} />
-          <Info label="Funding status" value={verified ? "Secured" : paymentStateHeaderStatus(paymentState)} />
-          <Info label="Publish status" value={draft.deployment.publicationStatus === "live" ? "Live" : "Not live yet"} />
-        </div>
+        <details className="rounded-md border border-white/10 bg-white/[0.03] p-2.5 text-[12px] text-slate-300">
+          <summary className="cursor-pointer font-bold text-white">Funding details</summary>
+          <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+            <Info label="Prize pool" value={`${draft.prizePool.totalAmount.toLocaleString()} test USDC`} />
+            <Info label="Platform fee" value={`${draft.prizePool.platformFee.toLocaleString()} test USDC`} />
+            <Info label="Total required" value={totalRequired} />
+            <Info label="Available balance" value={availableBalance} />
+            <Info label="Estimated balance after funding" value={remainingBalance} />
+            <Info label="Network fee handling" value="Paid separately in test USDC" />
+            <Info label="Network" value="Arc Testnet" />
+            <Info label="Payment account" value={paymentAccount?.accountStatus === "READY" ? "Ready" : paymentAccountPending ? "Checking" : "Needs attention"} />
+            <Info label="Funding status" value={verified ? "Secured" : paymentStateHeaderStatus(paymentState)} />
+            <Info label="Publish status" value={draft.deployment.publicationStatus === "live" ? "Live" : "Not live yet"} />
+          </div>
+        </details>
         {(paymentState === "NOT_STARTED" || paymentState === "ACCOUNT_LOADING") ? (
-          <p className="text-sm leading-6 text-slate-300">
+          <p className="text-[12px] leading-4 text-slate-300">
             Check your payment account to confirm the available test USDC balance.
           </p>
         ) : null}
         {paymentState === "BALANCE_LOADING" && !hasBalanceProblem ? (
-          <p className="rounded-md border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm font-bold text-cyan-50">
+          <p className="rounded-md border border-cyan-300/20 bg-cyan-400/10 p-2 text-[12px] font-bold text-cyan-50">
             Checking balance...
           </p>
         ) : null}
         {balanceNotice ? (
-          <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-300/30 bg-amber-400/10 p-4 text-sm font-bold text-amber-100">
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300/30 bg-amber-400/10 p-2 text-[12px] font-bold text-amber-100">
             <span>{balanceNotice}</span>
             <button type="button" onClick={onPreflight} disabled={pending || draftInitializationPending} className="rounded-md border border-amber-100/40 px-3 py-1 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50">Refresh Balance</button>
           </div>
         ) : null}
         {!balanceNotice && hasBalanceProblem ? (
-          <p className="rounded-md border border-rose-300/30 bg-rose-400/10 p-4 text-sm font-bold text-rose-100">
+          <p className="rounded-md border border-rose-300/30 bg-rose-400/10 p-2 text-[12px] font-bold text-rose-100">
             Balance temporarily unavailable
           </p>
         ) : null}
         {paymentState === "INSUFFICIENT_BALANCE" ? (
-          <div className="rounded-md border border-rose-300/30 bg-rose-400/10 p-4 text-sm text-rose-100">
+          <div className="rounded-md border border-rose-300/30 bg-rose-400/10 p-2 text-[12px] text-rose-100">
             <p className="font-bold">Insufficient test USDC</p>
-            <p className="mt-2">Required: {totalRequired}</p>
+            <p className="mt-1">Required: {totalRequired}</p>
             <p>Available: {availableBalance}</p>
             <p>Missing: {missingBalance}</p>
           </div>
         ) : null}
         {paymentState === "READY_FOR_APPROVAL" ? (
-          <div className="grid gap-2 text-sm font-bold text-emerald-100">
+          <div className="grid gap-1 text-[12px] font-bold text-emerald-100">
             <p>Payment account ready &#10003;</p>
             <p>Balance verified &#10003;</p>
           </div>
@@ -3446,15 +3480,15 @@ function FundingStep({ draft, launchReadiness, preflight, paymentOverview, payme
           onFixItem={onFixLaunchReadiness}
         />
         <ReviewBeforeLaunchSummary draft={draft} totalRequired={totalRequired} brandPaymentWallet={brandPaymentWallet} />
-        <p className="rounded-md border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm leading-6 text-cyan-50">
+        <p className="rounded-md border border-cyan-300/20 bg-cyan-400/10 p-2 text-[12px] leading-4 text-cyan-50">
           Protected funds are locked for this challenge and can only be paid to selected winners or safely returned by the configured challenge rules.
         </p>
         <details
           open={brandPresentation.autoExpandTechnicalDetails || undefined}
-          className="rounded-md border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-300"
+          className="rounded-md border border-white/10 bg-slate-950/60 p-2.5 text-[12px] text-slate-300"
         >
           <summary className="cursor-pointer font-bold text-white">Technical details</summary>
-          <div className="mt-4 space-y-4">
+          <div className="mt-2 space-y-2">
             <PaymentProgressPanel steps={steps} prominent={launchPipelineActive} />
             <PaymentWalletCard
               account={paymentAccount}
@@ -3462,7 +3496,7 @@ function FundingStep({ draft, launchReadiness, preflight, paymentOverview, payme
               unavailable={Boolean(paymentAccountError)}
               onInitialize={onInitializePaymentWallet}
             />
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
             <p>Brand payment wallet: <span className="break-all font-mono text-white">{brandPaymentWallet || "Not checked"}</span></p>
             <button
               type="button"
@@ -3490,9 +3524,9 @@ function FundingStep({ draft, launchReadiness, preflight, paymentOverview, payme
           </div>
         </details>
         {showDiagnostic ? (
-          <details className="rounded-md border border-amber-300/20 bg-amber-400/10 p-4 text-sm text-amber-50">
-            <summary className="cursor-pointer font-bold">Development funding scope</summary>
-            <div className="mt-3 grid gap-2">
+          <details className="rounded-md border border-amber-300/20 bg-amber-400/10 p-2.5 text-[12px] text-amber-50">
+            <summary className="cursor-pointer font-bold">Technical funding details</summary>
+            <div className="mt-2 grid gap-1.5">
               <p>Current draft: {mask(draft.challenge.id)}</p>
               <p>Current challenge: {mask(draft.challenge.challengeId ?? draft.deployment.challengeId)}</p>
               <p>Current funding intent: {mask(draft.funding.fundingIntentId)}</p>
@@ -3520,7 +3554,7 @@ function PublishStep({ draft, deadlinePolicy, launchReadiness, publication, onBa
   const readiness = launchReadiness ?? validateCreateChallengeLaunchReadiness(draft, deadlinePolicy ? { deadlinePolicy } : undefined);
   const ready = fundingIsVerified(draft) && readiness.valid;
   const firstBlocker = readiness.items.find((item) => item.status !== "ready");
-  const statusValue = live ? "LIVE" : ready ? "Ready to publish" : "Needs campaign details";
+  const statusValue = live ? "LIVE" : ready ? "Ready to publish" : "Needs Business Challenge details";
   function handlePublishClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
@@ -3542,25 +3576,25 @@ function PublishStep({ draft, deadlinePolicy, launchReadiness, publication, onBa
   }
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-        <h2 className="text-2xl font-bold">
+    <div className="space-y-2.5">
+      <section className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+        <h2 className="text-lg font-bold">
           {live ? "Challenge published successfully" : "Prize Pool Secured"}
         </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-300">
+        <p className="mt-1 text-[12px] leading-4 text-slate-300">
           {live
             ? "Your prize pool is secured and the challenge is now open for submissions."
             : ready
               ? "Funding verified. The prize pool is secured and you can publish this challenge now."
               : "Funding verified. Complete the required campaign details before publishing."}
         </p>
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <div className="mt-2 grid gap-1.5 md:grid-cols-2">
           <Info label="Challenge title" value={draft.challenge.title || "Untitled"} />
           <Info label="Status" value={statusValue} />
           <Info label="Prize pool" value={`${draft.prizePool.totalAmount.toLocaleString()} test USDC`} />
           <Info label="Winner model" value={`Top ${draft.prizePool.winnerCount}`} />
           <Info label="Submission deadline" value={draft.reviewRules.submissionDeadline || "Not set"} />
-          <Info label="Escrow verified" value={fundingIsVerified(draft) ? "Yes" : "Pending"} />
+          <Info label="Prize Pool verified" value={fundingIsVerified(draft) ? "Yes" : "Pending"} />
           <Info label="Business Challenge Cover" value={hasCover ? "Ready" : "Required before publish"} />
         </div>
       </section>
@@ -3583,7 +3617,7 @@ function PublishStep({ draft, deadlinePolicy, launchReadiness, publication, onBa
                 data-pending={pending ? "true" : "false"}
                 onClick={handlePublishClick}
                 disabled={pending}
-                className="relative z-10 rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-5 py-2 text-sm font-bold disabled:opacity-50"
+                className="relative z-10 rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-3 py-1.5 text-[12px] font-bold disabled:opacity-50"
               >
                 Retry Publish
               </button>
@@ -3595,22 +3629,22 @@ function PublishStep({ draft, deadlinePolicy, launchReadiness, publication, onBa
                 data-pending={pending ? "true" : "false"}
                 onClick={handlePublishClick}
                 disabled={pending}
-                className="relative z-10 rounded-md border border-amber-100/40 px-5 py-2 text-sm font-bold text-amber-100 disabled:opacity-50"
+                className="relative z-10 rounded-md border border-amber-100/40 px-3 py-1.5 text-[12px] font-bold text-amber-100 disabled:opacity-50"
               >
-                Fix campaign details
+                Fix Business Challenge details
               </button>
             )}
           </>
         ) : (
           <>
-            <Link href={`/challenges/${draft.challenge.slug ?? "new-challenge"}`} className="rounded-md border border-white/15 px-4 py-2 text-sm font-bold">View Public Challenge</Link>
-            <Link href="/dashboard" className="rounded-md border border-white/15 px-4 py-2 text-sm font-bold">Go to Dashboard</Link>
-            <Link href="/create-challenge?new=1" prefetch className="rounded-md border border-cyan-200/40 px-4 py-2 text-sm font-bold text-cyan-100">Create Another Challenge</Link>
+            <Link href={`/challenges/${draft.challenge.slug ?? "new-challenge"}`} className="rounded-md border border-white/15 px-3 py-1.5 text-[12px] font-bold">View Public Challenge</Link>
+            <Link href="/dashboard" className="rounded-md border border-white/15 px-3 py-1.5 text-[12px] font-bold">Go to Dashboard</Link>
+            <Link href="/create-challenge?new=1" prefetch className="rounded-md border border-cyan-200/40 px-3 py-1.5 text-[12px] font-bold text-cyan-100">Create Another Challenge</Link>
           </>
         )}
       </div>
-      {publication?.links.funding ? <a href={publication.links.funding} target="_blank" rel="noreferrer" className="block text-sm font-bold text-cyan-200">View transaction</a> : null}
-      {publication?.links.contract ? <a href={publication.links.contract} target="_blank" rel="noreferrer" className="block text-sm font-bold text-cyan-200">Contract link</a> : null}
+      {publication?.links.funding ? <a href={publication.links.funding} target="_blank" rel="noreferrer" className="block text-[12px] font-bold text-cyan-200">View transaction</a> : null}
+      {publication?.links.contract ? <a href={publication.links.contract} target="_blank" rel="noreferrer" className="block text-[12px] font-bold text-cyan-200">View Arc contract</a> : null}
     </div>
   );
 }
@@ -3659,20 +3693,20 @@ function PaymentWalletCard({ account, pending, unavailable, onInitialize }: {
   }
 
   return (
-    <section className="rounded-md border border-cyan-200/20 bg-cyan-200/[0.06] p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-cyan-200">Payment Wallet</p>
-      <p className="mt-2 break-all font-mono text-sm font-bold text-white">{walletLabel}</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+    <section className="rounded-md border border-cyan-200/20 bg-cyan-200/[0.06] p-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-cyan-200">Payment Wallet</p>
+      <p className="mt-1 break-all font-mono text-[12px] font-bold text-white">{walletLabel}</p>
+      <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
         <Info label="Available Balance" value={balanceLabel} />
         <Info label="Wallet Status" value={statusLabel} />
       </div>
-      <div className="mt-4 flex flex-wrap gap-3">
+      <div className="mt-2 flex flex-wrap gap-2">
         {!account && onInitialize ? (
           <button
             type="button"
             onClick={onInitialize}
             disabled={pending}
-            className="rounded-md border border-cyan-200/30 px-3 py-2 text-xs font-bold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-cyan-200/30 px-2.5 py-1.5 text-[11px] font-bold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Set up payment wallet
           </button>
@@ -3681,7 +3715,7 @@ function PaymentWalletCard({ account, pending, unavailable, onInitialize }: {
           type="button"
           onClick={() => void copyAddress()}
           disabled={!account?.walletAddress}
-          className="rounded-md border border-cyan-200/30 px-3 py-2 text-xs font-bold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md border border-cyan-200/30 px-2.5 py-1.5 text-[11px] font-bold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {copyLabel}
         </button>
@@ -3689,7 +3723,7 @@ function PaymentWalletCard({ account, pending, unavailable, onInitialize }: {
           href="https://faucet.circle.com/"
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-md border border-cyan-200/30 px-3 py-2 text-xs font-bold text-cyan-100"
+          className="rounded-md border border-cyan-200/30 px-2.5 py-1.5 text-[11px] font-bold text-cyan-100"
         >
           Add Test USDC
         </a>
@@ -3698,7 +3732,7 @@ function PaymentWalletCard({ account, pending, unavailable, onInitialize }: {
             href={account.explorerUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-md border border-cyan-200/30 px-3 py-2 text-xs font-bold text-cyan-100"
+            className="rounded-md border border-cyan-200/30 px-2.5 py-1.5 text-[11px] font-bold text-cyan-100"
           >
             View on Arcscan
           </a>
@@ -3710,11 +3744,11 @@ function PaymentWalletCard({ account, pending, unavailable, onInitialize }: {
 
 function Info({ label, value, readOnly = false }: { label: string; value: string; readOnly?: boolean }) {
   return (
-    <div className="rounded-md border border-white/10 bg-white/[0.03] p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        <FormLabel readOnly={readOnly} className="text-xs text-slate-400">{label}</FormLabel>
+    <div className="rounded-md border border-white/10 bg-white/[0.03] p-1.5">
+      <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+        <FormLabel readOnly={readOnly} className="text-[9px] text-slate-400">{label}</FormLabel>
       </p>
-      <p className="mt-1 break-words text-sm font-bold text-white">{value}</p>
+      <p className="mt-0.5 break-words text-[11px] font-bold text-white">{value}</p>
     </div>
   );
 }

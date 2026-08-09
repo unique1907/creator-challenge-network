@@ -1,277 +1,243 @@
-<div align="center">
+# Creator Challenge Network
 
-<img src="./assets/readme/logo.png" alt="CCN — Creator Challenge Network" width="520">
+**Discover the World's Best Ideas.**
 
-# Discover the World's Best Ideas
+**Turn business problems into winning solutions.**
 
-**Connecting brands with the world's most creative minds through transparent creator campaigns.**
+Creator Challenge Network (CCN) is a programmable Business Challenge platform built on Arc. Brands fund USDC Prize Pools in advance, Creators submit Solution Proposals, Brands evaluate through Blind Review, and Winners receive programmable USDC payouts.
 
-</div>
+![CCN product overview](./assets/readme/og-cover.png)
 
-<p align="center">
-  <img src="./assets/readme/og-cover.png" alt="CCN product overview" width="100%">
-</p>
+## Why CCN
 
----
+Brands are often limited by internal teams, existing agencies, and narrow sourcing networks. CCN lets Brands publish real business problems to a global network of AI-augmented Creators, then reward outcomes instead of paying only for access to ideas.
+
+Creators get a structured place to discover funded opportunities, submit thoughtful Solution Proposals, track evaluation, and verify reward settlement evidence.
 
-## What is CCN?
+## How It Works
 
-**CCN (Creator Challenge Network)** is a platform that enables brands to discover exceptional creative ideas through transparent, incentive-driven creator campaigns.
+Brand flow:
 
-Brands launch campaigns backed by real prize pools. Creators from anywhere in the world submit their work. Submissions are reviewed without exposing creator identity, helping evaluators focus on the work rather than reputation or follower count. Once a winner is finalized, the reward can be settled through programmable USDC payments on Arc using Circle User-Controlled Hosted Wallets.
+1. Define a Business Challenge.
+2. Configure the Prize Pool and Winner model.
+3. Set submission and review deadlines.
+4. Fund the Prize Pool.
+5. Publish the challenge.
+6. Evaluate Solution Proposals through Blind Review.
+7. Select Winner(s).
+8. Approve payout.
+9. Verify the outcome on Arc.
 
-CCN brings campaign management, fair evaluation, programmable settlement, and on-chain verification into one connected workflow.
+Creator flow:
 
----
+1. Discover open Business Challenges.
+2. Review the problem, expected outcome, and criteria.
+3. Submit a Solution Proposal.
+4. Track evaluation.
+5. Get selected.
+6. Receive a USDC Reward.
+7. View payout transaction evidence.
 
-## The Problem
+## Why Arc + Circle
 
-Creative agencies remain essential partners for global brands, but every agency and internal team is naturally limited by the number of people it employs.
+CCN uses Arc Testnet as the current MVP settlement layer for stablecoin-native Prize Pool and payout evidence.
 
-The next breakthrough campaign idea may come from a filmmaker in Türkiye, a designer in Brazil, a photographer in Japan, or a creator in Canada. Most brands do not have an efficient way to reach that talent at scale.
+Arc provides:
 
-Creators face a different problem. Open campaigns are often managed through disconnected tools such as forms, email, chat platforms, spreadsheets, and manual payments. These tools can collect submissions, but they cannot prove that:
+- Smart-contract-based settlement.
+- Onchain Prize Pool and payout evidence.
+- A stablecoin-native environment for USDC reward flows.
 
-- the prize pool was funded before work began,
-- submissions were evaluated through a consistent process,
-- the announced winner received the reward,
-- the campaign outcome can be independently verified.
+USDC is used for:
 
-CCN addresses both sides of this problem: broader creative access for brands and a more transparent campaign experience for creators.
+- Brand-funded Prize Pools.
+- Creator Rewards.
+- Platform fees.
+- Settlement accounting.
 
----
+Circle Wallets support:
 
-## Why Existing Solutions Fall Short
+- Brand funding wallet infrastructure.
+- Transaction approval.
+- Funding flow execution.
+- Payout approval and execution where implemented.
 
-Current tools solve communication and file collection. They do not establish confidence across the complete campaign lifecycle.
+## Programmable Money Flow
 
-A creator may still need to ask:
+```text
+Brand
+  -> Circle Wallet
+  -> USDC Prize Pool
+  -> Arc Escrow Contract
+  -> Published Business Challenge
+  -> Creator Solution Proposals
+  -> Blind Review
+  -> Winner Selection
+  -> USDC Payout
+  -> Creator Wallet
 
-- Does the prize money actually exist?
-- Will the judging process be fair?
-- Can the result be independently verified?
-- Will payment arrive without delays or disputes?
+Platform Fee
+  -> CCN Treasury
+```
 
-A brand may need to coordinate funding, submissions, review, winner selection, and payment across several unrelated systems.
+## Core Product Features
 
-CCN replaces that fragmented process with one structured workflow.
+- Brand and Creator workspaces.
+- Business Challenge creation.
+- Configurable Winner model.
+- Pre-funded USDC Prize Pools.
+- Public LIVE challenge discovery.
+- Deadline-aware lifecycle.
+- Solution Proposal submission.
+- Blind Review.
+- Winner finalization.
+- Circle Wallet funding and payout flow.
+- Arc settlement verification.
+- Creator Wallet.
+- Reward transaction explorer links.
+- Role-aware dashboards.
+- Dynamic Brand Next Action.
+- Lifecycle handling for no submissions and insufficient submissions.
 
----
+## Challenge Lifecycle
 
-## The CCN Solution
+CCN uses clear lifecycle states across public, Brand, and Creator surfaces:
 
-CCN expands creative sourcing beyond a single team while making every critical campaign stage traceable.
+- Draft
+- Open for Solutions
+- Evaluation
+- Selection
+- Settlement
+- Completed
+- Closed - No Submissions
+- Closed - Not Enough Submissions
 
-1. A brand creates a campaign with a clear brief, timeline, prize structure, and evaluation criteria.
-2. The prize pool is funded before submissions begin.
-3. The campaign opens to a global creator network.
-4. Creators submit original work through a structured flow.
-5. Submissions are reviewed without exposing creator identity.
-6. The winner is finalized according to the campaign rules.
-7. Circle Hosted approval authorizes the prepared settlement.
-8. The smart contract can release USDC on Arc.
-9. Funding, settlement, and completion can be independently verified from on-chain evidence.
+A Top N challenge requires enough eligible Solution Proposals to fill the configured Winner count under the current MVP settlement contract. If the submission window closes without enough eligible proposals, CCN surfaces a terminal closed state instead of incorrectly advancing the challenge into payout.
 
----
+## Blind Review
 
-## Campaign Workflow
+Creator identity is hidden from the Brand during the Blind Review stage according to the implemented review flow. Evaluation focuses on submitted Solution Proposals, not Creator profile identity.
 
-<p align="center">
-  <img src="./assets/readme/workflow.svg" alt="CCN campaign workflow" width="100%">
-</p>
+## Architecture
 
-Every campaign follows the same transparent lifecycle, from campaign creation to programmable settlement and verification.
-
----
-
-## Product Principles
-
-### Global Creative Participation
-
-Creative opportunities should not be limited by geography, agency size, or existing professional networks.
-
-### Transparent Funding
-
-Campaign rewards should be committed before creators invest their time.
-
-### Fair Evaluation
-
-Submissions should be evaluated on the quality of the work rather than identity, reputation, or follower count.
-
-### Programmable Settlement
-
-Rewards should follow predefined campaign rules instead of disconnected manual payment processes.
-
-### Trust by Design
-
-Funding, evaluation, settlement, and verification should be part of the product workflow from the beginning.
-
----
-
-## Platform Overview
-
-<p align="center">
-  <img src="./assets/readme/hero-dashboard.png" alt="CCN Brand Workspace dashboard" width="100%">
-</p>
-
-The CCN Brand Workspace brings campaigns, funding, submissions, reviews, analytics, wallet operations, and payout status into one unified interface.
-
----
-
-## Implementation Status
-
-The current prototype implements the complete campaign lifecycle and includes executable validation for the payout path. This table separates directly verified on-chain execution from implementation and test validation.
-
-| Capability | Evidence status |
-|---|---|
-| Campaign creation and prize-pool configuration | Implemented and validated |
-| Escrow funding | **On-chain verified** |
-| Creator submission flow | Implemented and validated |
-| Blind review | Implemented and validated |
-| Server-derived winner finalization | Implemented and validated |
-| Circle Hosted PAYMENT approval | **Executed and funding verified on-chain** |
-| Circle Hosted PAYOUT approval flow | Hosted approval completed for FAT-01; idempotency test-validated |
-| `releasePayout()` | **On-chain verified for FAT-01** |
-| `WinnersPaid` verification path | **On-chain verified for FAT-01** |
-| Blockchain-first reconciliation | **Verified from payout receipt and event** |
-| `PAYOUT_CONFIRMED` | **Recovered from verified payout evidence** |
-
-Live payout evidence is included only for the FAT-01 challenge where the repository contains a successful receipt, matching `WinnersPaid` event, and `PAYOUT_CONFIRMED` reconciliation.
-
----
-
-## On-Chain Evidence
-
-| Item | Value |
-|---|---|
-| Network | Arc Testnet |
-| Runtime contract | `0x4DCE98F8a35d09F57ECE7A340B8392Ba0Fb7ba3D` |
-| Runtime treasury | `0x6d2ca88a7bDA59280D9ad0E41aA87C9acF24Aa1A` |
-| PAYMENT wallet | `0xB1E2700290381396BC2A85bb6C286EaD5e80A5dd` |
-| PAYOUT wallet | `0x37e30Fe02f1f0a7d46ea7CD254398830bE8C30b9` |
-| Verified funding transaction | `0xb0840e9dcd4509c054e7397641df04d82318838f034e2c8f5355dd1495e5e249` |
-| Funded challenge ID | `0xc71562ffa5142a1e1d071cd8107b59591901cd993787b19397c1d8ceba7d294b` |
-| Verified payout transaction | [`0x2d11480d…9b38199d`](https://testnet.arcscan.app/tx/0x2d11480d5929d501736fbc976395b9a213f8a79ed711ea2e9447133a9b38199d) |
-| Payout challenge ID | `0x98a03a73cab4f10049f2269c348b69031aa78484b15c9098943e5cea07bcbdd9` |
-| Payout block | `53726923` |
-
-Funding was verified directly through the Arc Testnet RPC. Arcscan currently does not index this transaction, although the successful receipt, USDC transfer and matching ChallengeFunded event are present on-chain.
-
-The funding transaction emitted `ChallengeFunded` on the runtime contract and moved the canonical campaign into verified funded state.
-
-The payout transaction emitted `WinnersPaid` on the same runtime contract for the FAT-01 challenge and was reconciled into `PAYOUT_CONFIRMED` through blockchain-first verification.
-
----
-
-## Why Arc?
-
-CCN uses Arc as settlement infrastructure for programmable campaign rewards.
-
-Arc enables the product to connect funding, escrow, settlement, and on-chain verification within one financial lifecycle. This supports:
-
-- programmable escrow-backed rewards,
-- fast and low-cost settlement,
-- USDC-oriented payment flows,
-- transparent on-chain verification,
-- blockchain-first reconciliation.
-
-Blockchain is not the product itself. It is the settlement layer that makes the campaign workflow independently verifiable.
-
----
-
-## Why Circle?
-
-Circle User-Controlled Hosted Wallets integrate secure transaction approvals into the CCN campaign lifecycle.
-
-The current implementation includes:
-
-- Hosted PAYMENT approval for campaign funding,
-- Hosted PAYOUT approval preparation and authorization flow,
-- controlled authorization of prepared transactions,
-- USDC settlement orchestration connected to the application workflow.
-
-This allows wallet approvals and settlement to operate as part of the product instead of as a separate manual process.
-
----
-
-## Technical Architecture
-
-<p align="center">
-  <img src="./assets/readme/architecture.png" alt="CCN technical architecture" width="100%">
-</p>
-
-CCN separates the product experience from programmable financial settlement while keeping both connected through one workflow.
-
-### Application Layer
-
-- Brand workspace
-- Campaign management
-- Creator submission flow
-- Blind review
-- Workflow engine
-
-### Infrastructure Layer
-
-- Circle User-Controlled Hosted Wallets
-- Hosted approval orchestration
-- Campaign services
-- Funding, review, and settlement coordination
-- Blockchain reconciliation
-
-### Settlement Layer
-
-- `CCNEscrow` smart contract
-- Arc Testnet
-- USDC settlement path
-- On-chain event verification
-
----
-
-## Technology Stack
-
-### Product
+Frontend and application:
 
 - Next.js
-- React
 - TypeScript
 - Tailwind CSS
 
-### Blockchain
+Data and auth:
+
+- Supabase
+
+Blockchain:
 
 - Arc Testnet
 - Solidity
-- Escrow-based settlement
-- Blockchain-first reconciliation
-
-### Payments
-
-- Circle User-Controlled Hosted Wallets
-- Hosted PAYMENT approval
-- Hosted PAYOUT approval flow
 - USDC
 
----
+Wallet infrastructure:
 
-## Vision
+- Circle Wallets
 
-The future of creative marketing will not be defined only by who employs the largest creative team. It will also be defined by who can discover the best ideas from a global network.
+Deployment:
 
-CCN enables brands to expand creative participation beyond traditional boundaries while giving creators a more transparent and trustworthy campaign experience.
+- Vercel
 
-Creator campaigns are the first use case. The same infrastructure can support creative bounties, open innovation programs, community-led product design, brand collaborations, and other structured relationships between organizations and independent creators.
+## Smart Contract / Settlement
 
-Our long-term goal is to make transparent creator collaboration a standard rather than an exception.
+CCN uses an Arc Testnet escrow contract to support Brand-funded Prize Pools, Winner configuration, payout settlement, platform fee handling, and post-payout verification/reconciliation.
 
----
+The MVP keeps settlement state tied to the canonical challenge lifecycle so payout can only become actionable after winner finalization.
 
-## Built on Arc
+## Deployed Contracts
 
-CCN was designed and built during the **Build on Arc Hackathon**.
+Current canonical Arc Testnet runtime configuration:
 
-The project demonstrates how Arc, Circle, USDC, and programmable settlement can support a transparent creator campaign lifecycle from funding through verifiable settlement infrastructure.
+- Runtime Escrow Contract: `0x4DCE98F8a35d09F57ECE7A340B8392Ba0Fb7ba3D`
+- CCN Treasury: `0x6d2ca88a7bDA59280D9ad0E41aA87C9acF24Aa1A`
+- Arc Testnet USDC: `0x3600000000000000000000000000000000000000`
 
----
+No private keys, wallet PINs, service-role keys, or deployer credentials are stored in this README.
 
-## License
+## Live Demo
 
-MIT
+Production target:
+
+[https://creator-challenge-network.vercel.app](https://creator-challenge-network.vercel.app)
+
+Production deployment is pending final release review.
+
+## Demo Video
+
+Coming soon.
+
+## Presentation
+
+Coming soon.
+
+## Repository
+
+Public repository:
+
+[https://github.com/unique1907/creator-challenge-network](https://github.com/unique1907/creator-challenge-network)
+
+## Running Locally
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create a local environment file from `.env.example`, then provide the required values for:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SITE_URL`
+- `CIRCLE_API_KEY`
+- `NEXT_PUBLIC_CIRCLE_APP_ID`
+- `CCN_LIFECYCLE_PERSISTENCE`
+- `ARC_TESTNET_USDC`
+- `CCN_ESCROW_CONTRACT_ADDRESS`
+- `CCN_PAYOUT_TREASURY_ADDRESS`
+- `CCN_PAYOUT_ACCOUNT_ID`
+- `CCN_PAYOUT_WALLET_ID`
+- `CCN_PAYOUT_WALLET_ADDRESS`
+
+Run the development server:
+
+```bash
+npm run dev
+```
+
+## Testing
+
+Useful release checks:
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+The repository also includes focused verifier scripts for lifecycle classification, Brand and Creator parity, auth and role isolation, challenge creation, funding, winner finalization, payout reconciliation, public projections, and production configuration.
+
+## Demo Environment
+
+The current hackathon MVP runs on Arc Testnet. Balances and rewards use test USDC.
+
+Demo challenges that reference recognizable companies are product demonstrations. Referenced companies are not customers, sponsors, partners, or endorsers of CCN unless explicitly stated otherwise.
+
+## Hackathon
+
+Built for the Programmable Money Hackathon on Arc, Circle's stablecoin-native L1.
+
+Primary submission track: **DeFi**.
+
+CCN fits the DeFi track because it uses programmable USDC Prize Pools, escrow funding, payout settlement, and treasury flows to turn business outcomes into verifiable stablecoin transactions.
+
+## Team
+
+Solo builder project.

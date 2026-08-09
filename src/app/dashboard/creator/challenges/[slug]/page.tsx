@@ -18,16 +18,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-function creatorSignUpPath(returnTo: string) {
+function creatorSignInPath(returnTo: string) {
   const params = new URLSearchParams({ role: "creator", next: returnTo });
-  return `/auth/sign-up?${params.toString()}`;
+  return `/auth/sign-in?${params.toString()}`;
 }
 
 export default async function CreatorChallengeRoute({ params }: PageProps) {
   const { slug } = await params;
   const returnTo = `/dashboard/creator/challenges/${encodeURIComponent(slug)}`;
   const session = await measureCreatorPerformance("challenge-detail", "session", () => getCreatorSession());
-  if (!session) redirect(creatorSignUpPath(returnTo));
+  if (!session) redirect(creatorSignInPath(returnTo));
   const [challenge, wallet] = await Promise.all([
     measureCreatorPerformance("challenge-detail", "challenge", () => getCreatorChallengeDetail(decodeURIComponent(slug), session)),
     measureCreatorPerformance("challenge-detail", "wallet", () => getCreatorWalletSummary(session)),

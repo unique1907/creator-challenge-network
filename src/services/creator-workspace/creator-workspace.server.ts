@@ -9,6 +9,11 @@ import {
   listWinnerFinalizationAttempts,
   type WinnerFinalizationAttemptRecord,
 } from "@/services/create-challenge/create-challenge-store.server";
+import {
+  explainPublicLiveEligibility,
+  isPublicLiveEligibleDraft,
+  isSubmissionWindowOpen,
+} from "@/services/create-challenge/public-challenge-eligibility";
 import { getCreatorProfileIdentity, getVerifiedCreatorPayoutWallet } from "@/services/creator-foundation/creator-foundation.server";
 import { resolveAccountImageUrl, resolveCampaignCover } from "@/services/media/brand-media.server";
 import {
@@ -28,6 +33,7 @@ export type CreatorSubmissionStatus =
   | "Draft"
   | "Submitted"
   | "Under Review"
+  | "Challenge Closed"
   | "Winner"
   | "Not Selected"
   | "Reward Processing"
@@ -57,13 +63,16 @@ export type CreatorSubmissionListItem = {
   draftId: string | null;
   challengeId: string;
   challengeTitle: string;
+  challengeDetailLabel: string;
   brandName: string;
   title: string;
+  submissionTitle: string;
   status: CreatorSubmissionStatus;
   updatedAt: string;
   submittedAt: string | null;
   anonymousEntryCode: string;
   actionLabel: string;
+  href: string;
   challengeSlug: string | null;
   coverImageUrl: string | null;
   coverImageAlt: string;
@@ -81,6 +90,7 @@ export type CreatorRewardItem = {
   paidAt: string | null;
   walletAddressMasked: string;
   transactionHash: string | null;
+  transactionUrl: string | null;
 };
 
 export type CreatorWalletSummary = {
@@ -122,6 +132,7 @@ export type CreatorNextAction = {
   ctaLabel: string;
   statusLabel: string;
   metaLabel?: string;
+  challenge?: CreatorChallengeCard;
 };
 
 
@@ -268,6 +279,10 @@ function formatUnits(value?: string) {
   }
 }
 
+function solutionCountLabel(count: number) {
+  return `${count} ${count === 1 ? "solution" : "solutions"}`;
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "Not set";
   const parsed = parseChallengeDeadline(value);
@@ -366,8 +381,15 @@ export async function getCreatorProfileSummary(session: CreatorSession): Promise
   };
 }
 function isSubmissionOpen(draft: CreateChallengeDraftState) {
-  const deadline = parseChallengeDeadline(draft.reviewRules.submissionDeadline);
-  return Boolean(deadline && Date.now() < deadline.unix * 1000);
+  return isSubmissionWindowOpen(draft);
+}
+
+function isClosedWithNotEnoughSubmissions(draft: CreateChallengeDraftState, submittedCount: number) {
+  return (
+    !isSubmissionOpen(draft) &&
+    submittedCount > 0 &&
+    submittedCount < draft.prizePool.winnerCount
+  );
 }
 
 function creatorEligibilityDiagnosticEnabled() {
@@ -375,27 +397,19 @@ function creatorEligibilityDiagnosticEnabled() {
 }
 
 function explainCreatorEligibility(draft: CreateChallengeDraftState) {
-  const fundingStatus = String(draft.funding.fundingStatus);
   const slug = draft.challenge.slug ?? "";
-  const reasons: string[] = [];
-  if (draft.deployment.publicationStatus !== "live") reasons.push("publication-not-live");
-  if (fundingStatus !== "funded" && fundingStatus !== "live") reasons.push("funding-not-live");
-  if (draft.funding.escrowStatus !== "verified") reasons.push("escrow-not-verified");
-  if (draft.funding.eventVerified !== true) reasons.push("funding-event-not-verified");
-  if (!draft.funding.transactionHash) reasons.push("funding-transaction-missing");
-  if (!slug || slug === "new-challenge") reasons.push("public-slug-missing");
-  if (!isSubmissionOpen(draft)) reasons.push("submission-window-closed");
+  const diagnostic = explainPublicLiveEligibility(draft);
 
   return {
-    eligible: reasons.length === 0,
-    reasons,
+    eligible: diagnostic.eligible,
+    reasons: diagnostic.reasons,
     row: {
       draftId: draft.challenge.id ?? null,
       challengeId: draft.challenge.challengeId ?? draft.deployment.challengeId ?? null,
       slug: slug || null,
       title: draft.challenge.title || "Untitled draft",
       publicationStatus: draft.deployment.publicationStatus,
-      fundingStatus,
+      fundingStatus: String(draft.funding.fundingStatus),
       escrowStatus: draft.funding.escrowStatus,
       eventVerified: draft.funding.eventVerified === true,
       submissionDeadline: draft.reviewRules.submissionDeadline,
@@ -405,7 +419,7 @@ function explainCreatorEligibility(draft: CreateChallengeDraftState) {
 }
 
 function isDiscoverable(draft: CreateChallengeDraftState) {
-  return explainCreatorEligibility(draft).eligible;
+  return isPublicLiveEligibleDraft(draft);
 }
 
 const listDrafts = cache(async function listDrafts() {
@@ -441,8 +455,9 @@ function statusForSubmission(input: {
   draft: CreateChallengeDraftState | null;
   winnerAttempt: WinnerFinalizationAttemptRecord | null;
   reward: CreatorRewardItem | null;
+  submittedCount?: number;
 }): CreatorSubmissionStatus {
-  const { submission, draft, winnerAttempt, reward } = input;
+  const { submission, draft, winnerAttempt, reward, submittedCount = 0 } = input;
   if (!submission) return "No submission";
   if (reward?.status === "Paid") return "Reward Paid";
   if (winnerAttempt?.selectedWinnerEntryIds.includes(submission.id)) {
@@ -452,6 +467,7 @@ function statusForSubmission(input: {
     return "Not Selected";
   }
   if (submission.status === "DRAFT") return "Draft";
+  if (draft && isClosedWithNotEnoughSubmissions(draft, submittedCount)) return "Challenge Closed";
   if (draft && !isSubmissionOpen(draft)) return "Under Review";
   return "Submitted";
 }
@@ -460,6 +476,7 @@ function challengeCard(
   draft: CreateChallengeDraftState,
   submission: Submission | null,
   status: CreatorSubmissionStatus,
+  options: { submissionCount?: number } = {},
 ): CreatorChallengeCard {
   const cover = resolveCampaignCover({
     coverImageKey: draft.challenge.coverImageKey,
@@ -478,8 +495,10 @@ function challengeCard(
     submissionDeadline: formatDate(draft.reviewRules.submissionDeadline),
     submissionDeadlineIso: draft.reviewRules.submissionDeadline ?? null,
     timeLeftLabel: timeLeftLabel(draft.reviewRules.submissionDeadline),
-    submissionCountLabel: "Submission count available on detail",
-    featured: Boolean(draft.challenge.coverImageKey),
+    submissionCountLabel: typeof options.submissionCount === "number"
+      ? solutionCountLabel(options.submissionCount)
+      : "Solution count unavailable",
+    featured: false,
     submissionStatus: status,
 
     coverImageUrl: cover.imageUrl,
@@ -523,6 +542,8 @@ async function rewardForSubmission(
   );
   const paid = attempt.state === "PAYOUT_CONFIRMED" && Boolean(payoutEvidence);
 
+  const transactionHash = paid ? attempt.transactionHash ?? null : null;
+
   return {
     submissionId: submission.id,
     challengeTitle: draft.challenge.title || "Untitled challenge",
@@ -539,7 +560,8 @@ async function rewardForSubmission(
     network: "Arc Testnet",
     paidAt: paid ? attempt.payoutConfirmedAt ?? payoutEvidence?.verifiedAt ?? null : null,
     walletAddressMasked: mask(submission.creatorWalletAddress),
-    transactionHash: paid ? attempt.transactionHash ?? null : null,
+    transactionHash,
+    transactionUrl: transactionHash ? `${ARC_EXPLORER_URL}/tx/${transactionHash}` : null,
   };
 }
 
@@ -562,21 +584,35 @@ async function submissionItem(
   const draft = drafts.find((item) => challengeId(item).toLowerCase() === submission.challengeId.toLowerCase()) ?? null;
   const reward = options.includeReward ? await rewardForSubmission(submission, draft, attempts) : null;
   const winnerAttempt = attempts.find((item) => item.selectedWinnerEntryIds.includes(submission.id)) ?? null;
-  const status = statusForSubmission({ submission, draft, winnerAttempt, reward });
+  const submittedCount = draft ? await countSubmittedEntriesForChallenge(challengeId(draft)).catch(() => 0) : 0;
+  const status = statusForSubmission({ submission, draft, winnerAttempt, reward, submittedCount });
+  const canonicalChallengeTitle = draft?.challenge.title || "Challenge unavailable";
+  const canonicalBrandName = draft?.challenge.brandName || "Brand not set";
+  const challengeCover = draft
+    ? resolveCampaignCover({
+        coverImageKey: draft.challenge.coverImageKey,
+        coverImageAlt: draft.challenge.coverImageAlt,
+        title: draft.challenge.title,
+        category: draft.challenge.category,
+      })
+    : null;
   return {
     submissionId: submission.id,
     draftId: draft ? draftId(draft) : null,
     challengeId: submission.challengeId,
-    challengeTitle: draft?.challenge.title || "Challenge unavailable",
-    brandName: draft?.challenge.brandName || "Brand not set",
+    challengeTitle: canonicalChallengeTitle,
+    challengeDetailLabel: `${canonicalBrandName} - ${status}`,
+    brandName: canonicalBrandName,
     title: submission.title,
+    submissionTitle: submission.title,
     status,
     updatedAt: formatDate(submission.updatedAt),
     submittedAt: submission.submittedAt ? formatDate(submission.submittedAt) : null,
     anonymousEntryCode: submission.anonymousEntryCode,
+    href: `/dashboard/creator/submissions/${submission.id}`,
     challengeSlug: draft?.challenge.slug ?? null,
-    coverImageUrl: draft ? resolveCampaignCover({ coverImageKey: draft.challenge.coverImageKey, coverImageAlt: draft.challenge.coverImageAlt, title: draft.challenge.title, category: draft.challenge.category }).imageUrl : null,
-    coverImageAlt: draft ? resolveCampaignCover({ coverImageKey: draft.challenge.coverImageKey, coverImageAlt: draft.challenge.coverImageAlt, title: draft.challenge.title, category: draft.challenge.category }).alt : "Submission cover",
+    coverImageUrl: challengeCover?.imageUrl ?? null,
+    coverImageAlt: challengeCover?.alt ?? "Submission cover",
     progressLabel: submission.status === "DRAFT" ? "Draft saved" : status,
     actionLabel:
  submission.status === "DRAFT" ? "Continue Draft" : "View Submission",
@@ -685,13 +721,25 @@ function buildCreatorMetrics(input: {
   ];
 }
 
+function creatorSubmissionNotificationHeadline(status: CreatorSubmissionStatus) {
+  if (status === "Draft") return "Draft saved";
+  if (status === "Submitted") return "Submission submitted";
+  if (status === "Under Review") return "Submission under review";
+  if (status === "Challenge Closed") return "Challenge closed";
+  if (status === "Winner") return "Selected solution";
+  if (status === "Reward Paid") return "Reward paid";
+  if (status === "Reward Processing") return "Reward processing";
+  if (status === "Not Selected") return "Selection completed";
+  return "Submission status available";
+}
+
 function buildCreatorNotifications(input: {
   submissions: CreatorSubmissionListItem[];
   rewards: CreatorRewardItem[];
 }): CreatorNotificationItem[] {
   const submissionNotifications = input.submissions.map((submission) => ({
     id: `submission:${submission.submissionId}:${submission.status}`,
-    headline: submission.status === "Draft" ? "Draft saved" : "Submission updated",
+    headline: creatorSubmissionNotificationHeadline(submission.status),
     message: `${submission.challengeTitle} is ${submission.status}`,
     timeLabel: relativeTimeLabel(submission.submittedAt ?? submission.updatedAt),
     href: `/dashboard/creator/submissions/${submission.submissionId}`,
@@ -720,22 +768,72 @@ function matchesChallengeQuery(challenge: CreatorChallengeCard, query?: string) 
     .some((value) => value.toLowerCase().includes(normalized));
 }
 
+function deadlineTime(value?: string | null) {
+  if (!value) return Number.NaN;
+  const parsed = parseChallengeDeadline(value);
+  const date = parsed ? new Date(parsed.iso) : new Date(value);
+  const time = date.getTime();
+  return Number.isFinite(time) ? time : Number.NaN;
+}
+
+function compareTimeAscNullLast(left: number, right: number) {
+  const leftValid = Number.isFinite(left);
+  const rightValid = Number.isFinite(right);
+  if (leftValid && rightValid && left !== right) return left - right;
+  if (leftValid !== rightValid) return leftValid ? -1 : 1;
+  return 0;
+}
+
+function compareTimeDescNullLast(left: number, right: number) {
+  const leftValid = Number.isFinite(left);
+  const rightValid = Number.isFinite(right);
+  if (leftValid && rightValid && left !== right) return right - left;
+  if (leftValid !== rightValid) return leftValid ? -1 : 1;
+  return 0;
+}
+
+export function compareCreatorLiveOpportunityCards(left: CreatorChallengeCard, right: CreatorChallengeCard) {
+  const byDeadline = compareTimeAscNullLast(deadlineTime(left.submissionDeadlineIso), deadlineTime(right.submissionDeadlineIso));
+  if (byDeadline) return byDeadline;
+  return left.title.localeCompare(right.title);
+}
+
+function submissionStatusPriority(status: CreatorSubmissionStatus) {
+  if (status === "Under Review" || status === "Submitted") return 0;
+  if (status === "Draft" || status === "Winner" || status === "Reward Processing") return 1;
+  if (status === "No submission" || status === "Not Selected" || status === "Challenge Closed") return 2;
+  return 3;
+}
+
+export function compareCreatorSubmissionItems(left: CreatorSubmissionListItem, right: CreatorSubmissionListItem) {
+  const leftPriority = submissionStatusPriority(left.status);
+  const rightPriority = submissionStatusPriority(right.status);
+  if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+  const byTime = compareTimeDescNullLast(deadlineTime(left.submittedAt ?? left.updatedAt), deadlineTime(right.submittedAt ?? right.updatedAt));
+  if (byTime) return byTime;
+  return left.challengeTitle.localeCompare(right.challengeTitle);
+}
+
 export async function listCreatorDiscoverableChallenges(session: CreatorSession, query = "") {
   const [drafts, submissions, attempts] = await Promise.all([
     listCreatorEligiblePublicDrafts(),
     listCreatorSubmissions(session.ccnAccountId),
     listWinnerFinalizationAttempts().catch(() => []),
   ]);
-  return drafts
-    .map((draft) => {
+  const cards = await Promise.all(drafts.map(async (draft) => {
       const submission = submissionForChallenge(submissions, draft);
       const reward = null;
       const winnerAttempt = submission
         ? attempts.find((item) => item.selectedWinnerEntryIds.includes(submission.id)) ?? null
         : null;
-      return challengeCard(draft, submission, statusForSubmission({ submission, draft, winnerAttempt, reward }));
-    })
-    .filter((challenge) => matchesChallengeQuery(challenge, query));
+      const submittedCount = await countSubmittedEntriesForChallenge(challengeId(draft)).catch(() => 0);
+      return challengeCard(draft, submission, statusForSubmission({ submission, draft, winnerAttempt, reward, submittedCount }), {
+        submissionCount: submittedCount,
+      });
+    }));
+  return cards
+    .filter((challenge) => matchesChallengeQuery(challenge, query))
+    .sort(compareCreatorLiveOpportunityCards);
 }
 
 
@@ -773,12 +871,13 @@ export function resolveCreatorNextAction(input: {
   if (openChallenge) {
     return {
       kind: "submit_work",
-      headline: "Open challenge available",
+      headline: openChallenge.title,
       detail: `${openChallenge.title} is accepting creator submissions.`,
       href: `/dashboard/creator/challenges/${openChallenge.slug}`,
       ctaLabel: "View Challenge",
       statusLabel: openChallenge.timeLeftLabel,
       metaLabel: openChallenge.timeLeftLabel,
+      challenge: openChallenge,
     };
   }
 
@@ -827,18 +926,26 @@ export async function getCreatorWorkspaceOverview(session: CreatorSession): Prom
     getCreatorProfileSummary(session),
   ]);
   const eligibleDrafts = listCreatorEligiblePublicDraftsFromDrafts(drafts);
-  const availableChallenges = eligibleDrafts.map((draft) => {
+  const availableChallenges = (await Promise.all(eligibleDrafts.map(async (draft) => {
     const submission = submissionForChallenge(submissions, draft);
     const reward = null;
     const winnerAttempt = submission
       ? attempts.find((item) => item.selectedWinnerEntryIds.includes(submission.id)) ?? null
       : null;
-    return challengeCard(draft, submission, statusForSubmission({ submission, draft, winnerAttempt, reward }));
-  });
-  const submissionItems = await Promise.all(
-    submissions.map((submission) => submissionItem(submission, drafts, attempts, { includeReward: false })),
-  );
-  const rewards: CreatorRewardItem[] = [];
+    const submittedCount = await countSubmittedEntriesForChallenge(challengeId(draft)).catch(() => 0);
+    return challengeCard(draft, submission, statusForSubmission({ submission, draft, winnerAttempt, reward, submittedCount }), {
+      submissionCount: submittedCount,
+    });
+  }))).sort(compareCreatorLiveOpportunityCards);
+  const submissionItems = (await Promise.all(
+    submissions.map((submission) => submissionItem(submission, drafts, attempts, { includeReward: true })),
+  )).sort(compareCreatorSubmissionItems);
+  const rewards = (await Promise.all(
+    submissions.map(async (submission) => {
+      const draft = drafts.find((item) => challengeId(item).toLowerCase() === submission.challengeId.toLowerCase()) ?? null;
+      return rewardForSubmission(submission, draft, attempts);
+    }),
+  )).filter((reward): reward is CreatorRewardItem => Boolean(reward));
   const metrics = buildCreatorMetrics({ submissions: submissionItems, rewards });
   const notifications = buildCreatorNotifications({ submissions: submissionItems, rewards });
   const activity: CreatorActivityItem[] = [
@@ -900,7 +1007,7 @@ export async function getCreatorChallengeDetail(
   const winnerAttempt = submission
     ? attempts.find((item) => item.selectedWinnerEntryIds.includes(submission.id)) ?? null
     : null;
-  const status = statusForSubmission({ submission, draft, winnerAttempt, reward });
+  const status = statusForSubmission({ submission, draft, winnerAttempt, reward, submittedCount: submissionCount });
   const discoverable = isDiscoverable(draft);
 
   if (!discoverable && !submission) return null;
@@ -927,7 +1034,7 @@ export async function listCreatorSubmissionItems(session: CreatorSession) {
     listCreatorSubmissions(session.ccnAccountId),
     listWinnerFinalizationAttempts().catch(() => []),
   ]);
-  return Promise.all(submissions.map((submission) => submissionItem(submission, drafts, attempts, { includeReward: false })));
+  return (await Promise.all(submissions.map((submission) => submissionItem(submission, drafts, attempts, { includeReward: false })))).sort(compareCreatorSubmissionItems);
 }
 
 export async function getCreatorSubmissionDetail(

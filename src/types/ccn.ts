@@ -20,7 +20,7 @@ export type ValidationItem = {
   status: "ready" | "in-progress" | "planned";
 };
 
-export type ChallengeStatus = "open" | "reviewing" | "funded";
+export type ChallengeStatus = "open" | "reviewing" | "closed" | "selection" | "settlement" | "completed";
 
 export type EscrowStatus = "Arc-funded" | "Escrow ready" | "Funding locked";
 
@@ -45,8 +45,12 @@ export type Challenge = {
   winnerModel?: string;
   prizeDistribution?: string[];
   fundingTransactionHash?: string;
+  payoutTransactionHash?: string;
   escrowContractAddress?: string;
+  publishedAt?: string;
   submissionClosed?: boolean;
   coverImageUrl?: string | null;
   coverImageAlt?: string | null;
+  publicStatusLabel?: string;
+  publicCtaLabel?: string;
 };

@@ -34,7 +34,9 @@ const draftApi = "src/app/api/creator/submissions/draft/route.ts";
 const finalizeApi = "src/app/api/creator/submissions/finalize/route.ts";
 
 includes(publicDetail, "Sign in to submit", "Public challenge detail must keep the Creator submission CTA copy.");
-includes(publicDetail, "href={\`/dashboard/creator/challenges/", "Public challenge CTA must target the canonical Creator Workspace challenge route.");
+includes(publicDetail, "creatorSignInPath(challenge.slug)", "Public challenge CTA must enter normal sign-in before the canonical Creator Workspace route.");
+includes(publicDetail, "new URLSearchParams({ role: \"creator\", next: returnTo })", "Public challenge CTA must preserve Creator role intent and canonical challenge return path.");
+includes(publicDetail, "`/auth/sign-in?${params.toString()}`", "Public challenge CTA must use normal shared sign-in entry.");
 excludes(publicDetail, "href={\`/submit/", "Public challenge CTA must not target the legacy /submit route.");
 excludes(publicDetail, "Manage Challenge", "Public detail must not expose a Brand management CTA to normal visitors.");
 excludes(publicDetail, "/api/internal/submissions", "Public detail must not expose internal submission APIs.");
@@ -46,8 +48,9 @@ excludes(legacySubmitRoute, "CreatorSubmissionSpikeClient", "Legacy submit route
 excludes(legacySubmitRoute, "/api/internal/submissions", "Legacy submit route must not expose internal submission APIs.");
 
 includes(creatorChallengeRoute, "getCreatorSession", "Canonical Creator challenge route must resolve server-derived Creator session.");
-includes(creatorChallengeRoute, "redirect(creatorSignUpPath(returnTo))", "Unauthenticated Creator challenge route must route to role-first sign-up with return path.");
+includes(creatorChallengeRoute, "redirect(creatorSignInPath(returnTo))", "Unauthenticated Creator challenge route must route to normal sign-in with return path.");
 includes(creatorChallengeRoute, "new URLSearchParams({ role: \"creator\", next: returnTo })", "Creator challenge route must preserve exact canonical destination through auth.");
+includes(creatorChallengeRoute, "`/auth/sign-in?${params.toString()}`", "Protected Creator challenge fallback must use normal shared sign-in entry.");
 includes(creatorChallengeRoute, "getCreatorChallengeDetail(decodeURIComponent(slug), session)", "Creator challenge detail must use canonical Creator Workspace loader.");
 
 includes(signUpPage, "next?: string", "Sign-up page must read a next search parameter.");
@@ -57,7 +60,7 @@ includes(signUpPage, "signInPath({ role, nextPath })", "Sign-up to sign-in switc
 
 includes(signInPage, "next?: string", "Sign-in page must read a next search parameter.");
 includes(signInPage, "safeNextPath(params?.next)", "Sign-in page must reject unsafe external next paths.");
-includes(signInPage, "<AuthActions mode=\"sign-in\" roleIntent={role} nextPath={nextPath} />", "Sign-in page must pass role and next into AuthActions.");
+includes(signInPage, "<AuthActions mode=\"sign-in\" roleIntent={role} nextPath={nextPath}", "Sign-in page must pass role and next into AuthActions.");
 includes(signInPage, "signUpPath({ role, nextPath })", "Sign-in to sign-up switch must preserve safe role and next path.");
 
 includes(signUpEntry, "safeRoleNextPath", "Role-first sign-up must choose role-compatible return paths.");

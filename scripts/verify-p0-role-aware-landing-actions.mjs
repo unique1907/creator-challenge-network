@@ -19,7 +19,7 @@ const featured = read("src/features/landing/components/featured-challenge-card.t
 
 expect("landing page resolves auth state server-side", page.includes("getLandingAuthState()"));
 expect("landing page passes same auth state to header", page.includes("<SiteHeader authState={authState}"));
-expect("landing page passes same auth state to hero", page.includes("<FinalLandingPage authState={authState}"));
+expect("landing page passes same auth state to hero", page.includes("<FinalLandingPage") && page.includes("authState={authState}"));
 expect("root chrome does not duplicate server-rendered landing header", appChrome.includes('pathname === "/"'));
 expect("site header forwards auth state to nav action", header.includes('variant="nav" initialAuthState={authState}'));
 expect("site header forwards auth state to primary action", header.includes("<SiteAuthActions initialAuthState={authState}"));
@@ -29,16 +29,16 @@ expect("auth actions support brand setup continuation", authActions.includes("Co
 expect("auth actions support creator setup continuation", authActions.includes("Continue Creator Setup"));
 expect("landing auth resolver uses canonical auth helper", landingAuth.includes("getAuthenticatedCcnContext"));
 expect("landing auth resolver checks creator payout readiness", landingAuth.includes("getCreatorPayoutWalletStatus"));
-expect("anonymous hero primary explores challenges", landing.includes('label: "Explore Challenges", variant: "primary"'));
-expect("anonymous hero keeps brand start action", landing.includes('label: "Start a Challenge", variant: "secondary"'));
+expect("anonymous hero primary explores live challenges", landing.includes('label: "Explore Live Challenges", variant: "primary"'));
+expect("anonymous hero keeps brand start action", landing.includes('label: "Start a Business Challenge", variant: "secondary"'));
 expect("anonymous hero keeps creator entry", landing.includes('label: "Join as a Creator", variant: "text"'));
-expect("creator hero links to creator workspace", landing.includes('href: "/dashboard/creator", label: "Go to Creator Workspace"'));
-expect("brand hero links to brand workspace", landing.includes('href: "/dashboard", label: "Go to Brand Workspace"'));
-expect("brand hero launches challenge", landing.includes('href: "/create-challenge?new=1", label: "Launch a Challenge"'));
+expect("creator hero keeps creator workspace entry", landing.includes('href: "/dashboard/creator", label: "Join as a Creator"'));
+expect("brand hero can launch challenge", landing.includes('href: "/create-challenge?new=1", label: "Start a Business Challenge"'));
+expect("hero primary opens public challenge listing", landing.includes('href: "/challenges", label: "Explore Live Challenges"'));
 expect("landing does not expose legacy submit route", !landing.includes("/submit/"));
 expect("featured card accepts canonical challenge prop", featured.includes("challenge?: Challenge | null"));
 expect("featured card has no hardcoded Spotify customer", !featured.includes("Spotify"));
-expect("featured card fallback is truthful sample data", featured.includes("Sample brand") && featured.includes("shown only when no live challenge is available"));
+expect("featured card fallback is truthful process evidence", featured.includes("Funded challenges appear after verification") && !featured.includes("Sample brand"));
 
 const failed = checks.filter((check) => !check.condition);
 for (const check of checks) {

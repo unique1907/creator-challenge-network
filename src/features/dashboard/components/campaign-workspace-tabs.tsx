@@ -74,6 +74,7 @@ type CampaignWorkspaceTabsProps = {
   blockchainItems: InfoItem[];
   winnerAttempt: WinnerAttemptSummary;
   winnerCount: 1 | 3;
+  finalizationUnavailableReason?: string;
   circleAppId: string;
   prizePool: string;
   fundedAmount: string;
@@ -197,8 +198,8 @@ export function CampaignWorkspaceTabs(props: CampaignWorkspaceTabsProps) {
   const visibleTabs = tabs.filter((tab) => tab.id !== "settlement" || settlementUnlocked);
 
   return (
-    <div className="mt-5">
-      <div className="flex flex-wrap gap-2 rounded-xl border border-white/10 bg-[#0a1020]/90 p-2">
+    <div className="mt-3">
+      <div className="flex flex-wrap gap-1.5 rounded-xl border border-white/10 bg-[#0a1020]/90 p-1.5">
         {visibleTabs.map((tab) => (
           <button
             key={tab.id}
@@ -207,7 +208,7 @@ export function CampaignWorkspaceTabs(props: CampaignWorkspaceTabsProps) {
               setActiveTab(tab.id);
               window.history.replaceState(null, "", `#${tab.id}`);
             }}
-            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+            className={`rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition ${
               activeTab === tab.id
                 ? "bg-gradient-to-r from-blue-600 to-violet-600 text-white shadow-lg shadow-blue-950/30"
                 : "text-slate-300 hover:bg-white/[0.05] hover:text-white"
@@ -219,9 +220,9 @@ export function CampaignWorkspaceTabs(props: CampaignWorkspaceTabsProps) {
       </div>
 
       {activeTab === "overview" ? (
-        <div className="mt-5 space-y-5">
+        <div className="mt-2.5 space-y-2.5">
           <Section title="Overview Cards">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
               {props.overviewCards.map((item) => (
                 <Metric key={item.label} item={item} />
               ))}
@@ -230,7 +231,7 @@ export function CampaignWorkspaceTabs(props: CampaignWorkspaceTabsProps) {
 
           <Section title="Primary Actions">
             {props.actions.length ? (
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
                 {props.actions.map((action) => (
                   <Link
                     key={action.label}
@@ -239,8 +240,8 @@ export function CampaignWorkspaceTabs(props: CampaignWorkspaceTabsProps) {
                     rel={action.external ? "noreferrer" : undefined}
                     className={
                       action.primary
-                        ? "rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110"
-                        : "rounded-lg border border-cyan-200/30 px-5 py-3 text-sm font-bold text-cyan-100 transition hover:border-cyan-200/60"
+                        ? "rounded-md bg-gradient-to-r from-blue-600 to-violet-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110"
+                        : "rounded-md border border-cyan-200/30 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 transition hover:border-cyan-200/60"
                     }
                   >
                     {action.label}
@@ -248,7 +249,7 @@ export function CampaignWorkspaceTabs(props: CampaignWorkspaceTabsProps) {
                 ))}
               </div>
             ) : (
-              <EmptyState text="No campaign action is available for the current lifecycle state." />
+              <EmptyState text="No action is available for this Business Challenge right now." />
             )}
           </Section>
         </div>
@@ -266,6 +267,7 @@ export function CampaignWorkspaceTabs(props: CampaignWorkspaceTabsProps) {
           reviewLocked={reviewLocked}
           finalizedWinnerCodes={finalizedWinnerCodes}
           winnerCount={props.winnerCount}
+          finalizationUnavailableReason={props.finalizationUnavailableReason}
           onSelect={setSelectedSubmissionId}
           onSaved={(review) => setReviews((current) => ({ ...current, [review.submissionId]: review }))}
           onFinalized={(codes) => {
@@ -304,7 +306,7 @@ export function CampaignWorkspaceTabs(props: CampaignWorkspaceTabsProps) {
       ) : null}
 
       {activeTab === "blockchain" ? (
-        <div className="mt-5 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="mt-2.5 grid gap-2.5 xl:grid-cols-[0.9fr_1.1fr]">
           <Section title="Creator Summary">
             <div className="grid gap-3">
               {props.creatorItems.map((item) => (
@@ -336,6 +338,7 @@ function ReviewTab({
   reviewLocked,
   finalizedWinnerCodes,
   winnerCount,
+  finalizationUnavailableReason,
   onSelect,
   onSaved,
   onFinalized,
@@ -350,6 +353,7 @@ function ReviewTab({
   reviewLocked: boolean;
   finalizedWinnerCodes: string[];
   winnerCount: 1 | 3;
+  finalizationUnavailableReason?: string;
   onSelect: (value: string) => void;
   onSaved: (review: SubmissionReviewRecord) => void;
   onFinalized: (codes: string[]) => void;
@@ -378,9 +382,9 @@ function ReviewTab({
   }
 
   return (
-    <section className="mt-5 grid gap-5 xl:grid-cols-[0.85fr_1.2fr_0.95fr]">
+    <section className="mt-2.5 grid gap-2.5 xl:grid-cols-[0.85fr_1.2fr_0.95fr]">
       <Section title={`Anonymous solutions (${entries.length}/${entries.length})`}>
-        <div className="space-y-3">
+        <div className="space-y-2">
           {entries.map((entry) => {
             const completed = reviews[entry.blindEntryId]?.status === "COMPLETED";
             const selected = selectedEntry.blindEntryId === entry.blindEntryId;
@@ -389,19 +393,19 @@ function ReviewTab({
                 key={entry.blindEntryId}
                 type="button"
                 onClick={() => onSelect(entry.blindEntryId)}
-                className={`w-full rounded-lg border p-4 text-left transition ${
+                className={`w-full rounded-md border p-2 text-left transition ${
                   selected
                     ? "border-cyan-300/40 bg-cyan-300/10"
                     : "border-white/10 bg-slate-950/40 hover:border-white/20"
                 }`}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold text-white">{entry.anonymousEntryCode}</p>
-                  <span className={`rounded-full px-2 py-1 text-[11px] font-bold ${completed ? "bg-emerald-400/15 text-emerald-200" : "bg-white/10 text-slate-300"}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-semibold text-white">{entry.anonymousEntryCode}</p>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${completed ? "bg-emerald-400/15 text-emerald-200" : "bg-white/10 text-slate-300"}`}>
                     {completed ? "Completed" : "Open"}
                   </span>
                 </div>
-                <p className="mt-2 line-clamp-1 text-sm text-slate-400">{entry.title}</p>
+                <p className="mt-1 line-clamp-1 text-[11px] text-slate-400">{entry.title}</p>
               </button>
             );
           })}
@@ -409,11 +413,11 @@ function ReviewTab({
       </Section>
 
       <Section title="Solution Preview">
-        <div className="rounded-xl border border-white/10 bg-slate-950/40 p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">{selectedEntry.anonymousEntryCode}</p>
-          <h3 className="mt-3 text-2xl font-bold text-white">{selectedEntry.title}</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-300">{selectedEntry.description}</p>
-          <div className="mt-5 grid gap-3">
+        <div className="rounded-lg border border-white/10 bg-slate-950/40 p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.07em] text-cyan-200">{selectedEntry.anonymousEntryCode}</p>
+          <h3 className="mt-1.5 text-base font-semibold text-white">{selectedEntry.title}</h3>
+          <p className="mt-1.5 text-[11px] leading-4 text-slate-300">{selectedEntry.description}</p>
+          <div className="mt-2.5 grid gap-2">
             <ExternalUrlInfo label="Primary supporting asset" value={selectedEntry.primaryAssetUrl} linkLabel="Open main project" />
             <SupportingLinksInfo links={selectedEntry.supportingLinks} />
             <Info label="Submitted" value={new Date(selectedEntry.submittedAt).toLocaleString()} />
@@ -432,6 +436,7 @@ function ReviewTab({
         selectedWinnerEntryIds={selectedWinnerEntryIds}
         selectedWinnerCodes={selectedWinnerCodes}
         finalizedWinnerCodes={finalizedWinnerCodes}
+        finalizationUnavailableReason={finalizationUnavailableReason}
         onSaved={onSaved}
         onFinalized={onFinalized}
       />
@@ -442,7 +447,7 @@ function ReviewTab({
 function ScoreControl({ label, value, onChange, disabled = false }: { label: string; value: number; onChange: (value: number) => void; disabled?: boolean }) {
   return (
     <label className="block">
-      <span className="flex items-center justify-between text-xs font-bold uppercase tracking-wide text-slate-400">
+      <span className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">
         {label}
         <span className="text-cyan-100">{value}</span>
       </span>
@@ -453,7 +458,7 @@ function ScoreControl({ label, value, onChange, disabled = false }: { label: str
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         disabled={disabled}
-        className="mt-3 w-full accent-cyan-300 disabled:opacity-50"
+        className="mt-2 w-full accent-cyan-300 disabled:opacity-50"
       />
     </label>
   );
@@ -462,22 +467,22 @@ function ScoreControl({ label, value, onChange, disabled = false }: { label: str
 function ExternalUrlInfo({ label, value, linkLabel }: { label: string; value: string; linkLabel: string }) {
   const href = safeExternalUrl(value);
   return (
-    <div className="rounded-lg border border-white/10 bg-slate-950/40 p-4">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
+    <div className="rounded-md border border-white/10 bg-slate-950/40 p-2">
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-400">{label}</dt>
       {href ? (
-        <dd className="mt-2 space-y-2">
+        <dd className="mt-1 space-y-1">
           <a
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex text-sm font-bold text-cyan-100 transition hover:text-cyan-50"
+            className="inline-flex text-[11px] font-semibold text-cyan-100 transition hover:text-cyan-50"
           >
             {linkLabel}
           </a>
-          <span className="block break-words text-xs text-slate-400">{value}</span>
+          <span className="block break-words text-[10px] text-slate-400">{value}</span>
         </dd>
       ) : (
-        <dd className="mt-2 break-words text-sm font-bold text-white">{value || "None"}</dd>
+        <dd className="mt-1 break-words text-[11px] font-semibold text-white">{value || "None"}</dd>
       )}
     </div>
   );
@@ -486,33 +491,33 @@ function ExternalUrlInfo({ label, value, linkLabel }: { label: string; value: st
 function SupportingLinksInfo({ links }: { links: string[] }) {
   const cleanLinks = links.map((link) => link.trim()).filter(Boolean);
   return (
-    <div className="rounded-lg border border-white/10 bg-slate-950/40 p-4">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Supporting links</dt>
+    <div className="rounded-md border border-white/10 bg-slate-950/40 p-2">
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-400">Supporting links</dt>
       {cleanLinks.length ? (
-        <dd className="mt-2 space-y-3">
+        <dd className="mt-1 space-y-1.5">
           {cleanLinks.map((link) => {
             const href = safeExternalUrl(link);
             return href ? (
-              <div key={link} className="space-y-1">
+              <div key={link} className="space-y-0.5">
                 <a
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex text-sm font-bold text-cyan-100 transition hover:text-cyan-50"
+                  className="inline-flex text-[11px] font-semibold text-cyan-100 transition hover:text-cyan-50"
                 >
                   Open supporting link
                 </a>
-                <span className="block break-words text-xs text-slate-400">{link}</span>
+                <span className="block break-words text-[10px] text-slate-400">{link}</span>
               </div>
             ) : (
-              <span key={link} className="block break-words text-sm font-bold text-white">
+              <span key={link} className="block break-words text-[11px] font-semibold text-white">
                 {link}
               </span>
             );
           })}
         </dd>
       ) : (
-        <dd className="mt-2 text-sm font-bold text-white">None</dd>
+        <dd className="mt-1 text-[11px] font-semibold text-white">None</dd>
       )}
     </div>
   );
@@ -528,6 +533,7 @@ function EvaluationPanel({
   selectedWinnerEntryIds,
   selectedWinnerCodes,
   finalizedWinnerCodes,
+  finalizationUnavailableReason,
   onSaved,
   onFinalized,
 }: {
@@ -540,6 +546,7 @@ function EvaluationPanel({
   selectedWinnerEntryIds: string[];
   selectedWinnerCodes: string[];
   finalizedWinnerCodes: string[];
+  finalizationUnavailableReason?: string;
   onSaved: (review: SubmissionReviewRecord) => void;
   onFinalized: (codes: string[]) => void;
 }) {
@@ -552,6 +559,7 @@ function EvaluationPanel({
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const finalizationUnavailable = Boolean(finalizationUnavailableReason);
 
   async function saveReview() {
     if (reviewLocked) return;
@@ -583,33 +591,33 @@ function EvaluationPanel({
 
   return (
     <Section title="Evaluation Panel">
-      <div className="space-y-5">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">Blind evaluation</p>
-        <div className="rounded-lg border border-white/10 bg-slate-950/40 p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Judging Criteria</p>
+      <div className="space-y-2.5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.07em] text-cyan-200">Blind evaluation</p>
+        <div className="rounded-md border border-white/10 bg-slate-950/40 p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-400">Judging Criteria</p>
           {reviewCriteria.length ? (
-            <ul className="mt-3 space-y-2 text-sm font-semibold text-white">
+            <ul className="mt-2 space-y-1 text-[11px] font-medium text-white">
               {reviewCriteria.map((criterion) => (
-                <li key={criterion} className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
+                <li key={criterion} className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-1">
                   {criterion}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-3 text-sm text-slate-400">No business-challenge-specific judging criteria were saved for this challenge.</p>
+            <p className="mt-2 text-[11px] text-slate-400">No business-challenge-specific judging criteria were saved for this challenge.</p>
           )}
         </div>
         <ScoreControl label="Creativity" value={creativity} onChange={setCreativity} disabled={reviewLocked} />
         <ScoreControl label="Brand Fit" value={brandFit} onChange={setBrandFit} disabled={reviewLocked} />
         <ScoreControl label="Execution" value={execution} onChange={setExecution} disabled={reviewLocked} />
         <label className="block">
-          <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Notes</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">Notes</span>
           <textarea
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             disabled={reviewLocked}
-            rows={7}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950/70 p-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50"
+            rows={3}
+            className="mt-1.5 w-full rounded-md border border-white/10 bg-slate-950/70 p-2 text-[11px] leading-4 text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/50"
             placeholder="Private evaluation notes for this anonymous solution."
           />
         </label>
@@ -617,13 +625,13 @@ function EvaluationPanel({
           type="button"
           onClick={saveReview}
           disabled={saving || reviewLocked}
-          className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
+          className="w-full rounded-md bg-gradient-to-r from-blue-600 to-violet-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
         >
           {saving ? "Saving Evaluation" : "Save Evaluation"}
         </button>
-        {status ? <p className="text-sm font-bold text-cyan-100">{status}</p> : null}
+        {status ? <p className="text-[11px] font-semibold text-cyan-100">{status}</p> : null}
         {reviewLocked ? (
-          <div className="rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-4 text-sm text-emerald-100">
+          <div className="rounded-md border border-emerald-300/25 bg-emerald-300/10 p-2 text-[11px] text-emerald-100">
             Evaluation locked. Selected solution: {finalizedWinnerCodes.length ? finalizedWinnerCodes.join(", ") : "anonymous entry selected"}.
           </div>
         ) : null}
@@ -631,6 +639,7 @@ function EvaluationPanel({
           id="finalize-review"
           type="button"
           onClick={() => {
+            if (finalizationUnavailable) return;
             traceFinalizeReview("confirm-button-click", {
               draftId,
               blindEntryId: selectedEntry.blindEntryId,
@@ -641,13 +650,13 @@ function EvaluationPanel({
             setFinalizationError("");
             setConfirmOpen(true);
           }}
-          disabled={!allCompleted || reviewLocked || finalizing}
-          className="w-full rounded-lg border border-emerald-300/40 px-5 py-3 text-sm font-bold text-emerald-100 transition enabled:hover:bg-emerald-300/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
+          disabled={!allCompleted || reviewLocked || finalizing || finalizationUnavailable}
+          className="w-full rounded-md border border-emerald-300/40 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-100 transition enabled:hover:bg-emerald-300/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
         >
-          {finalizing ? "Finalizing Winner" : reviewLocked ? "Winner Finalized" : "Finalize Winner"}
+          {finalizing ? "Finalizing Winner" : reviewLocked ? "Winner Finalized" : finalizationUnavailable ? "Winner Selection Unavailable" : "Finalize Winner"}
         </button>
-        <p className="text-xs leading-5 text-slate-500">
-          Finalize Winner becomes active after every anonymous submission receives a completed evaluation.
+        <p className="text-[10px] leading-4 text-slate-500">
+          {finalizationUnavailableReason ?? "Finalize Winner becomes active after every anonymous submission receives a completed evaluation."}
         </p>
         {confirmOpen ? (
           <FinalizeReviewModal
@@ -865,9 +874,9 @@ function SettlementTab({
   }
 
   return (
-    <div className="mt-5 space-y-5">
+    <div className="mt-2.5 space-y-2.5">
       <Section title="Selected Solution Summary">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
           <Info label="Anonymous selected solution" value={winnerCodes.length ? winnerCodes.join(", ") : "Anonymous selected solution locked"} />
           <Info label="Prize amount" value={prizePool} />
           <Info label="Destination wallet" value={maskValue(current?.winnerWalletAddresses?.[0])} />
@@ -877,33 +886,33 @@ function SettlementTab({
       </Section>
 
       <Section title="Funding Verification">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
           <Info label="Funded amount" value={fundedAmount} />
           <Info label="Funding transaction" value={fundingTransaction} />
-          <Info label="Escrow status" value={escrowStatus} />
-          <Info label="Contract" value={contractAddress} />
+          <Info label="Prize Pool status" value={escrowStatus} />
+          <Info label="Arc contract" value={contractAddress} />
           <Info label="Verification" value={verificationState} />
         </div>
       </Section>
 
       <Section title="Payout Approval">
-        <div className="grid gap-4 xl:grid-cols-[1fr_0.8fr]">
-          <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-2.5 xl:grid-cols-[1fr_0.8fr]">
+          <div className="grid gap-2 md:grid-cols-2">
             <Info label="PAYOUT wallet" value={maskValue(current?.payoutWalletAddress)} />
             <Info label="Approval status" value={current?.circleStatus ?? settlementStatusLabel(current?.state)} />
             <Info label="Circle challenge" value={maskValue(current?.circleChallengeId)} />
             <Info label="Circle transaction" value={maskValue(current?.circleTransactionId)} />
           </div>
-          <div className="rounded-lg border border-cyan-200/20 bg-cyan-300/10 p-4 text-sm text-cyan-50">
-            <p className="font-bold">Circle PIN required</p>
-            <p className="mt-2 leading-6 text-cyan-100/80">
+          <div className="rounded-md border border-cyan-200/20 bg-cyan-300/10 p-2.5 text-[11px] text-cyan-50">
+            <p className="font-semibold">Circle PIN required</p>
+            <p className="mt-1.5 leading-4 text-cyan-100/80">
               Initiating approval opens Circle Hosted UI. Complete the PIN prompt there; no PIN, token or secret is stored by CCN.
             </p>
             <button
               type="button"
               onClick={initiateApproval}
               disabled={!circleAppId || pending !== null || payoutConfirmed || hasChallenge}
-              className="mt-4 w-full rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
+              className="mt-2.5 w-full rounded-md bg-gradient-to-r from-blue-600 to-violet-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
             >
               {pending === "approval" ? "Opening Hosted Approval" : hasChallenge ? "PAYOUT Approval Created" : "Initiate PAYOUT Approval"}
             </button>
@@ -912,18 +921,18 @@ function SettlementTab({
       </Section>
 
       <Section title="Settlement Execution">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
           <Info label="releasePayout status" value={settlementDisplayStatus} />
           <Info label="Transaction hash" value={maskValue(current?.transactionHash)} />
           <Info label="Failure" value={current?.errorMessage ?? "None"} />
           <Info label="Recovery" value={hasTransaction && !payoutConfirmed ? "Reconcile available" : payoutConfirmed ? "No retry needed" : "Waiting for approval"} />
         </div>
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-2 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={refreshStatus}
             disabled={pending !== null || payoutConfirmed}
-            className="rounded-lg border border-cyan-200/30 px-5 py-3 text-sm font-bold text-cyan-100 transition hover:border-cyan-200/60 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-cyan-200/30 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 transition hover:border-cyan-200/60 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pending === "status" ? "Refreshing" : "Refresh Payout Status"}
           </button>
@@ -931,7 +940,7 @@ function SettlementTab({
             type="button"
             onClick={reconcile}
             disabled={pending !== null || !hasTransaction || payoutConfirmed}
-            className="rounded-lg border border-emerald-300/40 px-5 py-3 text-sm font-bold text-emerald-100 transition enabled:hover:bg-emerald-300/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
+            className="rounded-md border border-emerald-300/40 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-100 transition enabled:hover:bg-emerald-300/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
           >
             {pending === "reconcile" ? "Reconciling" : "Reconcile Settlement"}
           </button>
@@ -939,7 +948,7 @@ function SettlementTab({
       </Section>
 
       <Section title="On-Chain Verification">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
           <Info label="WinnersPaid event" value={current?.reconciliation?.eventVerified ? "Verified" : "Not verified"} />
           <Info label="Receipt status" value={current?.receiptStatus ?? "Not confirmed"} />
           <Info label="Block number" value={current?.blockNumber ? String(current.blockNumber) : "Not available"} />
@@ -949,7 +958,7 @@ function SettlementTab({
       </Section>
 
       <Section title="Completion">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-2 md:grid-cols-3">
           <Info label="Campaign status" value={payoutConfirmed ? "Completed" : "Settlement open"} />
           <Info label="Campaign health" value={payoutConfirmed ? "Settled" : "Payout pending"} />
           <Info label="Payout transaction" value={maskValue(current?.transactionHash)} />
@@ -959,7 +968,7 @@ function SettlementTab({
             href={`https://testnet.arcscan.app/tx/${current.transactionHash}`}
             target="_blank"
             rel="noreferrer"
-            className="mt-4 inline-flex rounded-lg border border-cyan-200/30 px-5 py-3 text-sm font-bold text-cyan-100 transition hover:border-cyan-200/60"
+            className="mt-2 inline-flex rounded-md border border-cyan-200/30 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 transition hover:border-cyan-200/60"
           >
             View Payout Transaction
           </a>
@@ -967,7 +976,7 @@ function SettlementTab({
       </Section>
 
       {error ? (
-        <div className="rounded-lg border border-red-300/30 bg-red-400/10 p-4 text-sm font-bold text-red-100">
+        <div className="rounded-md border border-red-300/30 bg-red-400/10 p-2.5 text-[11px] font-semibold text-red-100">
           {error}
         </div>
       ) : null}
@@ -991,28 +1000,28 @@ function FinalizeReviewModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-xl border border-white/10 bg-[#0a1020] p-6 shadow-2xl shadow-black/40">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-200">Finalize blind review</p>
-        <h3 className="mt-3 text-2xl font-bold text-white">Lock review and persist winner?</h3>
-        <p className="mt-3 text-sm leading-6 text-slate-300">
+      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#0a1020] p-3 shadow-xl shadow-black/40">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.07em] text-cyan-200">Finalize blind review</p>
+        <h3 className="mt-2 text-lg font-semibold text-white">Lock review and persist winner?</h3>
+        <p className="mt-2 text-[11px] leading-4 text-slate-300">
           This locks the completed anonymous reviews and stores the winning anonymous submission for payout preparation. Creator identity remains hidden.
         </p>
-        <div className="mt-5 rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-emerald-200">Selected anonymous winner</p>
-          <p className="mt-2 text-lg font-bold text-white">{winnerPreviewCodes.length ? winnerPreviewCodes.join(", ") : "Calculated on server"}</p>
-          <p className="mt-2 break-all text-xs text-slate-400">Draft: {draftId}</p>
+        <div className="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-emerald-200">Selected anonymous winner</p>
+          <p className="mt-1 text-[13px] font-semibold text-white">{winnerPreviewCodes.length ? winnerPreviewCodes.join(", ") : "Calculated on server"}</p>
+          <p className="mt-1 break-all text-[10px] text-slate-400">Draft: {draftId}</p>
         </div>
         {error ? (
-          <div className="mt-4 rounded-lg border border-red-300/30 bg-red-400/10 p-4 text-sm font-bold text-red-100">
+          <div className="mt-3 rounded-md border border-red-300/30 bg-red-400/10 p-2.5 text-[11px] font-semibold text-red-100">
             {error}
           </div>
         ) : null}
-        <div className="mt-6 flex flex-wrap justify-end gap-3">
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
             disabled={finalizing}
-            className="rounded-lg border border-white/10 px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.04] disabled:opacity-50"
+            className="rounded-md border border-white/10 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 transition hover:bg-white/[0.04] disabled:opacity-50"
           >
             Cancel
           </button>
@@ -1020,7 +1029,7 @@ function FinalizeReviewModal({
             type="button"
             onClick={onConfirm}
             disabled={finalizing}
-            className="rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110 disabled:opacity-50"
+            className="rounded-md bg-gradient-to-r from-blue-600 to-violet-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:brightness-110 disabled:opacity-50"
           >
             {finalizing ? "Finalizing" : "Confirm Finalization"}
           </button>
@@ -1032,36 +1041,36 @@ function FinalizeReviewModal({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-white/10 bg-[#0a1020]/90 p-5 shadow-xl shadow-black/10">
-      <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-300">{title}</h2>
-      <div className="mt-4">{children}</div>
+    <section className="rounded-xl border border-white/10 bg-[#0a1020]/90 p-2.5 shadow-xl shadow-black/10">
+      <h2 className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-300">{title}</h2>
+      <div className="mt-2">{children}</div>
     </section>
   );
 }
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-slate-950/40 p-4">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="mt-2 break-words text-sm font-bold text-white">{value}</dd>
+    <div className="rounded-md border border-white/10 bg-slate-950/40 p-2">
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-400">{label}</dt>
+      <dd className="mt-1 break-words text-[11px] font-semibold text-white">{value}</dd>
     </div>
   );
 }
 
 function Metric({ item }: { item: InfoItem }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-5">
-      <span className={`grid h-9 w-9 place-items-center rounded-lg text-sm font-bold ${toneClass(item.tone)}`}>{item.label.slice(0, 1)}</span>
-      <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-400">{item.label}</p>
-      <p className="mt-2 text-2xl font-bold tracking-tight text-white">{item.value}</p>
-      {item.detail ? <p className="mt-1 text-sm text-slate-400">{item.detail}</p> : null}
+    <div className="rounded-lg border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-2.5">
+      <span className={`grid h-7 w-7 place-items-center rounded-md text-[11px] font-semibold ${toneClass(item.tone)}`}>{item.label.slice(0, 1)}</span>
+      <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-400">{item.label}</p>
+      <p className="mt-1 text-base font-semibold tracking-normal text-white">{item.value}</p>
+      {item.detail ? <p className="mt-0.5 text-[11px] text-slate-400">{item.detail}</p> : null}
     </div>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-white/15 bg-slate-950/30 p-5 text-sm text-slate-400">
+    <div className="rounded-md border border-dashed border-white/15 bg-slate-950/30 p-3 text-[11px] text-slate-400">
       {text}
     </div>
   );

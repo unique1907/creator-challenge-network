@@ -88,15 +88,15 @@ export function CreatorProfileForm(props: CreatorProfileFormProps) {
   }
 
   return (
-    <div className="mt-6 grid gap-4">
-      <div className="rounded-2xl border border-white/10 bg-[#070b14] p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-blue-600 to-violet-700 text-lg font-semibold text-white">
+    <div className="mt-3 grid gap-2.5">
+      <div className="rounded-xl border border-white/10 bg-[#070b14] p-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="grid h-11 w-11 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-blue-600 to-violet-700 text-sm font-semibold text-white">
             {avatarImageUrl ? <img src={avatarImageUrl} alt="" className="h-full w-full object-cover" /> : initials}
           </div>
           <div className="min-w-0 flex-1">
             <FormLabel optional>Avatar</FormLabel>
-            <p className="mt-1 text-sm text-slate-400">JPG, PNG or WebP. Used in your Creator Workspace profile surfaces.</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">JPG, PNG or WebP. Used in your Creator Workspace profile surfaces.</p>
             <input
               ref={fileInputRef}
               type="file"
@@ -113,7 +113,7 @@ export function CreatorProfileForm(props: CreatorProfileFormProps) {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || pending}
-              className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md border border-white/10 px-2.5 py-1.5 text-[12px] font-semibold text-white transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {avatarImageUrl ? "Replace photo" : "Upload photo"}
             </button>
@@ -127,7 +127,7 @@ export function CreatorProfileForm(props: CreatorProfileFormProps) {
                   setError("");
                 }}
                 disabled={uploading || pending}
-                className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md border border-white/10 px-2.5 py-1.5 text-[12px] font-semibold text-slate-200 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Remove photo
               </button>
@@ -135,48 +135,48 @@ export function CreatorProfileForm(props: CreatorProfileFormProps) {
           </div>
         </div>
       </div>
-      <label className="grid gap-2 text-sm font-medium text-slate-200">
+      <label className="grid gap-1 text-[12px] font-medium text-slate-200">
         <FormLabel required>Display name</FormLabel>
         <input
           value={displayName}
           onChange={(event) => setDisplayName(event.target.value)}
           required
           aria-required="true"
-          className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60"
+          className="h-8 rounded-md border border-white/10 bg-[#050916] px-2.5 text-[12px] text-white outline-none transition focus:border-cyan-300/60"
         />
       </label>
-      <label className="grid gap-2 text-sm font-medium text-slate-200">
+      <label className="grid gap-1 text-[12px] font-medium text-slate-200">
         <FormLabel required>Username</FormLabel>
         <input
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           required
           aria-required="true"
-          className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60"
+          className="h-8 rounded-md border border-white/10 bg-[#050916] px-2.5 text-[12px] text-white outline-none transition focus:border-cyan-300/60"
         />
         <span className={usernameLooksValid ? "text-xs text-emerald-300" : "text-xs text-amber-300"}>
           {usernameLooksValid ? `Will save as @${normalizedUsername}` : "Use 3-30 letters, numbers, dots, underscores or hyphens."}
         </span>
       </label>
-      <label className="grid gap-2 text-sm font-medium text-slate-200">
+      <label className="grid gap-1 text-[12px] font-medium text-slate-200">
         <FormLabel optional>Country</FormLabel>
         <input
           value={country}
           onChange={(event) => setCountry(event.target.value)}
-          className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60"
+          className="h-8 rounded-md border border-white/10 bg-[#050916] px-2.5 text-[12px] text-white outline-none transition focus:border-cyan-300/60"
         />
       </label>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => void saveProfile()}
           disabled={pending || uploading || !usernameLooksValid}
-          className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-violet-600 px-2.5 py-1.5 text-[12px] font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? "Saving..." : uploading ? "Uploading..." : "Save profile"}
         </button>
-        {status ? <p className="text-sm text-emerald-200">{status}</p> : null}
-        {error ? <p className="text-sm text-rose-200">{error}</p> : null}
+        {status ? <p className="text-[12px] text-emerald-200">{status}</p> : null}
+        {error ? <p className="text-[12px] text-rose-200">{error}</p> : null}
       </div>
     </div>
   );

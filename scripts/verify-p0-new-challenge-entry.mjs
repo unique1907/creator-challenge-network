@@ -45,9 +45,9 @@ includes(wizard, "const initialDraftRequests = new Map<string, Promise<DraftResp
 includes(wizard, "function requestInitialDraft(url: string, cacheRequest: boolean)", "wizard must use an initial draft request guard");
 includes(wizard, "const existing = initialDraftRequests.get(url);", "duplicate new/smoke initialization must reuse the in-flight request");
 includes(wizard, "requestInitialDraft(initialUrl, rendersImmediateShell)", "init effect must call the guarded initial draft request");
-includes(wizard, "mergeInitializedDraft(current, payload.draft)", "server-created draft must merge into the immediate shell");
-includes(wizard, "current.challenge.title", "merge must preserve user-entered basic fields during slow draft creation");
-includes(wizard, "current.prizePool", "merge must preserve user-entered prize fields during slow draft creation");
+includes(wizard, "rendersImmediateShell ? payload.draft : mergeInitializedDraft(current, payload.draft)", "explicit new/smoke entries must adopt the canonical fresh server draft without merging old wizard state");
+includes(wizard, "current.challenge.title", "existing draft restore merge helper must remain available for non-immediate initialization");
+includes(wizard, "current.prizePool", "existing draft restore merge helper must preserve editable fields when used");
 includes(wizard, "if (!rendersImmediateShell) {\n          setStep(payload.draft.deployment.currentStep);", "existing draft restore must keep using the saved step");
 includes(wizard, "/create-challenge?draftId=", "successful creation must replace the URL with the canonical draft id");
 includes(wizard, "const draftReadyForActions = Boolean(draft?.challenge.id ?? draftId);", "actions must depend on canonical draft identity");
@@ -56,7 +56,10 @@ includes(wizard, "Start a Business Challenge", "recovery screen must remain avai
 includes(route, 'url.searchParams.get("new") === "1"', "new draft API route must remain explicit");
 includes(route, "createNewCreateChallengeDraft({", "new draft route must create exactly through the canonical store path");
 includes(route, "ccnAccountId: context.ccnAccountId", "new draft route must keep owner-scoped account id");
-includes(route, "brandName: context.brandName ?? context.displayName", "new draft route may autofill brand name from canonical account context");
+includes(route, "brandName: context.brandName", "new draft route may autofill brand name from canonical Brand/company identity");
+excludes(route, "brandName: context.brandName ?? context.displayName", "new draft route must not fall back to personal display name as Brand identity");
+includes(wizard, 'href="/create-challenge?new=1"', "published success state Create Another Challenge CTA must use the canonical explicit new route");
+includes(wizard, "Create Another Challenge", "published success state must keep the Create Another Challenge CTA");
 
 includes(loading, "Brand flow", "route transition loading state must show the Brand Flow shell");
 includes(loading, "Challenge Details", "route transition loading state must show the Challenge Details shell");
@@ -72,10 +75,8 @@ assert.equal(
 excludes(wizard, "const draftInitializationPending = Boolean(draft && !draft.challenge.id);\n  const draftReadyForActions = Boolean(draft?.challenge.id ?? draftId);\n  const draftInitializationPending", "draft initialization guard must not be duplicated");
 excludes(wizard, "`r`n", "wizard must not contain malformed literal newline markers");
 
-assert.ok(
-  count(dashboard, 'href="/create-challenge?new=1" prefetch') >= 3,
-  "dashboard New Challenge CTAs must use explicit prefetched new entry",
-);
+includes(dashboard, 'const NEW_DRAFT_HREF = "/create-challenge?new=1";', "dashboard new draft route must use the canonical explicit new entry");
+includes(dashboard, "fallback.href || NEW_DRAFT_HREF", "dashboard fallback CTA must route to a new draft");
 includes(campaigns, 'href="/create-challenge?new=1" prefetch', "campaigns New Challenge CTA must use explicit prefetched new entry");
 includes(wallet, 'href="/create-challenge?new=1" prefetch', "wallet workspace CTA must use explicit prefetched new entry");
 includes(footer, 'href: "/create-challenge?new=1"', "site footer launch CTA must use explicit new entry");

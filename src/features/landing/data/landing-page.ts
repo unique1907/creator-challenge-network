@@ -9,6 +9,8 @@ export type TestnetMetric = {
   label: string;
   detail: string;
   icon: "wallet" | "usdc" | "send" | "arc" | "blind";
+  logoSrc?: string;
+  logoAlt?: string;
 };
 
 export type ProcessStep = {
@@ -17,36 +19,25 @@ export type ProcessStep = {
   icon: "brand" | "lock" | "creators" | "blind" | "payout";
 };
 
-export type LandingChallenge = {
-  brand: string;
-  title: string;
-  category: string;
-  reward: string;
-  winners: string;
-  timeLeft: string;
-  submissions: number;
-  accent: "nike" | "spotify" | "samsung" | "adobe" | "redbull" | "gopro";
-};
-
 export const trustIndicators: TrustIndicator[] = [
   {
-    title: "Circle Hosted Wallets",
-    description: "Creator and Brand approvals stay user-controlled.",
-    icon: "wallet",
-  },
-  {
-    title: "Arc Testnet",
-    description: "Programmable settlement is verified on-chain.",
+    title: "Arc",
+    description: "Challenge funding and creator settlement run on Arc Testnet.",
     icon: "arc",
   },
   {
-    title: "USDC Escrow",
-    description: "Prize funding is secured before publishing.",
+    title: "Circle Wallets",
+    description: "Brand and Creator payment wallets are powered by Circle Wallets.",
+    icon: "wallet",
+  },
+  {
+    title: "USDC",
+    description: "Rewards are funded in advance and settled in test USDC.",
     icon: "usdc",
   },
   {
     title: "Blind Review",
-    description: "Brands evaluate entries without Creator identity.",
+    description: "Brand reviewers evaluate anonymous solution proposals before selection.",
     icon: "blind",
   },
 ];
@@ -54,87 +45,58 @@ export const trustIndicators: TrustIndicator[] = [
 export const testnetMetrics: TestnetMetric[] = [
   {
     value: "Arc",
-    label: "Settlement layer",
-    detail: "Testnet chain 5042002",
+    label: "Challenge funding",
+    detail: "Challenge funding and creator settlement run on Arc Testnet.",
     icon: "arc",
+    logoSrc: "/brand/partners/arc-logo.png",
+    logoAlt: "Arc logo",
   },
   {
-    value: "Circle",
-    label: "Wallet approvals",
-    detail: "Hosted user-controlled flows",
+    value: "Circle Wallets",
+    label: "Payment wallets",
+    detail: "Brand and Creator payment wallets are powered by Circle Wallets.",
     icon: "wallet",
+    logoSrc: "/brand/partners/circle-logo.png",
+    logoAlt: "Circle logo",
   },
   {
     value: "USDC",
-    label: "Reward currency",
-    detail: "Escrow before publish",
+    label: "Funded rewards",
+    detail: "Rewards are funded in advance and settled in test USDC.",
     icon: "usdc",
   },
   {
-    value: "Blind",
-    label: "Review model",
-    detail: "Identity hidden until outcome",
+    value: "Blind Review",
+    label: "Evaluation model",
+    detail: "Brand reviewers evaluate anonymous solution proposals before selection.",
     icon: "blind",
   },
 ];
 
 export const processSteps: ProcessStep[] = [
   {
-    label: "Brand creates challenge",
-    description: "Define the brief, reward, dates, rules, and review criteria.",
+    label: "Define the Business Problem",
+    description: "Turn a real business need into a structured challenge.",
     icon: "brand",
   },
   {
-    label: "Prize pool is funded",
-    description: "USDC approval and escrow funding complete before the challenge goes live.",
+    label: "Fund the Reward in USDC",
+    description: "Lock the reward before the challenge goes live.",
     icon: "lock",
   },
   {
-    label: "Creators submit work",
-    description: "Eligible Creators enter through the canonical workspace and submit before deadline.",
+    label: "Receive Solution Proposals",
+    description: "Creators submit solutions before the deadline.",
     icon: "creators",
   },
   {
-    label: "Brand reviews blindly",
-    description: "Anonymous entries are scored against the published criteria.",
+    label: "Evaluate and Select",
+    description: "Review anonymous proposals and choose the best outcome.",
     icon: "blind",
   },
   {
-    label: "Winner receives payout",
-    description: "Settlement is reconciled against Arc receipt and WinnersPaid evidence.",
+    label: "Settle the Reward on Arc",
+    description: "Release the reward after winner finalization.",
     icon: "payout",
-  },
-];
-
-export const landingChallenges: LandingChallenge[] = [
-  {
-    brand: "Nike",
-    title: "Motion Campaign",
-    category: "Motion Design",
-    reward: "3,000 USDC",
-    winners: "Top 1 rewarded",
-    timeLeft: "Open for submissions",
-    submissions: 1,
-    accent: "nike",
-  },
-  {
-    brand: "Spotify",
-    title: "Soundtrack Visuals",
-    category: "Campaign Design",
-    reward: "2,500 USDC",
-    winners: "Top 1 rewarded",
-    timeLeft: "Review-ready format",
-    submissions: 8,
-    accent: "spotify",
-  },
-  {
-    brand: "Adobe",
-    title: "Creativity For All",
-    category: "Illustration",
-    reward: "4,000 USDC",
-    winners: "Top 1 rewarded",
-    timeLeft: "Funded challenge",
-    submissions: 12,
-    accent: "adobe",
   },
 ];

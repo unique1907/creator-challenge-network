@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+﻿/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import {
   accentClassName,
@@ -12,8 +12,15 @@ type ChallengeDetailProps = {
   challenge: Challenge;
 };
 
+function creatorSignInPath(slug: string) {
+  const returnTo = `/dashboard/creator/challenges/${encodeURIComponent(slug)}`;
+  const params = new URLSearchParams({ role: "creator", next: returnTo });
+  return `/auth/sign-in?${params.toString()}`;
+}
+
 export function ChallengeDetail({ challenge }: ChallengeDetailProps) {
   const submissionClosed = challenge.submissionClosed ?? challenge.status !== "open";
+  const participation = participationState(challenge);
 
   return (
     <article className="mx-auto max-w-6xl px-6 py-12 sm:px-8 lg:px-10">
@@ -38,7 +45,7 @@ export function ChallengeDetail({ challenge }: ChallengeDetailProps) {
             <span
               className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusClassName(challenge.status)}`}
             >
-              {challenge.status}
+              {challenge.publicStatusLabel ?? challenge.status}
             </span>
           </div>
 
@@ -71,22 +78,22 @@ export function ChallengeDetail({ challenge }: ChallengeDetailProps) {
 
           <section className="mt-6 rounded-xl border border-white/10 bg-white/[0.045] p-6">
             <h2 className="text-xl font-semibold text-white">
-              Ready to participate?
+              {participation.title}
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              Sign in as a Creator to prepare your entry. Your identity stays hidden from the Brand during review.
+              {participation.copy}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              {submissionClosed ? (
+              {submissionClosed || !participation.href ? (
                 <span className="rounded-md border border-white/15 px-4 py-2 text-sm font-bold text-slate-300">
-                  Submissions are closed
+                  {participation.actionLabel}
                 </span>
               ) : (
                 <Link
-                  href={`/dashboard/creator/challenges/${challenge.slug}`}
+                  href={participation.href}
                   className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
                 >
-                  Sign in to submit
+                  {participation.actionLabel}
                 </Link>
               )}
             </div>
@@ -95,7 +102,7 @@ export function ChallengeDetail({ challenge }: ChallengeDetailProps) {
 
         <aside className="h-fit rounded-xl border border-white/10 bg-slate-950/65 p-6 shadow-2xl shadow-black/20">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">
-            Arc escrow
+            Prize Pool on Arc
           </p>
           <p className="mt-3 text-4xl font-semibold text-white">
             {formatUsdc(challenge.rewardUsdc)} USDC
@@ -158,13 +165,62 @@ export function ChallengeDetail({ challenge }: ChallengeDetailProps) {
               rel="noreferrer"
               className="mt-3 block text-sm font-bold text-cyan-200 transition hover:text-cyan-100"
             >
-              Contract
+              View Arc contract
             </a>
           ) : null}
         </aside>
       </div>
     </article>
   );
+}
+
+function participationState(challenge: Challenge) {
+  if (challenge.publicStatusLabel === "Closed — Not Enough Submissions") {
+    return {
+      title: "Submissions are closed",
+      copy: "This challenge closed without enough eligible Solution Proposals to fill all planned Winner positions.",
+      actionLabel: "Submissions are closed",
+      href: null,
+    };
+  }
+  if (challenge.status === "open" && !challenge.submissionClosed) {
+    return {
+      title: "Ready to participate?",
+      copy: "Sign in as a Creator to prepare your entry. Your identity stays hidden from the Brand during review.",
+      actionLabel: "Sign in to submit",
+      href: creatorSignInPath(challenge.slug),
+    };
+  }
+  if (challenge.status === "reviewing") {
+    return {
+      title: "Submissions are closed",
+      copy: "The submission window has ended. The Brand is reviewing submitted solutions.",
+      actionLabel: "Submissions are closed",
+      href: null,
+    };
+  }
+  if (challenge.status === "closed") {
+    return {
+      title: "Submissions are closed",
+      copy: "This challenge closed without receiving Solution Proposals.",
+      actionLabel: "Closed without submissions",
+      href: null,
+    };
+  }
+  if (challenge.status === "completed") {
+    return {
+      title: "Challenge completed",
+      copy: "This challenge has a completed outcome and payout record.",
+      actionLabel: "Completed",
+      href: null,
+    };
+  }
+  return {
+    title: "Submissions are closed",
+    copy: "This challenge has moved beyond submission intake.",
+    actionLabel: "Submissions are closed",
+    href: null,
+  };
 }
 function InfoPanel({ title, items }: { title: string; items: string[] }) {
   return (

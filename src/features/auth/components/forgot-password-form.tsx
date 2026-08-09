@@ -9,9 +9,29 @@ function validEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function authErrorFingerprint(error: unknown) {
+  const parts = [];
+  if (error instanceof Error) {
+    parts.push(error.name, error.message);
+  } else {
+    parts.push(String(error ?? ""));
+  }
+  if (error && typeof error === "object") {
+    const candidate = error as { code?: unknown; status?: unknown; error_code?: unknown };
+    parts.push(String(candidate.code ?? ""), String(candidate.status ?? ""), String(candidate.error_code ?? ""));
+  }
+  return parts.join(" ").toLowerCase();
+}
+
 function safeResetError(error: unknown) {
-  const message = error instanceof Error ? error.message.toLowerCase() : "";
-  if (message.includes("rate limit") || message.includes("too many")) {
+  const message = authErrorFingerprint(error);
+  if (
+    message.includes("rate limit") ||
+    message.includes("too many") ||
+    message.includes("over_email_send_rate_limit") ||
+    message.includes("email_rate_limit_exceeded") ||
+    message.includes("429")
+  ) {
     return "Please wait before requesting another reset email.";
   }
   return "Password reset could not be requested. Try again.";

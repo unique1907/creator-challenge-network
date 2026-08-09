@@ -9,8 +9,8 @@ const submissionStore = read("src/services/submissions/submission-store.server.t
 const dashboardPage = read("src/app/dashboard/page.tsx");
 const campaignsPage = read("src/app/dashboard/campaigns/page.tsx");
 const dashboardViewModel = read("src/features/dashboard/brand-dashboard-view-model.ts");
+const dashboardData = read("src/features/dashboard/brand-dashboard-data.server.ts");
 const notifications = read("src/features/dashboard/components/brand-workspace-navigation.tsx");
-const dashboard = read("src/features/dashboard/components/brand-dashboard.tsx");
 const campaignWorkspace = read("src/features/dashboard/components/campaign-workspace.tsx");
 const campaignTabs = read("src/features/dashboard/components/campaign-workspace-tabs.tsx");
 
@@ -25,19 +25,19 @@ assert.ok(
   "Blind review privacy guard must preserve identity-field checks.",
 );
 assert.ok(
-  dashboardPage.includes("listSubmissionNotificationEntries") &&
-    dashboardPage.includes("getSubmissionNotifications(drafts)") &&
+  dashboardPage.includes("getBrandDashboardSubmissionNotifications") &&
+    dashboardPage.includes("getBrandDashboardSubmissionNotifications(drafts)") &&
     dashboardPage.includes("submissionNotifications"),
   "Brand dashboard must derive submission notifications from canonical submitted entries without using the blind review projection for identity copy.",
 );
 assert.ok(
-  dashboardPage.includes("creatorDisplayName: entry.creatorDisplayName") &&
+  dashboardData.includes("creatorDisplayName: entry.creatorDisplayName") &&
     submissionStore.includes("select(\"id,display_name\")") &&
     !submissionStore.includes("select(\"id,display_name,email\")"),
   "Submission notification copy must use accounts.display_name without email or wallet fields.",
 );
 assert.ok(
-  dashboardViewModel.includes("submitted work for") &&
+  dashboardViewModel.includes("shared a solution for") &&
     dashboardViewModel.includes("\"A creator\"") &&
     dashboardViewModel.includes("anonymousEntryCode") &&
     dashboardViewModel.includes('campaignHref(item.draftId, "review")'),
@@ -60,17 +60,12 @@ assert.ok(
 assert.ok(
   dashboardViewModel.includes("campaignSortScore") &&
     dashboardViewModel.includes("submissionDraftIds.has(row.draftId)") &&
-    dashboardViewModel.includes("const sortedRows = campaignRows(drafts).sort") &&
-    dashboardViewModel.includes("sortedRows.slice(0, 6)") &&
+    dashboardViewModel.includes("const sortedRows = [...sourceRows].sort(compareRowsByPriority(submissionDraftIds, submissionRecency))") &&
+    dashboardViewModel.includes("dashboardSummaryRows.slice(0, identity.campaignLimit)") &&
     !dashboardViewModel.includes("drafts.slice(0, 6).map"),
   "Dashboard campaigns must sort by operational priority before applying the display limit.",
 );
 assert.ok(
-  dashboardViewModel.includes("primaryTitle: submissionDraftIds.has") &&
-    dashboard.includes('viewModel.primaryTitle === "New submission received"') &&
-    dashboard.includes("Open Blind Review to evaluate anonymous submissions."),
-  "Hero must prioritize new-submission review actions over stale draft continuation.",
-);assert.ok(
   dashboardViewModel.includes("function submissionRecencyByDraft") &&
     dashboardViewModel.includes("submissionRecency.get(left.draftId)") &&
     dashboardViewModel.includes("rightSubmissionAt - leftSubmissionAt"),
@@ -81,14 +76,14 @@ assert.ok(
   dashboardViewModel.includes("function addFundsAction") &&
     dashboardViewModel.includes('campaignHref(fundable[0]!.draftId, "funding")') &&
     dashboardViewModel.includes('href: "/dashboard/campaigns?filter=funding"') &&
-    dashboardViewModel.includes("No campaigns need funding"),
+    dashboardViewModel.includes("No funding needed"),
   "Add Funds must route to a fundable campaign Funding tab or a filtered campaign selection instead of an arbitrary workspace overview.",
 );
 assert.ok(
     campaignsPage.includes("campaignLimit: null") &&
     campaignsPage.includes("filterCampaignRows") &&
     campaignsPage.includes("searchParams") &&
-    campaignsPage.includes("?filter=${filter.toLowerCase()}") &&
+    campaignsPage.includes("?filter=${filterSlug(filter)}") &&
     campaignsPage.includes("visibleRows.map"),
   "Campaigns page must use the full canonical campaign set with filter-aware visibility.",
 );
@@ -99,17 +94,18 @@ assert.ok(
     notifications.includes("subscribeNotificationReadStore") &&
     notifications.includes("window.localStorage.getItem") &&
     notifications.includes("window.localStorage.setItem") &&
-    notifications.includes("window.setTimeout(() => window.dispatchEvent") &&
+    notifications.includes("window.dispatchEvent(new Event(NOTIFICATION_READ_STORAGE_EVENT))") &&
     notifications.includes("bg-red-500") &&
     notifications.includes("Unread") &&
+    notifications.includes('"Read"') &&
     notifications.includes("markNotificationRead(item.id)"),
   "Submission notifications must render one unread badge and persist read state after click/refresh.",
 );
 assert.ok(
-  dashboardViewModel.includes('ctaLabel: "Open Blind Review"') &&
+  dashboardViewModel.includes('ctaLabel: "Evaluate Solutions"') &&
     notifications.includes("item.ctaLabel") &&
     dashboardViewModel.includes('href: campaignHref(item.draftId, "review")'),
-  "Submission notifications must expose an Open Blind Review CTA that routes to the Review tab hash.",
+  "Submission notifications must expose an Evaluate Solutions CTA that routes to the Review tab hash.",
 );
 assert.ok(
   notifications.includes("Open Action Center") &&
@@ -122,8 +118,8 @@ assert.ok(
   "Notification ids must be required so new derived notifications cannot silently fall back to unstable keys.",
 );
 assert.ok(
-  campaignWorkspace.includes('actions.push({ label: "Open Blind Review", href: "#review", primary: true })'),
-  "Campaign workspace Open Blind Review action must open the in-workspace Review tab.",
+  campaignWorkspace.includes('actions.push({ label: "Evaluate Solutions", href: "#review", primary: true })'),
+  "Campaign workspace Evaluate Solutions action must open the in-workspace Review tab.",
 );
 assert.ok(
   campaignTabs.includes('window.addEventListener("hashchange", syncTabFromHash)') &&
@@ -134,9 +130,9 @@ assert.ok(
   "Campaign workspace tabs must react to initial, changed, same-route and back/forward review hash navigation.",
 );
 assert.ok(
-  campaignTabs.includes("selectedEntry.title") &&
+    campaignTabs.includes("selectedEntry.title") &&
     campaignTabs.includes("selectedEntry.description") &&
-    campaignTabs.includes("<ExternalUrlInfo label=\"Primary asset\"") &&
+    campaignTabs.includes("<ExternalUrlInfo label=\"Primary supporting asset\"") &&
     campaignTabs.includes("<SupportingLinksInfo links={selectedEntry.supportingLinks}"),
   "Review detail must render submitted title, concept summary and safe external link components.",
 );
@@ -157,11 +153,11 @@ assert.ok(
   "Persisted judging criteria must flow from the draft into the Blind Review detail.",
 );
 assert.ok(
-  campaignTabs.includes("<ScoreControl label=\"Creativity\"") &&
+    campaignTabs.includes("<ScoreControl label=\"Creativity\"") &&
     campaignTabs.includes("<ScoreControl label=\"Brand Fit\"") &&
     campaignTabs.includes("<ScoreControl label=\"Execution\"") &&
-    campaignTabs.includes("Save Review") &&
-    campaignTabs.includes("Finalize Review"),
+    campaignTabs.includes("Save Evaluation") &&
+    campaignTabs.includes("Finalize Winner"),
   "Evaluation controls, review notes, save and complete actions must remain visible.",
 );
 assert.ok(

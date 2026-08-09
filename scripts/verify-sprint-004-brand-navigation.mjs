@@ -32,16 +32,25 @@ const pkg = "package.json";
   "src/app/dashboard/settings/company/page.tsx",
 ].forEach((path) => exists(path, `${path} must exist`));
 
-includes(dashboard, '["Dashboard", "/dashboard"', "Dashboard sidebar must target dashboard route");
-includes(dashboard, '["Campaigns", "/dashboard/campaigns"', "Campaigns sidebar must target campaigns route");
-includes(dashboard, '["Wallet", "/dashboard/wallet"', "Wallet sidebar must target wallet route");
-includes(dashboard, '["Payments", "/dashboard/payments"', "Payments sidebar must target payments route");
-includes(dashboard, '["Settings", "/dashboard/settings"', "Settings must target workspace settings landing");
-includes(dashboard, '<AiTemplatesBetaButton />', "Dashboard sidebar must use AI Templates Beta button");
-includes(dashboard, '<BrandAccountMenu', "Dashboard must use bottom-left account menu");
-includes(dashboard, 'href={walletChip?.href ?? "/dashboard/wallet"}', "Brand wallet chip must open wallet route");
-includes(dashboard, 'href="/create-challenge?new=1"', "New Challenge must use explicit new-draft entry");
-includes(dashboard, 'href="/dashboard/campaigns"', "View all campaigns must use campaigns route");
+includes(dashboard, 'label: "Dashboard", href: "/dashboard"', "Dashboard sidebar must target dashboard route");
+includes(dashboard, 'label: "Business Challenges", href: "/dashboard/campaigns"', "Business Challenges sidebar must target campaigns route");
+includes(dashboard, 'label: "Wallet", href: "/dashboard/wallet"', "Wallet sidebar must target wallet route");
+includes(dashboard, 'label: "Payments", href: "/dashboard/payments"', "Payments sidebar must target payments route");
+includes(dashboard, 'label: "Analytics", href: null', "Analytics sidebar item must be disabled when no route exists");
+includes(dashboard, 'label: "Settings", href: "/dashboard/settings"', "Settings must target workspace settings landing");
+includes(dashboard, '<AiTemplatesBetaButton variant="compact" />', "Dashboard sidebar must use compact AI Templates Beta button");
+includes(dashboard, '<BrandAccountControls', "Dashboard header must use shared compact account controls");
+includes(nav, '<BrandAccountMenu', "Shared Brand account controls must include compact account menu");
+assert(!read(dashboard).includes("Brand account"), "Dashboard sidebar must not restore bottom-left account card");
+assert(!read(dashboard).includes("walletChip?.balanceLabel"), "Dashboard header must not restore wallet balance card");
+includes(dashboard, "How to send your first draft", "Dashboard sidebar must include tutorial title");
+includes(dashboard, "Watch Tutorial", "Dashboard sidebar must include tutorial CTA");
+includes(dashboard, "https://www.youtube.com/watch?v=BG0sHuTqGRc", "Dashboard sidebar must include tutorial URL");
+includes(dashboard, 'target="_blank"', "Tutorial link must open in a new tab");
+includes(dashboard, 'rel="noopener noreferrer"', "Tutorial link must be safe");
+includes(dashboard, 'const NEW_DRAFT_HREF = "/create-challenge?new=1";', "New Challenge must use explicit new-draft entry");
+includes(dashboard, "href={NEW_DRAFT_HREF}", "New Challenge shortcut must use the explicit new-draft route constant");
+includes(dashboard, 'href="/dashboard/campaigns"', "View all business challenges must use campaigns route");
 
 includes(workspace, 'href: "/dashboard/campaigns"', "Workspace Campaigns nav must target campaigns route");
 includes(workspace, 'href: "/dashboard/wallet"', "Workspace Wallet nav must target wallet route");

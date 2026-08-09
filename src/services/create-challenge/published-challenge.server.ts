@@ -1,10 +1,19 @@
 import "server-only";
 
-import { listCreateChallengeDrafts, getCreateChallengeDraftStrict } from "./create-challenge-store.server";
+import {
+  getCreateChallengeDraftStrict,
+  listCreateChallengeDrafts,
+  listWinnerFinalizationAttempts,
+  type WinnerFinalizationAttemptRecord,
+} from "./create-challenge-store.server";
+import { classifyCreateChallengeDraftLifecycle, isPublicLiveEligibleDraft } from "./public-challenge-eligibility";
 import { resolveCampaignCover } from "@/services/media/brand-media.server";
+import { countSubmittedEntriesForChallenge } from "@/services/submissions/submission-store.server";
 import type { CreateChallengeDraftState } from "@/types/create-challenge";
 import type { Challenge } from "@/types/ccn";
 import { parseChallengeDeadline } from "@/utils/challenge-deadlines";
+
+export const HOMEPAGE_LIVE_CHALLENGE_LIMIT = 12;
 
 function isProductionRuntime() {
   return process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production" || process.env.CCN_DEPLOYMENT_ENV === "production";
@@ -26,8 +35,23 @@ function isPubliclyLiveDraft(draft: CreateChallengeDraftState) {
   );
 }
 
-function toPublicChallenge(draft: CreateChallengeDraftState): Challenge {
+function isInternalTestTitle(title: string) {
+  return /^deneme\s*\d*$/i.test(title.trim());
+}
+
+function homepageRank(challenge: Challenge) {
+  if (challenge.status === "open") return 0;
+  if (challenge.status === "reviewing" || challenge.status === "selection") return 1;
+  if (challenge.status === "settlement") return 2;
+  return 3;
+}
+
+async function toPublicChallenge(draft: CreateChallengeDraftState, winnerAttempt: WinnerFinalizationAttemptRecord | null): Promise<Challenge> {
   const submissionDeadline = parseChallengeDeadline(draft.reviewRules.submissionDeadline);
+  const challengeId = draft.challenge.challengeId ?? draft.deployment.challengeId;
+  const submissions = challengeId ? await countSubmittedEntriesForChallenge(challengeId).catch(() => 0) : 0;
+  const classification = classifyCreateChallengeDraftLifecycle({ draft, submittedCount: submissions, winnerAttempt });
+  const status = classification.publicStatus ?? "closed";
   const cover = resolveCampaignCover({
     coverImageKey: draft.challenge.coverImageKey,
     coverImageAlt: draft.challenge.coverImageAlt,
@@ -41,9 +65,9 @@ function toPublicChallenge(draft: CreateChallengeDraftState): Challenge {
     brand: draft.challenge.brandName,
     category: draft.challenge.category,
     rewardUsdc: draft.prizePool.totalAmount,
-    deadline: submissionDeadline?.iso.slice(0, 10) ?? draft.reviewRules.submissionDeadline.slice(0, 10),
-    submissions: 0,
-    status: "open",
+    deadline: submissionDeadline?.iso ?? draft.reviewRules.submissionDeadline,
+    submissions,
+    status,
     usageRights: draft.reviewRules.usageRights,
     escrowStatus: "Arc-funded",
     summary: draft.challenge.summary,
@@ -60,10 +84,14 @@ function toPublicChallenge(draft: CreateChallengeDraftState): Challenge {
       (prize) => `${prize.place}: ${prize.amount.toLocaleString()} test USDC`,
     ),
     fundingTransactionHash: draft.funding.transactionHash,
+    payoutTransactionHash: status === "completed" && winnerAttempt?.transactionHash ? winnerAttempt.transactionHash : undefined,
     escrowContractAddress: "0x4DCE98F8a35d09F57ECE7A340B8392Ba0Fb7ba3D",
-    submissionClosed: Boolean(submissionDeadline && Date.now() >= submissionDeadline.unix * 1000),
+    publishedAt: draft.deployment.publishedAt ?? draft.updatedAt,
+    submissionClosed: !classification.acceptsSubmissions || Boolean(submissionDeadline && Date.now() >= submissionDeadline.unix * 1000),
     coverImageUrl: cover.imageUrl,
     coverImageAlt: cover.alt,
+    publicStatusLabel: classification.publicStatusLabel,
+    publicCtaLabel: classification.publicCtaLabel,
   };
 }
 
@@ -89,7 +117,12 @@ export async function getPublishedCreateChallengeBySlug(slug: string): Promise<C
   );
 
   if (matches.length !== 1) return null;
-  return toPublicChallenge(matches[0].draft);
+  const winnerAttempt = (await listWinnerFinalizationAttempts()).find((attempt) =>
+    attempt.draftId === matches[0].draftId &&
+    attempt.challengeId.toLowerCase() === (matches[0].draft.challenge.challengeId ?? matches[0].draft.deployment.challengeId).toLowerCase() &&
+    attempt.fundingIntentId === matches[0].draft.funding.fundingIntentId
+  ) ?? null;
+  return toPublicChallenge(matches[0].draft, winnerAttempt);
 }
 
 export async function getPublishedCreateChallengeDraftBySlug(slug: string) {
@@ -101,24 +134,71 @@ export async function getPublishedCreateChallengeDraftBySlug(slug: string) {
   );
 
   if (matches.length !== 1) return null;
+  const winnerAttempt = (await listWinnerFinalizationAttempts()).find((attempt) =>
+    attempt.draftId === matches[0].draftId &&
+    attempt.challengeId.toLowerCase() === (matches[0].draft.challenge.challengeId ?? matches[0].draft.deployment.challengeId).toLowerCase() &&
+    attempt.fundingIntentId === matches[0].draft.funding.fundingIntentId
+  ) ?? null;
   return {
     draftId: matches[0].draftId,
     draft: matches[0].draft,
-    challenge: toPublicChallenge(matches[0].draft),
+    challenge: await toPublicChallenge(matches[0].draft, winnerAttempt),
   };
 }
 export async function listPublishedCreateChallenges(): Promise<Challenge[]> {
   const seen = new Set<string>();
   const published: Challenge[] = [];
+  const winnerAttempts = await listWinnerFinalizationAttempts().catch(() => []);
 
   for (const { draft } of await listLiveCreateChallengeDrafts()) {
     const slug = draft.challenge.slug ?? "new-challenge";
     if (seen.has(slug)) continue;
     seen.add(slug);
-    published.push(toPublicChallenge(draft));
+    const challengeId = draft.challenge.challengeId ?? draft.deployment.challengeId;
+    const winnerAttempt = winnerAttempts.find((attempt) =>
+      attempt.draftId === (draft.challenge.id ?? "") &&
+      attempt.challengeId.toLowerCase() === challengeId.toLowerCase() &&
+      attempt.fundingIntentId === draft.funding.fundingIntentId
+    ) ?? null;
+    published.push(await toPublicChallenge(draft, winnerAttempt));
   }
 
   return published;
+}
+
+export async function listFeaturedHomepageChallenges() {
+  const published = await listLiveHomepageChallenges();
+  return published
+    .filter((challenge) => !isInternalTestTitle(challenge.title))
+    .sort((a, b) => homepageRank(a) - homepageRank(b))
+    .slice(0, 3);
+}
+
+export async function listLiveHomepageChallenges() {
+  const liveDrafts = (await listLiveCreateChallengeDrafts())
+    .filter((record) => isPublicLiveEligibleDraft(record.draft));
+  const winnerAttempts = await listWinnerFinalizationAttempts().catch(() => []);
+  const published = await Promise.all(liveDrafts.map(({ draft }) => {
+    const challengeId = draft.challenge.challengeId ?? draft.deployment.challengeId;
+    const winnerAttempt = winnerAttempts.find((attempt) =>
+      attempt.draftId === (draft.challenge.id ?? "") &&
+      attempt.challengeId.toLowerCase() === challengeId.toLowerCase() &&
+      attempt.fundingIntentId === draft.funding.fundingIntentId
+    ) ?? null;
+    return toPublicChallenge(draft, winnerAttempt);
+  }));
+  return published
+    .filter((challenge) =>
+      challenge.status === "open" &&
+      !challenge.submissionClosed &&
+      !isInternalTestTitle(challenge.title)
+    )
+    .sort((a, b) => {
+      const publishedOrder = (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
+      if (publishedOrder !== 0) return publishedOrder;
+      return b.slug.localeCompare(a.slug);
+    })
+    .slice(0, HOMEPAGE_LIVE_CHALLENGE_LIMIT);
 }
 
 export async function getPublishedCreateChallenge(): Promise<Challenge | null> {

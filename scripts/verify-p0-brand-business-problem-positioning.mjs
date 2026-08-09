@@ -28,22 +28,23 @@ excludes(dashboard, "Turn business problems into winning solutions.", "Dashboard
 includes(dashboardViewModel, "Turn your next business problem into a globally sourced solution.", "Brand welcome copy must frame business problems.");
 includes(wizard, "Launch a business challenge, receive solutions from a global network of AI-augmented creators, and reward the best outcome.", "Create flow must include locked supporting copy.");
 
-includes(dashboard, "+ New Business Challenge", "Brand dashboard primary CTA must say New Business Challenge.");
+includes(dashboard, "New Business Challenge", "Brand dashboard primary CTA must say New Business Challenge.");
 includes(campaignsPage, "+ New Business Challenge", "Campaign list CTA must say New Business Challenge.");
 includes(walletPage, "+ New Business Challenge", "Wallet page CTA must say New Business Challenge.");
-includes(dashboard, "What business problem are you trying to solve?", "Dashboard must ask the primary business problem prompt.");
-includes(dashboard, "Turn a real business challenge into globally sourced, actionable solutions.", "Dashboard must include the required supporting sentence.");
-includes(dashboard, "Solution Journey", "Dashboard journey label must be updated.");
+includes(dashboard, "Business Problem -&gt; Business Challenge -&gt; Solution Proposals -&gt; Evaluation -&gt; Selection -&gt; Settlement", "Dashboard must use the locked lifecycle language.");
+includes(dashboard, "priorities.length ? <Priorities", "Dashboard must use real-data priorities instead of a giant hero.");
+excludes(dashboard, "ActiveBusinessChallenge", "Dashboard must not preserve the rejected active challenge card.");
+excludes(dashboard, "Solution Journey", "Dashboard must not preserve the rejected journey card.");
 includes(workspaceTabs, "Business Challenge Overview", "Workspace overview tab must use business challenge terminology.");
-includes(dashboard, "Your Business Challenges", "Dashboard campaign section must be renamed.");
-includes(dashboard, "View all challenges", "Dashboard all-challenges link must remain business-challenge oriented.");
+includes(dashboard, "Business Challenges", "Dashboard campaign section must be renamed.");
+includes(dashboard, "/dashboard/campaigns", "Dashboard all-challenges navigation must remain business-challenge oriented.");
 
 includes(dashboardViewModel, 'draft: "Problem Draft"', "Journey draft display label must become Problem Draft.");
 includes(dashboardViewModel, 'published: "Open for Solutions"', "Journey published display label must become Open for Solutions.");
 includes(dashboardViewModel, 'review: "Evaluation"', "Journey review display label must become Evaluation.");
 includes(dashboardViewModel, 'winner: "Selection"', "Journey winner display label must become Selection.");
 includes(dashboardViewModel, 'settlement: "Settlement"', "Journey settlement display label must remain Settlement.");
-includes(dashboardViewModel, "Ready for evaluation", "Ready for review copy must become Ready for evaluation.");
+includes(dashboardViewModel, "Solutions ready for evaluation", "Ready for review copy must become solution evaluation copy.");
 includes(dashboardViewModel, "Evaluate Solutions", "Primary review action must become Evaluate Solutions.");
 includes(workspace, "Evaluate Solutions", "Workspace review action must become Evaluate Solutions.");
 includes(workspaceTabs, "Blind evaluation", "Blind review concept may remain as secondary blind evaluation copy.");
@@ -106,11 +107,21 @@ const unsafeGlobalFiles = changed.filter((file) =>
     wizard,
     stepData,
     "scripts/verify-p0-brand-business-problem-positioning.mjs",
+    "scripts/verify-p0-brand-dashboard-ux-completion.mjs",
+    "scripts/verify-p0-brand-final-ux-consolidation.mjs",
+    "scripts/verify-role-isolation.mjs",
+    "scripts/verify-ux-02a-brand-dashboard.mjs",
     "scripts/verify-form-label-standard.mjs",
     "scripts/verify-fast-brand-publish-pipeline.mjs",
     "scripts/verify-p0-brand-challenge-form-resilience.mjs",
     "scripts/verify-p0-new-challenge-entry.mjs",
     "src/utils/create-challenge-launch-readiness.ts",
+    "src/app/dashboard/payments/page.tsx",
+    "src/app/dashboard/settings/page.tsx",
+    "src/features/dashboard/brand-dashboard-data.server.ts",
+    "src/features/dashboard/components/brand-workspace-navigation.tsx",
+    "P0_BRAND_FINAL_UX_CONSOLIDATION_REPORT.md",
+    "P0_BRAND_WORKSPACE_RESTRUCTURE_REPORT.md",
   ].includes(file),
 );
 assert.deepEqual(unsafeGlobalFiles, [], "Unexpected files changed, possible unsafe global replacement.");

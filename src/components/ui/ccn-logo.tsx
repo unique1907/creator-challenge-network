@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 type CCNLogoVariant = "full" | "mark";
-type CCNLogoSize = "sm" | "md" | "lg";
+type CCNLogoSize = "sm" | "md" | "lg" | "xl";
 
 const logoConfig = {
   full: {
@@ -13,6 +13,7 @@ const logoConfig = {
       sm: "h-8",
       md: "h-10",
       lg: "h-[42px]",
+      xl: "h-14",
     },
   },
   mark: {
@@ -24,6 +25,7 @@ const logoConfig = {
       sm: "h-8",
       md: "h-10",
       lg: "h-12",
+      xl: "h-14",
     },
   },
 } satisfies Record<CCNLogoVariant, {

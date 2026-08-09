@@ -34,7 +34,11 @@ export function validateCreateChallengeStep(
       errors.push("Challenge title must be 5-100 characters.");
     }
     if (!draft.challenge.brandName.trim()) errors.push("Brand name is required.");
-    if (!draft.challenge.category.trim()) errors.push("Business Domain is required.");
+    const businessDomain = draft.challenge.category.trim();
+    if (!businessDomain) errors.push("Challenge Category is required.");
+    if (businessDomain.toLowerCase() === "other") {
+      errors.push("Specify category is required when Challenge Category is Other.");
+    }
     if (!draft.challenge.summary.trim() || draft.challenge.summary.length > 240) {
       errors.push("Business problem summary is required and must be 240 characters or less.");
     }

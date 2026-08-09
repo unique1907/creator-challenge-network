@@ -18,6 +18,7 @@ type CurrentAccountResponse = {
   account?: AccountSnapshot;
   error?: {
     message?: string;
+    code?: string;
   };
 };
 
@@ -36,23 +37,47 @@ const oauthProviders = [
 
 const secondaryEmailLinkEnabled = process.env.NEXT_PUBLIC_AUTH_EMAIL_OTP_ENABLED === "true";
 
+function authErrorFingerprint(error: unknown) {
+  const parts = [];
+  if (error instanceof Error) {
+    parts.push(error.name, error.message);
+  } else {
+    parts.push(String(error ?? ""));
+  }
+  if (error && typeof error === "object") {
+    const candidate = error as { code?: unknown; status?: unknown; error_code?: unknown };
+    parts.push(String(candidate.code ?? ""), String(candidate.status ?? ""), String(candidate.error_code ?? ""));
+  }
+  return parts.join(" ").toLowerCase();
+}
+
 function safeAuthError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? "");
-  const lower = message.toLowerCase();
+  const lower = authErrorFingerprint(error);
   if (lower.includes("unsupported provider") || lower.includes("provider is not enabled")) {
-    return "OAuth provider is not currently available.";
+    return "This sign-in option is not available right now.";
   }
   if (lower.includes("registered as a creator") || lower.includes("registered as a brand")) {
     return message;
   }
-  if (lower.includes("session") || lower.includes("auth")) {
+  if (lower.includes("session") || lower.includes("authentication_required")) {
     return "Your session could not be created. Please try logging in again.";
   }
-  if (lower.includes("rate limit") || lower.includes("too many") || lower.includes("email rate limit")) {
+  if (
+    lower.includes("rate limit") ||
+    lower.includes("too many") ||
+    lower.includes("email rate limit") ||
+    lower.includes("over_email_send_rate_limit") ||
+    lower.includes("email_rate_limit_exceeded") ||
+    lower.includes("429")
+  ) {
     return "Please wait before requesting another email.";
   }
   if (lower.includes("password")) {
     return "Email or password is incorrect.";
+  }
+  if (lower.includes("email not confirmed") || lower.includes("email_not_confirmed")) {
+    return "Confirm your email before logging in.";
   }
   if (lower.includes("invalid") || lower.includes("credentials") || lower.includes("login")) {
     return "Email or password is incorrect.";
@@ -167,7 +192,9 @@ async function currentAccount(options: { requireAuthenticated?: boolean } = {}) 
   const body = await response.json().catch(() => ({})) as CurrentAccountResponse;
   if (!response.ok) {
     if (response.status === 401 && !options.requireAuthenticated) return null;
-    throw new Error(body.error?.message ?? "Account resolution failed.");
+    const accountError = new Error(body.error?.message ?? "Account resolution failed.");
+    Object.assign(accountError, { code: body.error?.code, status: response.status });
+    throw accountError;
   }
   return body.account ?? null;
 }
@@ -176,10 +203,14 @@ export function AuthActions({
   mode = "sign-in",
   roleIntent = null,
   nextPath,
+  surface = "dark",
+  showCreateAccountLink = true,
 }: {
   mode?: "sign-in" | "sign-up";
   roleIntent?: AuthIntentRole | null;
   nextPath?: string | null;
+  surface?: "dark" | "light";
+  showCreateAccountLink?: boolean;
 }) {
   const supabase = createSupabaseBrowserClient();
   const [email, setEmail] = useState("");
@@ -201,6 +232,30 @@ export function AuthActions({
     password === confirmPassword &&
     normalizedRole !== null &&
     pending === null;
+  const isLightSurface = surface === "light";
+  const labelClassName = isLightSurface
+    ? "grid gap-2 text-sm font-semibold text-slate-700"
+    : "grid gap-2 text-sm font-semibold text-slate-200";
+  const formLabelClassName = isLightSurface ? "text-slate-700" : "";
+  const inputClassName = isLightSurface
+    ? "rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-violet-400"
+    : "rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60";
+  const helperPanelClassName = isLightSurface
+    ? "rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600"
+    : "rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-300";
+  const errorClassName = isLightSurface
+    ? "rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+    : "rounded-xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100";
+  const statusClassName = isLightSurface ? "text-sm text-emerald-700" : "text-sm text-emerald-200";
+  const secondaryToggleClassName = isLightSurface
+    ? "text-sm font-semibold text-slate-700 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-cyan-200"
+    : "text-sm font-semibold text-slate-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200";
+  const secondaryButtonClassName = isLightSurface
+    ? "mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+    : "mt-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60";
+  const authLinkClassName = isLightSurface
+    ? "text-blue-700 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-cyan-200"
+    : "text-blue-300 hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200";
 
   async function resolveCurrentAccountAfterLogin() {
     let lastError: unknown = null;
@@ -334,7 +389,7 @@ export function AuthActions({
   async function signInWithOAuth(provider: "google" | "github") {
     const providerConfig = oauthProviders.find((item) => item.id === provider);
     if (!providerConfig?.enabled) {
-      setError("OAuth provider is not currently available.");
+      setError("This sign-in option is not available right now.");
       return;
     }
 
@@ -356,8 +411,8 @@ export function AuthActions({
 
   return (
     <div className="mt-7 space-y-4">
-      <label className="grid gap-2 text-sm font-semibold text-slate-200">
-        <FormLabel required>Email</FormLabel>
+      <label className={labelClassName}>
+        <FormLabel required className={formLabelClassName}>Email</FormLabel>
         <input
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -366,12 +421,12 @@ export function AuthActions({
           aria-required="true"
           autoComplete="email"
           placeholder="you@example.com"
-          className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60"
+          className={inputClassName}
           aria-invalid={Boolean(error && !validEmail(normalizedEmail))}
         />
       </label>
-      <label className="grid gap-2 text-sm font-semibold text-slate-200">
-        <FormLabel required>Password</FormLabel>
+      <label className={labelClassName}>
+        <FormLabel required className={formLabelClassName}>Password</FormLabel>
         <input
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -379,13 +434,13 @@ export function AuthActions({
           required
           aria-required="true"
           autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-          className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60"
+          className={inputClassName}
         />
       </label>
       {mode === "sign-up" ? (
         <>
-          <label className="grid gap-2 text-sm font-semibold text-slate-200">
-            <FormLabel required>Confirm password</FormLabel>
+          <label className={labelClassName}>
+            <FormLabel required className={formLabelClassName}>Confirm password</FormLabel>
             <input
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
@@ -393,10 +448,10 @@ export function AuthActions({
               required
               aria-required="true"
               autoComplete="new-password"
-              className="rounded-xl border border-white/10 bg-[#050916] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60"
+              className={inputClassName}
             />
           </label>
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
+          <div className={helperPanelClassName}>
             Password requirements: at least 8 characters, one uppercase letter, one lowercase letter, and one number.
           </div>
         </>
@@ -410,27 +465,29 @@ export function AuthActions({
         {pending === "password-login" ? "Logging in..." : pending === "password-signup" ? "Creating..." : mode === "sign-in" ? "Log in" : "Create account"}
       </button>
       {error ? (
-        <p className="rounded-xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100" role="alert" aria-live="assertive">
+        <p className={errorClassName} role="alert" aria-live="assertive">
           {error}
         </p>
       ) : null}
-      {status ? <p className="text-sm text-emerald-200" role="status" aria-live="polite">{status}</p> : null}
+      {status ? <p className={statusClassName} role="status" aria-live="polite">{status}</p> : null}
       {mode === "sign-in" ? (
         <div className="flex flex-col gap-3 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
-          <Link href="/auth/forgot-password" className="text-blue-300 hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200">
+          <Link href="/auth/forgot-password" className={authLinkClassName}>
             Forgot password?
           </Link>
-          <Link href={`/auth/sign-up${normalizedRole ? `?role=${normalizedRole}` : ""}`} className="text-blue-300 hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-cyan-200">
-            Create account
-          </Link>
+          {showCreateAccountLink ? (
+            <Link href={`/auth/sign-up${normalizedRole ? `?role=${normalizedRole}` : ""}`} className={authLinkClassName}>
+              Create account
+            </Link>
+          ) : null}
         </div>
       ) : null}
       {secondaryEmailLinkEnabled && mode === "sign-in" ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div className={helperPanelClassName.replace("px-4 py-3", "p-4")}>
           <button
             type="button"
             onClick={() => setSecondaryOpen((value) => !value)}
-            className="text-sm font-semibold text-slate-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200"
+            className={secondaryToggleClassName}
           >
             Other sign-in options
           </button>
@@ -439,7 +496,7 @@ export function AuthActions({
               type="button"
               onClick={() => void requestSecondaryEmailLink()}
               disabled={pending !== null || !validEmail(normalizedEmail)}
-              className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+              className={secondaryButtonClassName}
             >
               {pending === "email-link" ? "Sending..." : "Email me a sign-in link"}
             </button>

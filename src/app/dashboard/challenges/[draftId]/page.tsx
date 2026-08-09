@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
+import { getBrandAccountControlData } from "@/features/dashboard/brand-account-controls.server";
 import { CampaignWorkspace } from "@/features/dashboard/components/campaign-workspace";
 import {
   assertCreateChallengeDraftOwner,
@@ -42,6 +43,7 @@ export default async function CampaignWorkspacePage({
   await assertCreateChallengeDraftOwner(draftId, context.ccnAccountId).catch(() => notFound());
   const draft = await getCreateChallengeDraft(draftId).catch(() => null);
   if (!draft) notFound();
+  const accountControls = await getBrandAccountControlData(context);
 
   const challengeId = draft.challenge.challengeId ?? draft.deployment.challengeId;
   const fundingIntentId = draft.funding.fundingIntentId;
@@ -84,6 +86,7 @@ export default async function CampaignWorkspacePage({
       winnerAttempt={winnerAttempt}
       reviewScores={reviewScores}
       circleAppId={process.env.NEXT_PUBLIC_CIRCLE_APP_ID ?? ""}
+      accountControls={accountControls}
     />
   );
 }

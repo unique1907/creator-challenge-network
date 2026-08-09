@@ -104,7 +104,8 @@ assert.ok(!/console\.(log|info|warn|error)\([^)]*pin/i.test(wizard), "PIN must n
 
 assert.ok(store.includes("function withInitialBrandName"), "new drafts must support safe brand-name autofill");
 assert.ok(store.includes("draft.challenge.brandName.trim()"), "brand-name autofill must not overwrite existing draft values");
-assert.ok(draftRoute.includes("brandName: context.brandName ?? context.displayName"), "draft route must use canonical account brand/display name for autofill");
+assert.ok(draftRoute.includes("brandName: context.brandName"), "draft route must use canonical Brand/company name for autofill");
+assert.ok(!draftRoute.includes("brandName: context.brandName ?? context.displayName"), "draft route must not use personal display name as Brand/company autofill fallback");
 assert.ok(draftRoute.includes("launchReadiness: validateCreateChallengeLaunchReadiness(draft, { deadlinePolicy })"), "draft API must return the shared publish readiness contract");
 assert.ok(coverRoute.includes("launchReadiness: validateCreateChallengeLaunchReadiness(updated, { deadlinePolicy })"), "cover upload/remove must return refreshed launch readiness");
 assert.ok(readiness.includes("validateCreateChallengeLaunchReadiness"), "shared launch readiness validator must exist");

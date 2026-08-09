@@ -12,19 +12,16 @@ function includes(rel, needle, message) {
   assert.ok(read(rel).includes(needle), message);
 }
 
-function notIncludes(rel, needle, message) {
-  assert.ok(!read(rel).includes(needle), message);
-}
-
 const siteUrl = read("src/config/site-url.ts");
 assert.ok(siteUrl.includes("DEFAULT_PUBLIC_SITE_URL"), "site URL helper must expose one safe public default.");
 assert.ok(siteUrl.includes("NEXT_PUBLIC_SITE_URL"), "site URL helper must use the canonical public URL env.");
 assert.ok(!/DEFAULT_PUBLIC_SITE_URL\s*=\s*["']https?:\/\/(localhost|127\.0\.0\.1|\[?::1\]?)/.test(siteUrl), "site URL helper must not use loopback as production fallback.");
 assert.ok(siteUrl.includes("isLoopbackOrigin"), "site URL helper must detect loopback request origins.");
-assert.ok(siteUrl.includes("DEFAULT_PUBLIC_SITE_URL : requestOrigin"), "server redirects must replace loopback fallback with canonical public origin.");
+assert.ok(siteUrl.includes("if (isLoopbackOrigin(requestOrigin)) return requestOrigin"), "server redirects must preserve active loopback origins for local auth flows.");
+assert.ok(!siteUrl.includes("return isLoopbackOrigin(requestOrigin) ? DEFAULT_PUBLIC_SITE_URL : requestOrigin"), "server redirects must not rewrite loopback auth flows to production.");
 
 includes("src/features/auth/components/auth-actions.tsx", "getPublicSiteOrigin", "auth redirects must use canonical public origin helper.");
-notIncludes("src/features/auth/components/auth-actions.tsx", "window.location.origin", "auth redirects must not derive production redirect origin from the browser URL.");
+assert.ok(siteUrl.includes("window.location.origin"), "browser auth redirects must preserve the active app origin.");
 
 includes("src/app/auth/callback/route.ts", "getRequestRedirectOrigin", "callback redirects must use canonical/request redirect origin helper.");
 includes("src/app/auth/sign-out/route.ts", "getRequestRedirectOrigin", "sign-out redirects must use canonical/request redirect origin helper.");

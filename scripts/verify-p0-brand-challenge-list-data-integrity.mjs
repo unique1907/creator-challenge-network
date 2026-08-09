@@ -42,11 +42,15 @@ includes(store, "payoutConfirmedAt: winnerAttempt?.payoutConfirmedAt ?? null", "
 includes(store, "winnerCount: normalized.prizePool.winnerCount", "draft summary must expose Top 1 / Top 3 winner model");
 
 includes(viewModel, "lifecycleStateFromDraft(draft: CreateChallengeDraftSummary, solutionCount = 0)", "dashboard lifecycle must accept persisted solution count");
-includes(viewModel, "draft.winnerFinalizationState === \"PAYOUT_CONFIRMED\" || draft.payoutConfirmedAt", "payout-confirmed challenge must map to Completed");
+includes(viewModel, "classification.lifecycle === \"completed\"", "payout-confirmed challenge must map to Completed through shared lifecycle classification");
 includes(viewModel, "return \"completed\"", "completed lifecycle return must exist");
-includes(viewModel, "draft.winnerFinalizationState === \"READY_FOR_FINAL_SELECTION\"", "evaluation-complete pending finalization must map to Selection");
-includes(viewModel, "draft.winnerFinalizedAt", "finalized unpaid challenge must map to Settlement");
-includes(viewModel, "draft.publicationStatus === \"live\" && solutionCount > 0", "live challenges with submitted solutions must map to Evaluation");
+includes(viewModel, "classification.lifecycle === \"selection\"", "evaluation-complete pending finalization must map to Selection through shared lifecycle classification");
+includes(viewModel, "classification.lifecycle === \"settlement\"", "finalized unpaid challenge must map to Settlement through shared lifecycle classification");
+includes(viewModel, "classifyChallengeLifecycle", "live challenge lifecycle must use the shared deadline-aware classifier");
+includes(viewModel, "classification.lifecycle === \"closed-no-submissions\"", "live challenges with expired deadlines and zero submissions must not move to Evaluation");
+includes(viewModel, "classification.lifecycle === \"closed-not-enough-submissions\"", "live challenges with expired deadlines and too few submissions must not move to Evaluation");
+includes(viewModel, "simplifiedBucketFromDraft", "dashboard rows must derive one primary simplified bucket");
+includes(viewModel, "bucket,", "campaign rows must expose the primary simplified bucket");
 includes(viewModel, "solutionCounts.get(draft.draftId) ?? 0", "solution count must come from persisted submission notifications by draft id");
 includes(viewModel, "Top ${draft.winnerCount}", "Top 1 / Top 3 winner model must be represented without altering counts");
 includes(viewModel, "View Outcome Report", "completed action must use the outcome report path, not evaluation");
