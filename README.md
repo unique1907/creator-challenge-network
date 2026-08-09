@@ -6,7 +6,7 @@
 
 Creator Challenge Network (CCN) is a programmable Business Challenge platform built on Arc. Brands fund USDC Prize Pools in advance, Creators submit Solution Proposals, Brands evaluate through Blind Review, and Winners receive programmable USDC payouts.
 
-![CCN product overview](./assets/readme/og-cover.png)
+![CCN product overview](./public/readme/ccn-product-overview.jpeg)
 
 ## Why CCN
 
