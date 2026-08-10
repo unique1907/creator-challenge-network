@@ -139,6 +139,7 @@
     "test:p0-fresh-challenge-deadline-readiness": "node scripts/verify-p0-fresh-challenge-deadline-readiness.mjs",
     "test:p0-arc-eth-getlogs-bounded-scanner": "node scripts/verify-p0-arc-eth-getlogs-bounded-scanner.mjs",
     "test:p0-production-funding-recovery-blocker": "node scripts/verify-p0-production-funding-recovery-blocker.mjs",
+    "test:p0-funding-diagnostic-boundary": "node scripts/verify-p0-funding-diagnostic-boundary.mjs",
     "test:p0-global-lifecycle-classification-parity": "node scripts/verify-p0-global-lifecycle-classification-parity.mjs",
     "test:p0-public-live-challenges-navigation-parity": "node scripts/verify-p0-public-live-challenges-navigation-parity.mjs",
     "test:p0-brand-challenge-form-canonical-identity": "node scripts/verify-p0-brand-challenge-form-canonical-identity.mjs",
