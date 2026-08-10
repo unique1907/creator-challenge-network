@@ -28,13 +28,14 @@ export function formatBusinessChallengeHierarchy(input: {
   const category = input.category?.trim() ?? "";
   const lowerBrand = brand.toLowerCase();
   const lowerTitle = title.toLowerCase();
+  const exactBrandTitleDuplicate = Boolean(brand && lowerTitle === lowerBrand);
   const titleWithoutBrand =
-    brand && lowerTitle.startsWith(lowerBrand)
+    brand && !exactBrandTitleDuplicate && lowerTitle.startsWith(lowerBrand)
       ? title.slice(brand.length).replace(/^[\s:–—-]+/, "").trim()
       : title;
 
   return {
-    brand,
+    brand: exactBrandTitleDuplicate ? "" : brand,
     title: titleWithoutBrand || title,
     category,
   };
