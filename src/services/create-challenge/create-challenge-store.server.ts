@@ -132,10 +132,7 @@ export type ApprovalAttemptStatus =
   | "COMPLETED"
   | "FAILED"
   | "EXPIRED"
-  | "APPROVED"
-  | "PREPARING"
-  | "SUBMITTING"
-  | "RECOVERY_REQUIRED";
+  | "APPROVED";
 
 export type ApprovalAttemptRecord = {
   ccnAccountId: string;
@@ -1514,10 +1511,7 @@ export async function upsertFundingAttemptForScope(input: {
   let next!: FundingAttemptRecord;
   await updateStore((store) => {
     const current = [...(store.fundingAttempts?.[key] ?? [])];
-    const index = current.findIndex((item) =>
-      item.circleChallengeId === input.attempt.circleChallengeId ||
-      item.idempotencyKey === input.attempt.idempotencyKey
-    );
+    const index = current.findIndex((item) => item.circleChallengeId === input.attempt.circleChallengeId);
     const existing = index >= 0 ? current[index] : null;
     next = {
       ...input.attempt,

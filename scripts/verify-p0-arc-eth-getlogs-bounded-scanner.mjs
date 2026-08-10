@@ -45,18 +45,12 @@ assert.notEqual(receiptStart, -1, "receipt-first ChallengeFunded inspection must
 const buildStart = funding.indexOf("async function buildCanonicalFundingVerification");
 const fundingCreateStart = funding.indexOf("export async function createProductFundingChallenge");
 const buildSource = funding.slice(buildStart, fundingCreateStart);
-const firstBatchStart = buildSource.indexOf("const callResults = await rpcBatch<string>([");
-const firstBatchEnd = buildSource.indexOf("] = callResults;", firstBatchStart);
-const firstBatchSource = buildSource.slice(firstBatchStart, firstBatchEnd);
-assert.ok(firstBatchSource.includes("SELECTORS.isFunded"), "pre-Circle verification must still read canonical funded state");
-assert.ok(firstBatchSource.includes("SELECTORS.allowance"), "pre-Circle verification must still read canonical allowance state");
-assert.ok(!firstBatchSource.includes("SELECTORS.getChallenge"), "unfunded pre-Circle verification must not read funded-only challenge details");
-assert.ok(!firstBatchSource.includes("SELECTORS.getPrizeDistribution"), "unfunded pre-Circle verification must not read funded-only prize distribution details");
 assert.ok(
-  buildSource.includes("const [challengeRaw, distributionRaw] = isFunded") &&
+  buildSource.includes("SELECTORS.isFunded") &&
+    buildSource.includes("SELECTORS.allowance") &&
     buildSource.includes("SELECTORS.getChallenge") &&
     buildSource.includes("SELECTORS.getPrizeDistribution"),
-  "funded-only challenge detail reads must be gated behind isFunded",
+  "restored baseline verification must read canonical funding, allowance, challenge, and prize distribution state",
 );
 assert.ok(buildSource.indexOf("let receipt = fundingTx ? await getReceipt(fundingTx) : null") < buildSource.indexOf("getChallengeFundedEventFromReceipt"), "known transaction receipt must be inspected before historical scans");
 assert.ok(buildSource.includes("receiptFundedEvent"), "receipt logs must be used as funding event evidence");
@@ -68,7 +62,8 @@ assert.ok(!buildSource.includes("safe.status !== 503"), "permanent log scanner f
 const fundingAction = funding.slice(fundingCreateStart, funding.indexOf("function collectStringCandidates"));
 assert.ok(fundingAction.indexOf("const activeAttempt = fundingAttempts.find") < fundingAction.indexOf("const verification = await getCanonicalFundingVerification"), "funding must reuse active attempts before verification");
 assert.ok(fundingAction.indexOf("const verification = await getCanonicalFundingVerification") < fundingAction.indexOf('circleFetch<CircleContractExecutionResponse>'), "canonical verification must happen before Circle funding submission");
-assert.ok(fundingAction.indexOf('phase: "PRE_CIRCLE_PREPARING"') < fundingAction.indexOf('circleFetch<CircleContractExecutionResponse>'), "funding must persist a durable attempt before Circle funding submission");
+assert.ok(!fundingAction.includes('phase: "PRE_CIRCLE_PREPARING"'), "restored funding path must not use the abandoned pre-Circle preparing phase");
+assert.ok(fundingAction.indexOf('circleFetch<CircleContractExecutionResponse>') < fundingAction.indexOf("await persistFundingAttempt"), "restored funding path must persist funding attempt evidence after Circle accepts contractExecution");
 
 assert.ok(fundRoute.includes("createProductFundingChallenge"), "fund route must still use the canonical funding service");
 assert.ok(reconcileRoute.includes("reconcileProductTransaction"), "reconcile route must still use the canonical reconciliation service");

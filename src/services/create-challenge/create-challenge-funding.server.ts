@@ -31,7 +31,7 @@ import {
   upsertOnChainVerification,
   upsertFundingAttemptForScope,
 } from "./create-challenge-store.server";
-import type { ApprovalAttemptRecord, ApprovalAttemptStatus, FundingAttemptRecord, FundingAttemptStatus, OnChainVerificationRecord } from "./create-challenge-store.server";
+import type { ApprovalAttemptRecord, ApprovalAttemptStatus, OnChainVerificationRecord } from "./create-challenge-store.server";
 import { getBrandPaymentAccount, getCreateChallengePaymentOverview } from "./brand-payment-account.server";
 import {
   ARC_TESTNET_CHAIN_ID,
@@ -52,8 +52,6 @@ const CCN_ESCROW_DEPLOYMENT_TX =
 const LOG_BLOCK_CHUNK_SIZE = BigInt(500);
 const LOG_CHUNK_RETRY_ATTEMPTS = 2;
 const VERIFICATION_CACHE_TTL_MS = 12_000;
-const FUNDING_PRE_SUBMIT_PREFIX = "pre-submit:";
-const UNRESOLVED_FUNDING_WALLET_ID = "unresolved-funding-wallet";
 
 const verificationCache = new Map<string, { expiresAt: number; value: CanonicalFundingVerification }>();
 
@@ -109,20 +107,6 @@ type ApprovalRecoveryResult = {
   requiredAllowance: string;
   canonicalAttempt: ApprovalAttemptRecord | null;
   restoredState: "APPROVAL_PENDING" | "APPROVED" | "READY_FOR_APPROVAL" | "START_AGAIN";
-};
-
-type FundingAttemptScope = {
-  ccnAccountId: string;
-  walletId: string;
-  draftId: string;
-  challengeId: string;
-  fundingIntentId: string;
-};
-
-type FundingAttemptBase = FundingAttemptScope & {
-  purpose: "FUNDING";
-  idempotencyKey: string;
-  circleChallengeId: string;
 };
 
 type RpcResponse<T> = {
@@ -695,6 +679,8 @@ async function buildCanonicalFundingVerification(
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: SELECTORS.treasury }, "latest"] },
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: SELECTORS.paused }, "latest"] },
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: `${SELECTORS.isFunded}${word(intent.challengeId)}` }, "latest"] },
+    { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: `${SELECTORS.getChallenge}${word(intent.challengeId)}` }, "latest"] },
+    { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: `${SELECTORS.getPrizeDistribution}${word(intent.challengeId)}` }, "latest"] },
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: SELECTORS.totalLockedPrizePools }, "latest"] },
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: SELECTORS.totalLockedPlatformFees }, "latest"] },
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: SELECTORS.getTotalLockedLiabilities }, "latest"] },
@@ -709,6 +695,8 @@ async function buildCanonicalFundingVerification(
     treasuryRaw,
     pausedRaw,
     fundedRaw,
+    challengeRaw,
+    distributionRaw,
     totalLockedPrizePoolsRaw,
     totalLockedPlatformFeesRaw,
     totalLockedLiabilitiesRaw,
@@ -716,13 +704,6 @@ async function buildCanonicalFundingVerification(
     escrowBalanceRaw,
     allowanceRaw,
   ] = callResults;
-  const isFunded = boolFromWord(splitWords(fundedRaw)[0] ?? "0");
-  const [challengeRaw, distributionRaw] = isFunded
-    ? await rpcBatch<string>([
-        { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: `${SELECTORS.getChallenge}${word(intent.challengeId)}` }, "latest"] },
-        { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: `${SELECTORS.getPrizeDistribution}${word(intent.challengeId)}` }, "latest"] },
-      ])
-    : ["0x", "0x"];
   const challengeWords = splitWords(challengeRaw);
   const distributionWords = splitWords(distributionRaw);
   const distributionLength = Number(BigInt(`0x${distributionWords[1] ?? "0"}`));
@@ -745,7 +726,7 @@ async function buildCanonicalFundingVerification(
     usdc: addressFromWord(splitWords(usdcRaw)[0] ?? ""),
     treasury: addressFromWord(splitWords(treasuryRaw)[0] ?? ""),
     paused: boolFromWord(splitWords(pausedRaw)[0] ?? "0"),
-    isFunded,
+    isFunded: boolFromWord(splitWords(fundedRaw)[0] ?? "0"),
     totalLockedPrizePools: BigInt(totalLockedPrizePoolsRaw).toString(),
     totalLockedPlatformFees: BigInt(totalLockedPlatformFeesRaw).toString(),
     totalLockedLiabilities: BigInt(totalLockedLiabilitiesRaw).toString(),
@@ -1009,51 +990,18 @@ export async function createProductFundingChallenge(userToken: unknown, draftId?
   const draft = await getCreateChallengeDraft(draftId);
   assertLaunchReadinessBeforeFinancialAction(draft, "/api/create-challenge/fund");
   const intent = getFundingIntentFromDraft(draft, input);
-  const storedWallet = fundingWalletSnapshotFromDraft(draft);
+  const wallet = await getBrandWallet(userToken, draftId, input);
   const scopedDraftId = draft.challenge.id ?? draftId;
   const scope = approvalAttemptScope({
     ccnAccountId: intent.ccnAccountId,
-    walletId: storedWallet.walletId,
+    walletId: wallet.walletId,
     draftId: scopedDraftId,
     challengeId: intent.challengeId,
     fundingIntentId: intent.fundingIntentId,
   });
-  const idempotencyKey = stableUuid(
-    "funding",
-    [
-      intent.ccnAccountId,
-      storedWallet.walletId,
-      draft.challenge.id,
-      intent.challengeId,
-      intent.fundingIntentId,
-      "FUNDING",
-    ].join(":"),
-  );
-  let fundingAttempts = await listFundingAttemptsForScope(scope);
-  if (fundingAttempts.some(isPreSubmitFundingAttempt)) {
-    fundingAttempts = await findFundingAttemptsFromCircle(userToken, draftId, { ccnAccountId: input.ccnAccountId });
-  }
+  const fundingAttempts = await listFundingAttemptsForScope(scope);
   const activeAttempt = fundingAttempts.find((attempt) => activeApprovalStatus(attempt.circleStatus));
   if (activeAttempt) {
-    if (isPreSubmitFundingAttempt(activeAttempt)) {
-      const verification = await getCanonicalFundingVerification(userToken, draftId, { useCache: false, ccnAccountId: input.ccnAccountId });
-      if (verification.escrow.isFunded) {
-        await patchCreateChallengeDraft({
-          funding: {
-            fundingStatus: verification.challengeVerified ? "funded" : draft.funding.fundingStatus,
-            escrowStatus: verification.challengeVerified ? "verified" : draft.funding.escrowStatus,
-            transactionHash: verification.fundingTx ?? draft.funding.transactionHash,
-            eventVerified: verification.eventVerified || draft.funding.eventVerified,
-          } as never,
-          deployment: verification.challengeVerified ? { publicationStatus: "ready-to-publish" } as never : undefined,
-        }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
-        throw new CircleSpikeError({ message: "This challenge ID is already funded." });
-      }
-      throw new CircleSpikeError({
-        message: "Funding recovery is required before another funding request can be submitted.",
-        code: "FUNDING_RECOVERY_REQUIRED",
-      });
-    }
     await patchCreateChallengeDraft({
       funding: {
         fundingStatus: "funding-pending",
@@ -1068,75 +1016,7 @@ export async function createProductFundingChallenge(userToken: unknown, draftId?
       attempts: fundingAttempts.length,
     };
   }
-  const attemptBase: FundingAttemptBase = {
-    ccnAccountId: intent.ccnAccountId,
-    walletId: storedWallet.walletId,
-    draftId: scopedDraftId,
-    challengeId: intent.challengeId,
-    fundingIntentId: intent.fundingIntentId,
-    purpose: "FUNDING",
-    idempotencyKey,
-    circleChallengeId: fundingPreSubmitChallengeId(idempotencyKey),
-  };
-  try {
-    await upsertFundingPreparationAttempt({
-      scope,
-      attempt: attemptBase,
-      status: "PREPARING",
-      phase: "PRE_CIRCLE_PREPARING",
-    });
-  } catch (error) {
-    throw new CircleSpikeError({
-      message: "Funding preparation could not be recorded.",
-      status: error instanceof CircleSpikeError ? error.safe.status : 400,
-      code: "PRE_CIRCLE_PERSISTENCE_FAILED",
-    });
-  }
-  await runPreCircleFundingPhase({
-    scope,
-    attempt: attemptBase,
-    phase: "PRE_CIRCLE_WALLET_RESOLUTION_FAILED",
-    fn: async () => {
-      assertResolvedFundingWalletSnapshot(storedWallet);
-      const resolvedWallet = await getBrandWallet(userToken, draftId, input);
-      if (resolvedWallet.walletId !== storedWallet.walletId) {
-        throw new CircleSpikeError({
-          message: "Brand payment wallet changed before funding.",
-          code: "PRE_CIRCLE_WALLET_RESOLUTION_FAILED",
-          status: 400,
-        });
-      }
-      return resolvedWallet;
-    },
-  });
-  const recoveredAttempts = await runPreCircleFundingPhase({
-    scope,
-    attempt: attemptBase,
-    phase: "PRE_CIRCLE_RECOVERY_LOOKUP_FAILED",
-    fn: () => findFundingAttemptsFromCircle(userToken, draftId, { ccnAccountId: input.ccnAccountId }),
-  });
-  const recoveredActiveAttempt = recoveredAttempts.find((attempt) => activeApprovalStatus(attempt.circleStatus) && !isPreSubmitFundingAttempt(attempt));
-  if (recoveredActiveAttempt) {
-    await patchCreateChallengeDraft({
-      funding: {
-        fundingStatus: "funding-pending",
-        fundingChallengeId: recoveredActiveAttempt.circleChallengeId,
-        transactionId: recoveredActiveAttempt.circleTransactionId ?? draft.funding.transactionId,
-        transactionHash: recoveredActiveAttempt.transactionHash ?? draft.funding.transactionHash,
-      } as never,
-    }, draft.challenge.id, { ccnAccountId: intent.ccnAccountId });
-    return {
-      alreadyPending: true,
-      challengeId: recoveredActiveAttempt.circleChallengeId,
-      attempts: recoveredAttempts.length,
-    };
-  }
-  const verification = await runPreCircleFundingPhase({
-    scope,
-    attempt: attemptBase,
-    phase: "PRE_CIRCLE_ARC_READ_FAILED",
-    fn: () => getCanonicalFundingVerification(userToken, draftId, { useCache: true, ccnAccountId: input.ccnAccountId }),
-  });
+  const verification = await getCanonicalFundingVerification(userToken, draftId, { useCache: true, ccnAccountId: input.ccnAccountId });
   if (verification.escrow.isFunded) {
     await patchCreateChallengeDraft({
       funding: {
@@ -1150,86 +1030,41 @@ export async function createProductFundingChallenge(userToken: unknown, draftId?
     throw new CircleSpikeError({ message: "This challenge ID is already funded." });
   }
   if (BigInt(verification.allowance) < BigInt(intent.totalRequired)) {
-    await upsertFundingPreparationAttempt({
-      scope,
-      attempt: attemptBase,
-      status: "FAILED",
-      phase: "PRE_CIRCLE_ALLOWANCE_CHECK_FAILED",
-      error: new CircleSpikeError({ message: "Approval is not sufficient for funding.", code: "PRE_CIRCLE_ALLOWANCE_CHECK_FAILED", status: 400 }),
-    });
-    throw new CircleSpikeError({
-      message: "Approval is not sufficient for funding.",
-      code: "PRE_CIRCLE_ALLOWANCE_CHECK_FAILED",
-      status: 400,
-    });
+    throw new CircleSpikeError({ message: "Approval is not sufficient for funding." });
   }
   const preflight = { wallet: verification.wallet };
-  await upsertFundingPreparationAttempt({
-    scope,
-    attempt: attemptBase,
-    status: "SUBMITTING",
-    phase: "CONTRACT_EXECUTION",
+  const idempotencyKey = stableUuid(
+    "funding",
+    [
+      intent.ccnAccountId,
+      preflight.wallet.walletId,
+      draft.challenge.id,
+      intent.challengeId,
+      intent.fundingIntentId,
+      "FUNDING",
+    ].join(":"),
+  );
+  const data = await circleFetch<CircleContractExecutionResponse>({
+    endpoint: "/v1/w3s/user/transactions/contractExecution",
+    method: "POST",
+    userToken,
+    body: {
+      walletId: preflight.wallet.walletId,
+      contractAddress: intent.escrowContractAddress,
+      idempotencyKey,
+      abiFunctionSignature: "fundChallenge(bytes32,uint256[],uint256,uint64,uint64)",
+      abiParameters: [
+        intent.challengeId,
+        intent.prizeDistribution,
+        intent.platformFee,
+        String(intent.submissionDeadline),
+        String(intent.reviewDeadline),
+      ],
+      feeLevel: "MEDIUM",
+      refId: `ccn-fund-${intent.challengeLogicalId}`,
+    },
   });
-  let data: CircleContractExecutionResponse;
-  try {
-    data = await circleFetch<CircleContractExecutionResponse>({
-      endpoint: "/v1/w3s/user/transactions/contractExecution",
-      method: "POST",
-      userToken,
-      body: {
-        walletId: preflight.wallet.walletId,
-        contractAddress: intent.escrowContractAddress,
-        idempotencyKey,
-        abiFunctionSignature: "fundChallenge(bytes32,uint256[],uint256,uint64,uint64)",
-        abiParameters: [
-          intent.challengeId,
-          intent.prizeDistribution,
-          intent.platformFee,
-          String(intent.submissionDeadline),
-          String(intent.reviewDeadline),
-        ],
-        feeLevel: "MEDIUM",
-        refId: `ccn-fund-${intent.challengeLogicalId}`,
-      },
-    });
-  } catch (error) {
-    await upsertFundingAttemptForScope({
-      scope,
-      attempt: {
-        ccnAccountId: intent.ccnAccountId,
-        walletId: preflight.wallet.walletId,
-        draftId: scopedDraftId,
-        challengeId: intent.challengeId,
-        fundingIntentId: intent.fundingIntentId,
-        purpose: "FUNDING",
-        idempotencyKey,
-        circleChallengeId: fundingPreSubmitChallengeId(idempotencyKey),
-        circleStatus: isDefinitiveCircleFundingRejection(error) ? "FAILED" : "RECOVERY_REQUIRED",
-        circleType: "CONTRACT_EXECUTION",
-        errorCode: error instanceof CircleSpikeError ? error.safe.code : undefined,
-        errorMessage: error instanceof Error ? error.message : "Funding submission failed.",
-      },
-    });
-    throw error;
-  }
   if (!data.challengeId) {
-    await upsertFundingAttemptForScope({
-      scope,
-      attempt: {
-        ccnAccountId: intent.ccnAccountId,
-        walletId: preflight.wallet.walletId,
-        draftId: scopedDraftId,
-        challengeId: intent.challengeId,
-        fundingIntentId: intent.fundingIntentId,
-        purpose: "FUNDING",
-        idempotencyKey,
-        circleChallengeId: fundingPreSubmitChallengeId(idempotencyKey),
-        circleStatus: "RECOVERY_REQUIRED",
-        circleType: "CONTRACT_EXECUTION",
-        errorCode: "MISSING_CIRCLE_CHALLENGE_ID",
-        errorMessage: "Prize pool funding challenge was not returned.",
-      },
-    });
     throw new CircleSpikeError({ message: "Prize pool funding challenge was not returned." });
   }
   await persistFundingAttempt({
@@ -1334,99 +1169,11 @@ function circleChallengeType(challenge: Record<string, unknown>) {
 }
 
 function activeApprovalStatus(status: ApprovalAttemptStatus) {
-  return status === "PENDING" ||
-    status === "IN_PROGRESS" ||
-    status === "COMPLETE" ||
-    status === "COMPLETED" ||
-    status === "APPROVED" ||
-    status === "PREPARING" ||
-    status === "SUBMITTING" ||
-    status === "RECOVERY_REQUIRED";
+  return status === "PENDING" || status === "IN_PROGRESS" || status === "COMPLETE" || status === "COMPLETED" || status === "APPROVED";
 }
 
 function terminalApprovalStatus(status: ApprovalAttemptStatus) {
   return status === "FAILED" || status === "EXPIRED";
-}
-
-function fundingPreSubmitChallengeId(idempotencyKey: string) {
-  return `${FUNDING_PRE_SUBMIT_PREFIX}${idempotencyKey}`;
-}
-
-function isPreSubmitFundingAttempt(attempt: FundingAttemptRecord) {
-  return attempt.circleChallengeId.startsWith(FUNDING_PRE_SUBMIT_PREFIX);
-}
-
-function isDefinitiveCircleFundingRejection(error: unknown) {
-  return error instanceof CircleSpikeError &&
-    typeof error.safe.status === "number" &&
-    error.safe.status >= 400 &&
-    error.safe.status < 500;
-}
-
-function fundingWalletSnapshotFromDraft(draft: Awaited<ReturnType<typeof getCreateChallengeDraft>>) {
-  return {
-    walletId: draft.funding.walletId || UNRESOLVED_FUNDING_WALLET_ID,
-    walletAddress: draft.funding.walletAddress,
-  };
-}
-
-function assertResolvedFundingWalletSnapshot(wallet: ReturnType<typeof fundingWalletSnapshotFromDraft>) {
-  if (wallet.walletId === UNRESOLVED_FUNDING_WALLET_ID || !wallet.walletAddress) {
-    throw new CircleSpikeError({
-      message: "Brand payment wallet must be ready before funding.",
-      code: "PRE_CIRCLE_WALLET_RESOLUTION_FAILED",
-      status: 400,
-    });
-  }
-}
-
-function safeFundingErrorMessage(error: unknown) {
-  if (error instanceof CircleSpikeError) return error.safe.message;
-  return "Funding preparation failed before payment provider submission.";
-}
-
-async function upsertFundingPreparationAttempt(input: {
-  scope: FundingAttemptScope;
-  attempt: FundingAttemptBase;
-  status: FundingAttemptStatus;
-  phase: string;
-  error?: unknown;
-}) {
-  return upsertFundingAttemptForScope({
-    scope: input.scope,
-    attempt: {
-      ...input.attempt,
-      circleStatus: input.status,
-      circleType: input.phase,
-      errorCode: input.error ? input.phase : undefined,
-      errorMessage: input.error ? safeFundingErrorMessage(input.error) : undefined,
-    },
-  });
-}
-
-async function runPreCircleFundingPhase<T>(input: {
-  scope: FundingAttemptScope;
-  attempt: FundingAttemptBase;
-  phase: string;
-  fn: () => Promise<T>;
-  terminal?: boolean;
-}) {
-  try {
-    return await input.fn();
-  } catch (error) {
-    await upsertFundingPreparationAttempt({
-      scope: input.scope,
-      attempt: input.attempt,
-      status: input.terminal ? "FAILED" : "RECOVERY_REQUIRED",
-      phase: input.phase,
-      error,
-    });
-    throw new CircleSpikeError({
-      message: safeFundingErrorMessage(error),
-      status: error instanceof CircleSpikeError ? error.safe.status : 400,
-      code: input.phase,
-    });
-  }
 }
 
 async function listCircleChallenges(userToken: string) {
@@ -1617,49 +1364,6 @@ async function findApprovalAttemptsFromCircle(userToken: string, draftId: string
     });
   }
   return listApprovalAttemptsForScope(scope);
-}
-
-async function findFundingAttemptsFromCircle(userToken: string, draftId: string, input: FundingAccountScope = {}) {
-  const draft = await getCreateChallengeDraft(draftId);
-  const intent = getFundingIntentFromDraft(draft, input);
-  const wallet = await getBrandWallet(userToken, draftId, input);
-  const scope = approvalAttemptScope({
-    ccnAccountId: intent.ccnAccountId,
-    walletId: wallet.walletId,
-    draftId: draft.challenge.id ?? draftId,
-    challengeId: intent.challengeId,
-    fundingIntentId: intent.fundingIntentId,
-  });
-  const idempotencyKey = stableUuid(
-    "funding",
-    [intent.ccnAccountId, wallet.walletId, draft.challenge.id, intent.challengeId, intent.fundingIntentId, "FUNDING"].join(":"),
-  );
-  const refId = `ccn-fund-${intent.challengeLogicalId}`;
-  const listed = await listCircleChallenges(userToken);
-  const matched = listed.filter((challenge) => {
-    const values = collectStringValues(challenge);
-    return values.has(refId) || values.has(idempotencyKey);
-  });
-  for (const challenge of matched) {
-    const id = circleChallengeId(challenge);
-    if (!id) continue;
-    await upsertFundingAttemptForScope({
-      scope,
-      attempt: {
-        ccnAccountId: intent.ccnAccountId,
-        walletId: wallet.walletId,
-        draftId: draft.challenge.id ?? draftId,
-        challengeId: intent.challengeId,
-        fundingIntentId: intent.fundingIntentId,
-        purpose: "FUNDING",
-        idempotencyKey,
-        circleChallengeId: id,
-        circleStatus: circleChallengeStatus(challenge),
-        circleType: circleChallengeType(challenge),
-      },
-    });
-  }
-  return listFundingAttemptsForScope(scope);
 }
 
 export async function reconcileCurrentApprovalAttempts(
