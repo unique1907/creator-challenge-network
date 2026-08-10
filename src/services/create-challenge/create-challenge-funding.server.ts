@@ -1,14 +1,12 @@
 import "server-only";
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import type {
   EscrowFundingVerification,
   EscrowPreflightSnapshot,
   EscrowTransactionSnapshot,
   EscrowTransactionStage,
 } from "@/types/escrow-funding-spike";
+import { CCN_ESCROW_ABI, type CcnEscrowAbiEntry } from "@/contracts/ccn-escrow-abi";
 import {
   ARC_TESTNET_USDC_CONTRACT,
   CircleSpikeError,
@@ -115,13 +113,6 @@ type RpcResponse<T> = {
   error?: { code: number; message: string };
 };
 
-type CompiledAbiEntry = {
-  type: string;
-  name?: string;
-  inputs?: Array<{ name?: string; type: string; indexed?: boolean }>;
-  outputs?: Array<{ name?: string; type: string }>;
-};
-
 type ApprovalLog = {
   transactionHash: `0x${string}`;
   blockNumber: string;
@@ -213,9 +204,7 @@ export type CanonicalFundingVerification = {
 };
 
 function loadEscrowAbi() {
-  const artifactPath = join(process.cwd(), "contracts", "out", "CCNEscrow.sol", "CCNEscrow.json");
-  const artifact = JSON.parse(readFileSync(artifactPath, "utf8")) as { abi?: CompiledAbiEntry[] };
-  const abi = artifact.abi ?? [];
+  const abi = CCN_ESCROW_ABI as readonly CcnEscrowAbiEntry[];
   const challengeFunded = abi.find((entry) => entry.type === "event" && entry.name === "ChallengeFunded");
   const getChallenge = abi.find((entry) => entry.type === "function" && entry.name === "getChallenge");
   const getPrizeDistribution = abi.find((entry) => entry.type === "function" && entry.name === "getPrizeDistribution");
