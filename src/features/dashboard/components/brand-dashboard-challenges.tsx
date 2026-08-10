@@ -1,8 +1,8 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { BusinessChallengeCover } from "@/components/ui/business-challenge-cover";
 import {
   brandDashboardFilterMatches,
   brandDashboardFilters,
@@ -217,7 +217,14 @@ function ChallengeThumb({ row }: { row: BrandDashboardCampaignRow }) {
   return (
     <div className={`h-8 w-8 overflow-hidden rounded-md bg-gradient-to-br ${visualClass(row.visualTone)}`} aria-hidden="true">
       {row.media.imageUrl ? (
-        <img src={row.media.imageUrl} alt="" className="h-full w-full object-cover" />
+        <BusinessChallengeCover
+          src={row.media.imageUrl}
+          alt={row.media.alt}
+          title={row.title}
+          decorative
+          className="h-full w-full border-0"
+          imageClassName="p-0.5"
+        />
       ) : (
         <div className="grid h-full w-full place-items-center bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.18),transparent_28%),linear-gradient(120deg,rgba(255,255,255,0.08),transparent)] text-sm font-semibold text-white">
           {row.identityToken}

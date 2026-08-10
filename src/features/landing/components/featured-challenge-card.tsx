@@ -1,5 +1,5 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { BusinessChallengeCover, formatBusinessChallengeHierarchy } from "@/components/ui/business-challenge-cover";
 import type { Challenge } from "@/types/ccn";
 import { formatDeadlineDateLabel } from "@/features/landing/lib/deadline-countdown";
 import { LandingIcon } from "./landing-icons";
@@ -100,6 +100,11 @@ export function FeaturedChallengeCard({ challenge }: { challenge?: Challenge | n
   ];
   const publicStatus = statusLabel(featured.status);
   const pills = evidencePills(featured).slice(0, 3);
+  const hierarchy = formatBusinessChallengeHierarchy({
+    brand: featured.brand,
+    title: featured.title,
+    category: featured.category,
+  });
 
   return (
     <article className="rounded-xl border border-[#D9DEE7] bg-[#F3F4F6] p-5 shadow-xl shadow-slate-950/10">
@@ -111,24 +116,22 @@ export function FeaturedChallengeCard({ challenge }: { challenge?: Challenge | n
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-[160px_1fr] sm:items-center">
-        {featured.coverImageUrl ? (
-          <img
-            src={featured.coverImageUrl}
-            alt={featured.coverImageAlt ?? `${featured.title} cover image`}
-            className="aspect-[16/10] w-full rounded-lg border border-slate-200 bg-white object-cover shadow-sm shadow-slate-950/5 sm:w-40"
-          />
-        ) : (
-          <div className="grid aspect-[16/10] w-full place-items-center rounded-lg border border-slate-200 bg-white text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 shadow-sm shadow-slate-950/5 sm:w-40">
-            Cover unavailable
-          </div>
-        )}
+        <BusinessChallengeCover
+          src={featured.coverImageUrl}
+          alt={featured.coverImageAlt}
+          title={featured.title}
+          tone="light"
+          className="aspect-[16/10] w-full rounded-lg shadow-sm shadow-slate-950/5 sm:w-40"
+          imageClassName="p-2"
+        />
         <div className="min-w-0">
-          <span className="inline-flex rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-bold text-violet-900">
-            {featured.category}
-          </span>
+          {hierarchy.brand ? <p className="truncate text-xs font-semibold text-slate-500">{hierarchy.brand}</p> : null}
           <h2 className="mt-2 line-clamp-3 text-2xl font-bold leading-tight tracking-tight text-slate-950">
-            {featured.title}
+            {hierarchy.title}
           </h2>
+          <span className="mt-2 inline-flex rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-bold text-violet-900">
+            {hierarchy.category}
+          </span>
           {featured.summary ? (
             <p className="mt-2 line-clamp-1 text-sm text-slate-600">{featured.summary}</p>
           ) : null}

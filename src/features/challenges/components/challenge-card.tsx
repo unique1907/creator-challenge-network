@@ -1,5 +1,5 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { BusinessChallengeCover, formatBusinessChallengeHierarchy } from "@/components/ui/business-challenge-cover";
 import {
   accentClassName,
   formatDeadline,
@@ -13,18 +13,25 @@ type ChallengeCardProps = {
 };
 
 export function ChallengeCard({ challenge }: ChallengeCardProps) {
+  const hierarchy = formatBusinessChallengeHierarchy({
+    brand: challenge.brand,
+    title: challenge.title,
+    category: challenge.category,
+  });
+
   return (
     <article className="flex h-full flex-col justify-between rounded-xl border border-white/10 bg-white/[0.045] p-3.5 shadow-xl shadow-black/15">
       <div>
         {challenge.coverImageUrl ? (
-          <img src={challenge.coverImageUrl} alt={challenge.coverImageAlt ?? `${challenge.title} cover image`} className="mb-3 aspect-[16/7] max-h-[132px] w-full rounded-lg border border-white/10 object-cover" />
+          <BusinessChallengeCover
+            src={challenge.coverImageUrl}
+            alt={challenge.coverImageAlt}
+            title={challenge.title}
+            className="mb-3 aspect-[16/7] max-h-[132px] w-full rounded-lg"
+            imageClassName="p-2"
+          />
         ) : null}
         <div className="flex flex-wrap items-center gap-1.5">
-          <span
-            className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold leading-4 ${accentClassName(challenge.accent)}`}
-          >
-            {challenge.category}
-          </span>
           <span
             className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold capitalize leading-4 ${statusClassName(challenge.status)}`}
           >
@@ -32,12 +39,19 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
           </span>
         </div>
 
+        {hierarchy.brand ? (
+          <p className="mt-2 truncate text-xs font-medium text-cyan-100/80">
+            {hierarchy.brand}
+          </p>
+        ) : null}
         <h3 className="mt-3 line-clamp-2 text-base font-semibold leading-5 text-white">
-          {challenge.title}
+          {hierarchy.title}
         </h3>
-        <p className="mt-1.5 truncate text-xs font-medium text-cyan-100/80">
-          {challenge.brand}
-        </p>
+        <span
+          className={`mt-2 inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-semibold leading-4 ${accentClassName(challenge.accent)}`}
+        >
+          {hierarchy.category}
+        </span>
         <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-300">
           {challenge.summary}
         </p>

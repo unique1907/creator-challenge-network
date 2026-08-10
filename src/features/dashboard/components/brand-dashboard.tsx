@@ -1,6 +1,6 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BusinessChallengeCover } from "@/components/ui/business-challenge-cover";
 import { CCNLogo } from "@/components/ui/ccn-logo";
 import { BrandDashboardChallengeList } from "@/features/dashboard/components/brand-dashboard-challenges";
 import { BrandWalletQuickActions } from "@/features/dashboard/components/brand-wallet-quick-actions";
@@ -322,7 +322,14 @@ function NextActionHero({
 
       <div className="relative min-h-[108px] overflow-hidden md:min-h-full">
         {row?.media.imageUrl ? (
-          <img src={row.media.imageUrl} alt="" className="absolute inset-0 h-full w-full origin-center scale-[1.15] object-cover object-center" />
+          <BusinessChallengeCover
+            src={row.media.imageUrl}
+            alt={row.media.alt}
+            title={row.title}
+            decorative
+            className="absolute inset-0 h-full w-full border-0"
+            imageClassName="p-3"
+          />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950" />
         )}

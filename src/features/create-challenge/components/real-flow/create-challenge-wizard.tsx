@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import { CCNLogo } from "@/components/ui/ccn-logo";
+import { BusinessChallengeCover } from "@/components/ui/business-challenge-cover";
 import { FormLabel } from "@/components/ui/form-label";
 import type { CreateChallengeDeadlinePolicy } from "@/config/create-challenge-deadline-policy";
 import { createChallengeSteps, demoCreateChallengeDraft } from "@/features/create-challenge/data/demo-draft";
@@ -2231,7 +2231,13 @@ function CampaignCoverField({
         className="mt-2 flex min-h-20 w-full items-center justify-center overflow-hidden rounded-md border border-dashed border-cyan-200/30 bg-slate-950/45 text-center text-[12px] font-bold text-cyan-100 transition hover:border-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {displayCoverUrl ? (
-          <img src={displayCoverUrl} alt="Business challenge cover preview" className="h-full max-h-28 w-full object-cover" />
+          <BusinessChallengeCover
+            src={displayCoverUrl}
+            alt="Business challenge cover preview"
+            title={draft.challenge.title || "Business challenge"}
+            className="h-full max-h-28 w-full border-0"
+            imageClassName="p-1.5"
+          />
         ) : (
           <span>{pending ? "Uploading cover..." : hasCover ? "Replace business challenge cover" : "Drop image here or choose cover"}</span>
         )}

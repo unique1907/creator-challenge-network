@@ -1,7 +1,7 @@
-﻿/* eslint-disable @next/next/no-img-element */
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BusinessChallengeCover } from "@/components/ui/business-challenge-cover";
 import {
   brandDashboardFilterMatches,
   brandDashboardFilters,
@@ -51,7 +51,7 @@ export default async function BrandCampaignsPage({ searchParams }: BrandCampaign
               <Link href="/create-challenge?new=1" prefetch className="inline-flex h-8 items-center rounded-md bg-gradient-to-r from-violet-600 to-blue-600 px-3 text-[12px] font-black text-white">
                 + New Business Challenge
               </Link>
-              <Link href="/dashboard" className="text-[12px] font-semibold text-violet-200 transition hover:text-violet-100">← Back to dashboard</Link>
+              <Link href="/dashboard" className="text-[12px] font-semibold text-violet-200 transition hover:text-violet-100">‹ Back to dashboard</Link>
             </div>
             <BrandAccountControls
               displayName={profileName}
@@ -102,7 +102,13 @@ function CampaignCard({ row }: { row: BrandDashboardCampaignRow }) {
     <article className="overflow-hidden rounded-xl border border-white/10 bg-slate-950/35 transition hover:border-white/20">
       <div className={`relative aspect-[16/5] max-h-[120px] bg-gradient-to-br ${visualClass(row.visualTone)}`}>
         {row.media.imageUrl ? (
-          <img src={row.media.imageUrl} alt={row.media.alt} className="absolute inset-0 h-full w-full object-cover" />
+          <BusinessChallengeCover
+            src={row.media.imageUrl}
+            alt={row.media.alt}
+            title={row.title}
+            className="absolute inset-0 h-full w-full border-0"
+            imageClassName="p-2"
+          />
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.18),transparent_24%),linear-gradient(120deg,rgba(255,255,255,0.1),transparent)]" />
         )}

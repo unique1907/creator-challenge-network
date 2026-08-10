@@ -8,6 +8,7 @@ import { CreatorWalletActions } from "./creator-wallet-actions";
 import { CreatorWorkspaceNav } from "./creator-workspace-nav";
 import { CreatorWorkspaceSearch } from "./creator-workspace-search";
 import { UserMenu } from "@/components/auth/user-menu";
+import { BusinessChallengeCover, formatBusinessChallengeHierarchy } from "@/components/ui/business-challenge-cover";
 import { isSpikeAllowedInEnvironment } from "@/services/internal-spike-auth.server";
 import type { CreatorSession } from "@/services/creator-session.server";
 import type {
@@ -126,27 +127,33 @@ export function CreatorWorkspaceShell({ session, profile, notifications = [], ch
 }
 
 function ChallengeCard({ challenge }: { challenge: CreatorChallengeCard }) {
+  const hierarchy = formatBusinessChallengeHierarchy({
+    brand: challenge.brandName,
+    title: challenge.title,
+    category: challenge.category,
+  });
+
   return (
     <article className="flex h-full flex-col rounded-lg border border-white/10 bg-white/[0.04] p-2 transition hover:border-cyan-300/30">
-      {challenge.coverImageUrl ? (
-        <img src={challenge.coverImageUrl} alt={challenge.coverImageAlt} className="mb-1.5 aspect-[16/6] max-h-[78px] w-full rounded-md border border-white/10 object-cover" />
-      ) : (
-        <div className="mb-1.5 grid aspect-[16/6] max-h-[78px] w-full place-items-center rounded-md border border-white/10 bg-[#070b14] text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-          Cover unavailable
-        </div>
-      )}
+      <BusinessChallengeCover
+        src={challenge.coverImageUrl}
+        alt={challenge.coverImageAlt}
+        title={challenge.title}
+        className="mb-1.5 aspect-[16/6] max-h-[78px] w-full rounded-md"
+        imageClassName="p-1"
+      />
       <div className="flex flex-1 flex-col">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[11px] text-slate-400">{challenge.brandName}</p>
-            <h3 className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-4 text-white">{challenge.title}</h3>
+            {hierarchy.brand ? <p className="truncate text-[11px] text-slate-400">{hierarchy.brand}</p> : null}
+            <h3 className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-4 text-white">{hierarchy.title}</h3>
           </div>
           <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold leading-4 ${statusClass(challenge.submissionStatus)}`}>
             {challenge.submissionStatus}
           </span>
         </div>
 
-        <p className="mt-1 truncate text-[11px] text-slate-500">{challenge.category}</p>
+        <p className="mt-1 truncate text-[11px] text-slate-500">{hierarchy.category}</p>
 
         <div className="mt-1.5 grid grid-cols-2 gap-1.5 text-[11px]">
           <div className="rounded-md border border-white/10 bg-[#070b14] p-1.5">
@@ -220,7 +227,13 @@ function MetricCard({ metric }: { metric: CreatorMetricItem }) {
 }
 
 function CompactChallengeCard({ challenge }: { challenge: CreatorChallengeCard }) {
-  return <article className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.045] shadow-lg shadow-black/10 transition hover:border-violet-300/25"><div className="relative">{challenge.coverImageUrl ? <img src={challenge.coverImageUrl} alt={challenge.coverImageAlt} className="aspect-[16/6] max-h-[92px] w-full object-cover" /> : <div className="grid aspect-[16/6] max-h-[92px] w-full place-items-center bg-[#070d19] text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Cover unavailable</div>}{challenge.featured ? <span className="absolute left-2 top-2 rounded-md bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-white">Featured</span> : null}<span className="absolute right-2 top-2 rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-100">{challenge.timeLeftLabel}</span></div><div className="p-2"><div className="flex items-center gap-1.5"><span className="grid h-5 w-5 place-items-center rounded bg-white text-[10px] font-bold text-slate-950">{(challenge.brandName || "B").slice(0, 1).toUpperCase()}</span><p className="truncate text-[12px] font-semibold text-white">{challenge.brandName}</p></div><h3 className="mt-1 line-clamp-2 text-[13px] font-semibold leading-4 text-white">{challenge.title}</h3><p className="mt-0.5 text-[11px] text-slate-400">{challenge.category}</p><div className="mt-2 flex items-end justify-between gap-2 border-t border-white/10 pt-1.5"><div><p className="text-[13px] font-semibold text-white">{challenge.prizePool}</p><p className="mt-0.5 text-[10px] text-slate-500">Prize Pool</p></div><Link href={`/dashboard/creator/challenges/${challenge.slug}`} className="rounded-md bg-violet-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-violet-500">View Challenge</Link></div><p className="mt-1 text-[10px] text-slate-500">{challenge.submissionCountLabel}</p></div></article>;
+  const hierarchy = formatBusinessChallengeHierarchy({
+    brand: challenge.brandName,
+    title: challenge.title,
+    category: challenge.category,
+  });
+
+  return <article className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.045] shadow-lg shadow-black/10 transition hover:border-violet-300/25"><div className="relative"><BusinessChallengeCover src={challenge.coverImageUrl} alt={challenge.coverImageAlt} title={challenge.title} className="aspect-[16/6] max-h-[92px] w-full border-0" imageClassName="p-1.5" />{challenge.featured ? <span className="absolute left-2 top-2 rounded-md bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-white">Featured</span> : null}<span className="absolute right-2 top-2 rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-100">{challenge.timeLeftLabel}</span></div><div className="p-2"><div className="flex items-center gap-1.5"><span className="grid h-5 w-5 place-items-center rounded bg-white text-[10px] font-bold text-slate-950">{(hierarchy.brand || "B").slice(0, 1).toUpperCase()}</span><p className="truncate text-[12px] font-semibold text-white">{hierarchy.brand}</p></div><h3 className="mt-1 line-clamp-2 text-[13px] font-semibold leading-4 text-white">{hierarchy.title}</h3><p className="mt-0.5 text-[11px] text-slate-400">{hierarchy.category}</p><div className="mt-2 flex items-end justify-between gap-2 border-t border-white/10 pt-1.5"><div><p className="text-[13px] font-semibold text-white">{challenge.prizePool}</p><p className="mt-0.5 text-[10px] text-slate-500">Prize Pool</p></div><Link href={`/dashboard/creator/challenges/${challenge.slug}`} className="rounded-md bg-violet-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-violet-500">View Challenge</Link></div><p className="mt-1 text-[10px] text-slate-500">{challenge.submissionCountLabel}</p></div></article>;
 }
 
 function NextActionHero({ action }: { action: CreatorNextAction }) {
@@ -378,7 +391,13 @@ export function CreatorChallengeDetailPage({ challenge, wallet, appId }: {
       <div className="grid gap-2.5 xl:grid-cols-[1.4fr_0.8fr]">
         <section className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
           {challenge.coverImageUrl ? (
-            <img src={challenge.coverImageUrl} alt={challenge.coverImageAlt} className="mb-2 aspect-[16/5] max-h-[140px] w-full rounded-md border border-white/10 object-cover" />
+            <BusinessChallengeCover
+              src={challenge.coverImageUrl}
+              alt={challenge.coverImageAlt}
+              title={challenge.title}
+              className="mb-2 aspect-[16/5] max-h-[140px] w-full rounded-md"
+              imageClassName="p-2"
+            />
           ) : null}
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>

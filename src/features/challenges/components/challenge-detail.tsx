@@ -1,5 +1,5 @@
-﻿/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { BusinessChallengeCover } from "@/components/ui/business-challenge-cover";
 import {
   accentClassName,
   formatDeadline,
@@ -34,7 +34,13 @@ export function ChallengeDetail({ challenge }: ChallengeDetailProps) {
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
         <section>
           {challenge.coverImageUrl ? (
-            <img src={challenge.coverImageUrl} alt={challenge.coverImageAlt ?? `${challenge.title} cover image`} className="mb-8 aspect-[16/7] w-full rounded-xl border border-white/10 object-cover shadow-2xl shadow-black/20" />
+            <BusinessChallengeCover
+              src={challenge.coverImageUrl}
+              alt={challenge.coverImageAlt}
+              title={challenge.title}
+              className="mb-8 aspect-[16/7] w-full rounded-xl shadow-2xl shadow-black/20"
+              imageClassName="p-3"
+            />
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <span

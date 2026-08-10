@@ -1,5 +1,5 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { BusinessChallengeCover } from "@/components/ui/business-challenge-cover";
 import { CCNLogo } from "@/components/ui/ccn-logo";
 import { CampaignWorkspaceTabs } from "./campaign-workspace-tabs";
 import { AiTemplatesBetaButton, BrandAccountControls, type BrandAccountControlsProps } from "@/features/dashboard/components/brand-workspace-navigation";
@@ -492,7 +492,13 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
         <div className="mx-auto max-w-[1580px] px-3 py-3 md:px-5">
           <section id="campaign-header" className="rounded-xl border border-white/10 bg-[#0a1020]/90 p-2.5 shadow-lg shadow-black/20">
             {cover.imageUrl ? (
-              <img src={cover.imageUrl} alt={cover.alt} className="mb-2 aspect-[16/5] max-h-[150px] w-full rounded-md border border-white/10 object-cover" />
+              <BusinessChallengeCover
+                src={cover.imageUrl}
+                alt={cover.alt}
+                title={draft.challenge.title || "Untitled Business Challenge"}
+                className="mb-2 aspect-[16/5] max-h-[150px] w-full rounded-md"
+                imageClassName="p-2"
+              />
             ) : null}
             <div className="flex flex-wrap items-start justify-between gap-2.5">
               <div>
