@@ -25,7 +25,7 @@ type ActivityItem = {
 
 type InfoItem = {
   label: string;
-  value: string;
+  value: ReactNode;
   detail?: string;
   tone?: ActivityItem["tone"];
 };
@@ -1048,7 +1048,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
+function Info({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-md border border-white/10 bg-slate-950/40 p-2">
       <dt className="text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-400">{label}</dt>

@@ -101,6 +101,10 @@ function mask(value?: string | null) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
+function getArcScanTxUrl(txHash: string) {
+  return `https://testnet.arcscan.app/tx/${txHash}`;
+}
+
 function currentLifecycleState(input: {
   draft: CreateChallengeDraftState;
   winnerAttempt: WinnerFinalizationAttemptRecord | null;
@@ -369,7 +373,21 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
     { label: "Current funding", value: formatUnits(draft.prizePool.totalRequiredUnits) },
     { label: "Approval", value: approval ? `${approval.circleStatus} / ${mask(approval.transactionHash)}` : "No approval attempt" },
     { label: "Funding attempts", value: String(fundingAttempts.length) },
-    { label: "Transaction", value: mask(fundingTx) },
+    {
+      label: "Transaction",
+      value: fundingTx ? (
+        <a
+          href={getArcScanTxUrl(fundingTx)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center rounded-sm text-cyan-200 underline-offset-2 transition hover:text-cyan-100 hover:underline focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+        >
+          {mask(fundingTx)}
+        </a>
+      ) : (
+        mask(fundingTx)
+      ),
+    },
     { label: "Latest funding state", value: funding ? funding.circleStatus : draft.funding.fundingStatus },
   ];
   const creatorItems = [
