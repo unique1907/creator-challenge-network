@@ -133,6 +133,7 @@ export type ApprovalAttemptStatus =
   | "FAILED"
   | "EXPIRED"
   | "APPROVED"
+  | "PREPARING"
   | "SUBMITTING"
   | "RECOVERY_REQUIRED";
 

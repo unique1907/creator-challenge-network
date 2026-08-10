@@ -55,7 +55,7 @@ assert.ok(!buildSource.includes("safe.status !== 503"), "permanent log scanner f
 const fundingAction = funding.slice(fundingCreateStart, funding.indexOf("function collectStringCandidates"));
 assert.ok(fundingAction.indexOf("const activeAttempt = fundingAttempts.find") < fundingAction.indexOf("const verification = await getCanonicalFundingVerification"), "funding must reuse active attempts before verification");
 assert.ok(fundingAction.indexOf("const verification = await getCanonicalFundingVerification") < fundingAction.indexOf('circleFetch<CircleContractExecutionResponse>'), "canonical verification must happen before Circle funding submission");
-assert.ok(fundingAction.indexOf("await upsertFundingAttemptForScope") < fundingAction.indexOf('circleFetch<CircleContractExecutionResponse>'), "funding must persist a durable attempt before Circle funding submission");
+assert.ok(fundingAction.indexOf('phase: "PRE_CIRCLE_PREPARING"') < fundingAction.indexOf('circleFetch<CircleContractExecutionResponse>'), "funding must persist a durable attempt before Circle funding submission");
 
 assert.ok(fundRoute.includes("createProductFundingChallenge"), "fund route must still use the canonical funding service");
 assert.ok(reconcileRoute.includes("reconcileProductTransaction"), "reconcile route must still use the canonical reconciliation service");

@@ -14,7 +14,9 @@ const store = read("src/services/create-challenge/create-challenge-store.server.
 const fundingStart = funding.indexOf("export async function createProductFundingChallenge");
 assert.notEqual(fundingStart, -1, "canonical funding action must exist");
 const fundingAction = funding.slice(fundingStart, funding.indexOf("function collectStringCandidates"));
+const preparingIndex = fundingAction.indexOf('phase: "PRE_CIRCLE_PREPARING"');
 
+assert.ok(store.includes('"PREPARING"'), "funding attempts must support a durable pre-Circle preparing state");
 assert.ok(store.includes('"SUBMITTING"'), "funding attempts must support a pre-Circle submitting state");
 assert.ok(store.includes('"RECOVERY_REQUIRED"'), "funding attempts must support an uncertain recovery-required state");
 assert.ok(
@@ -40,16 +42,46 @@ assert.ok(
   "funding idempotency key must be computed before recovery/listing decisions",
 );
 assert.ok(
+  preparingIndex !== -1,
+  "funding must persist a pre-Circle preparing phase",
+);
+assert.ok(
+  preparingIndex < fundingAction.indexOf("getBrandWallet(userToken, draftId, input)"),
+  "durable preparing attempt must be written before wallet/provider resolution",
+);
+assert.ok(
+  preparingIndex < fundingAction.indexOf("findFundingAttemptsFromCircle(userToken, draftId", preparingIndex),
+  "durable preparing attempt must be written before Circle recovery lookup",
+);
+assert.ok(
+  preparingIndex < fundingAction.indexOf("getCanonicalFundingVerification(userToken, draftId", preparingIndex),
+  "durable preparing attempt must be written before Arc/read verification",
+);
+assert.ok(
   fundingAction.includes("findFundingAttemptsFromCircle(userToken, draftId"),
   "funding must reconcile Circle evidence before creating a new funding submission",
 );
 assert.ok(
-  fundingAction.indexOf("await upsertFundingAttemptForScope({") < fundingAction.indexOf('circleFetch<CircleContractExecutionResponse>'),
+  preparingIndex < fundingAction.indexOf('circleFetch<CircleContractExecutionResponse>'),
   "durable funding attempt must exist before Circle contractExecution is attempted",
 );
 assert.ok(
-  fundingAction.includes('circleStatus: "SUBMITTING"'),
+  fundingAction.includes('status: "SUBMITTING"'),
   "pre-submit funding attempt must be marked submitting",
+);
+[
+  "PRE_CIRCLE_WALLET_RESOLUTION_FAILED",
+  "PRE_CIRCLE_RECOVERY_LOOKUP_FAILED",
+  "PRE_CIRCLE_ARC_READ_FAILED",
+  "PRE_CIRCLE_ALLOWANCE_CHECK_FAILED",
+  "PRE_CIRCLE_PERSISTENCE_FAILED",
+].forEach((code) => {
+  assert.ok(funding.includes(code), `funding must persist safe pre-Circle diagnostic code ${code}`);
+});
+assert.ok(
+  funding.includes("function safeFundingErrorMessage") &&
+  funding.includes("Funding preparation failed before payment provider submission."),
+  "non-Circle pre-Circle failures must store a generic safe message",
 );
 assert.ok(
   funding.includes("function isDefinitiveCircleFundingRejection"),
