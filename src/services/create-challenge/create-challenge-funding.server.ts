@@ -695,8 +695,6 @@ async function buildCanonicalFundingVerification(
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: SELECTORS.treasury }, "latest"] },
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: SELECTORS.paused }, "latest"] },
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: `${SELECTORS.isFunded}${word(intent.challengeId)}` }, "latest"] },
-    { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: `${SELECTORS.getChallenge}${word(intent.challengeId)}` }, "latest"] },
-    { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: `${SELECTORS.getPrizeDistribution}${word(intent.challengeId)}` }, "latest"] },
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: SELECTORS.totalLockedPrizePools }, "latest"] },
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: SELECTORS.totalLockedPlatformFees }, "latest"] },
     { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: SELECTORS.getTotalLockedLiabilities }, "latest"] },
@@ -711,8 +709,6 @@ async function buildCanonicalFundingVerification(
     treasuryRaw,
     pausedRaw,
     fundedRaw,
-    challengeRaw,
-    distributionRaw,
     totalLockedPrizePoolsRaw,
     totalLockedPlatformFeesRaw,
     totalLockedLiabilitiesRaw,
@@ -720,6 +716,13 @@ async function buildCanonicalFundingVerification(
     escrowBalanceRaw,
     allowanceRaw,
   ] = callResults;
+  const isFunded = boolFromWord(splitWords(fundedRaw)[0] ?? "0");
+  const [challengeRaw, distributionRaw] = isFunded
+    ? await rpcBatch<string>([
+        { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: `${SELECTORS.getChallenge}${word(intent.challengeId)}` }, "latest"] },
+        { method: "eth_call", params: [{ to: intent.escrowContractAddress, data: `${SELECTORS.getPrizeDistribution}${word(intent.challengeId)}` }, "latest"] },
+      ])
+    : ["0x", "0x"];
   const challengeWords = splitWords(challengeRaw);
   const distributionWords = splitWords(distributionRaw);
   const distributionLength = Number(BigInt(`0x${distributionWords[1] ?? "0"}`));
@@ -742,7 +745,7 @@ async function buildCanonicalFundingVerification(
     usdc: addressFromWord(splitWords(usdcRaw)[0] ?? ""),
     treasury: addressFromWord(splitWords(treasuryRaw)[0] ?? ""),
     paused: boolFromWord(splitWords(pausedRaw)[0] ?? "0"),
-    isFunded: boolFromWord(splitWords(fundedRaw)[0] ?? "0"),
+    isFunded,
     totalLockedPrizePools: BigInt(totalLockedPrizePoolsRaw).toString(),
     totalLockedPlatformFees: BigInt(totalLockedPlatformFeesRaw).toString(),
     totalLockedLiabilities: BigInt(totalLockedLiabilitiesRaw).toString(),

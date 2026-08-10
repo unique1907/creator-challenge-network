@@ -45,6 +45,19 @@ assert.notEqual(receiptStart, -1, "receipt-first ChallengeFunded inspection must
 const buildStart = funding.indexOf("async function buildCanonicalFundingVerification");
 const fundingCreateStart = funding.indexOf("export async function createProductFundingChallenge");
 const buildSource = funding.slice(buildStart, fundingCreateStart);
+const firstBatchStart = buildSource.indexOf("const callResults = await rpcBatch<string>([");
+const firstBatchEnd = buildSource.indexOf("] = callResults;", firstBatchStart);
+const firstBatchSource = buildSource.slice(firstBatchStart, firstBatchEnd);
+assert.ok(firstBatchSource.includes("SELECTORS.isFunded"), "pre-Circle verification must still read canonical funded state");
+assert.ok(firstBatchSource.includes("SELECTORS.allowance"), "pre-Circle verification must still read canonical allowance state");
+assert.ok(!firstBatchSource.includes("SELECTORS.getChallenge"), "unfunded pre-Circle verification must not read funded-only challenge details");
+assert.ok(!firstBatchSource.includes("SELECTORS.getPrizeDistribution"), "unfunded pre-Circle verification must not read funded-only prize distribution details");
+assert.ok(
+  buildSource.includes("const [challengeRaw, distributionRaw] = isFunded") &&
+    buildSource.includes("SELECTORS.getChallenge") &&
+    buildSource.includes("SELECTORS.getPrizeDistribution"),
+  "funded-only challenge detail reads must be gated behind isFunded",
+);
 assert.ok(buildSource.indexOf("let receipt = fundingTx ? await getReceipt(fundingTx) : null") < buildSource.indexOf("getChallengeFundedEventFromReceipt"), "known transaction receipt must be inspected before historical scans");
 assert.ok(buildSource.includes("receiptFundedEvent"), "receipt logs must be used as funding event evidence");
 assert.ok(buildSource.includes("exactBlock: receipt.blockNumber"), "known transaction block must use exact single-block scanning when receipt logs do not match");
