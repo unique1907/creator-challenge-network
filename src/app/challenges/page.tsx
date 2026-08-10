@@ -8,6 +8,8 @@ export const metadata: Metadata = {
     "Browse funded creative competitions with USDC rewards secured on Arc.",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function Page() {
   const publicChallenges = await getAllPublicChallenges(challenges);
   return <ChallengesPage challenges={publicChallenges} />;
