@@ -9,6 +9,7 @@ import { CreatorWorkspaceNav } from "./creator-workspace-nav";
 import { CreatorWorkspaceSearch } from "./creator-workspace-search";
 import { UserMenu } from "@/components/auth/user-menu";
 import { BusinessChallengeCover, formatBusinessChallengeHierarchy } from "@/components/ui/business-challenge-cover";
+import { LiveStatusBadge } from "@/components/ui/live-status-badge";
 import { isSpikeAllowedInEnvironment } from "@/services/internal-spike-auth.server";
 import type { CreatorSession } from "@/services/creator-session.server";
 import type {
@@ -148,9 +149,12 @@ function ChallengeCard({ challenge }: { challenge: CreatorChallengeCard }) {
             {hierarchy.brand ? <p className="truncate text-[11px] text-slate-400">{hierarchy.brand}</p> : null}
             <h3 className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-4 text-white">{hierarchy.title}</h3>
           </div>
-          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold leading-4 ${statusClass(challenge.submissionStatus)}`}>
-            {challenge.submissionStatus}
-          </span>
+          <div className="flex shrink-0 flex-col items-end gap-1 max-sm:items-start">
+            <LiveStatusBadge />
+            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold leading-4 ${statusClass(challenge.submissionStatus)}`}>
+              {challenge.submissionStatus}
+            </span>
+          </div>
         </div>
 
         <p className="mt-1 truncate text-[11px] text-slate-500">{hierarchy.category}</p>
@@ -233,7 +237,34 @@ function CompactChallengeCard({ challenge }: { challenge: CreatorChallengeCard }
     category: challenge.category,
   });
 
-  return <article className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.045] shadow-lg shadow-black/10 transition hover:border-violet-300/25"><div className="relative"><BusinessChallengeCover src={challenge.coverImageUrl} alt={challenge.coverImageAlt} title={challenge.title} className="aspect-[16/6] max-h-[92px] w-full border-0" imageClassName="p-1.5" />{challenge.featured ? <span className="absolute left-2 top-2 rounded-md bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-white">Featured</span> : null}<span className="absolute right-2 top-2 rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-100">{challenge.timeLeftLabel}</span></div><div className="p-2"><div className="flex items-center gap-1.5"><span className="grid h-5 w-5 place-items-center rounded bg-white text-[10px] font-bold text-slate-950">{(hierarchy.brand || "B").slice(0, 1).toUpperCase()}</span><p className="truncate text-[12px] font-semibold text-white">{hierarchy.brand}</p></div><h3 className="mt-1 line-clamp-2 text-[13px] font-semibold leading-4 text-white">{hierarchy.title}</h3><p className="mt-0.5 text-[11px] text-slate-400">{hierarchy.category}</p><div className="mt-2 flex items-end justify-between gap-2 border-t border-white/10 pt-1.5"><div><p className="text-[13px] font-semibold text-white">{challenge.prizePool}</p><p className="mt-0.5 text-[10px] text-slate-500">Prize Pool</p></div><Link href={`/dashboard/creator/challenges/${challenge.slug}`} className="rounded-md bg-violet-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-violet-500">View Challenge</Link></div><p className="mt-1 text-[10px] text-slate-500">{challenge.submissionCountLabel}</p></div></article>;
+  return (
+    <article className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.045] shadow-lg shadow-black/10 transition hover:border-violet-300/25">
+      <div className="relative">
+        <BusinessChallengeCover src={challenge.coverImageUrl} alt={challenge.coverImageAlt} title={challenge.title} className="aspect-[16/6] max-h-[92px] w-full border-0" imageClassName="p-1.5" />
+        {challenge.featured ? <span className="absolute left-2 top-2 rounded-md bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-white">Featured</span> : null}
+        <span className="absolute right-2 top-2 rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-100">{challenge.timeLeftLabel}</span>
+      </div>
+      <div className="p-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 max-sm:justify-start">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-white text-[10px] font-bold text-slate-950">{(hierarchy.brand || "B").slice(0, 1).toUpperCase()}</span>
+            <p className="truncate text-[12px] font-semibold text-white">{hierarchy.brand}</p>
+          </div>
+          <LiveStatusBadge />
+        </div>
+        <h3 className="mt-1 line-clamp-2 text-[13px] font-semibold leading-4 text-white">{hierarchy.title}</h3>
+        <p className="mt-0.5 text-[11px] text-slate-400">{hierarchy.category}</p>
+        <div className="mt-2 flex items-end justify-between gap-2 border-t border-white/10 pt-1.5">
+          <div>
+            <p className="text-[13px] font-semibold text-white">{challenge.prizePool}</p>
+            <p className="mt-0.5 text-[10px] text-slate-500">Prize Pool</p>
+          </div>
+          <Link href={`/dashboard/creator/challenges/${challenge.slug}`} className="rounded-md bg-violet-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-violet-500">View Challenge</Link>
+        </div>
+        <p className="mt-1 text-[10px] text-slate-500">{challenge.submissionCountLabel}</p>
+      </div>
+    </article>
+  );
 }
 
 function NextActionHero({ action }: { action: CreatorNextAction }) {

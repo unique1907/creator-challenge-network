@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { type FormEvent, useMemo, useRef, useState } from "react";
 import { FormLabel } from "@/components/ui/form-label";
 import { getPublicSiteOrigin } from "@/config/site-url";
 import { createSupabaseBrowserClient } from "@/services/supabase/browser";
@@ -221,6 +221,7 @@ export function AuthActions({
   const [error, setError] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [secondaryOpen, setSecondaryOpen] = useState(false);
+  const passwordAuthInFlightRef = useRef(false);
   const visibleOauthProviders = oauthProviders.filter((provider) => provider.enabled);
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
   const normalizedRole = safeRole(roleIntent);
@@ -280,6 +281,8 @@ export function AuthActions({
       setError("Enter your email and password.");
       return;
     }
+    if (passwordAuthInFlightRef.current) return;
+    passwordAuthInFlightRef.current = true;
     setPending("password-login");
     setError("");
     setStatus("");
@@ -301,6 +304,7 @@ export function AuthActions({
     } catch (caught) {
       setError(safeAuthError(caught));
     } finally {
+      passwordAuthInFlightRef.current = false;
       setPending(null);
     }
   }
@@ -322,6 +326,8 @@ export function AuthActions({
       setError("Passwords do not match.");
       return;
     }
+    if (passwordAuthInFlightRef.current) return;
+    passwordAuthInFlightRef.current = true;
 
     setPending("password-signup");
     setError("");
@@ -358,8 +364,19 @@ export function AuthActions({
     } catch (caught) {
       setError(safeAuthError(caught));
     } finally {
+      passwordAuthInFlightRef.current = false;
       setPending(null);
     }
+  }
+
+  async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending !== null || passwordAuthInFlightRef.current) return;
+    if (mode === "sign-in") {
+      await signInWithPassword();
+      return;
+    }
+    await signUpWithPassword();
   }
 
   async function requestSecondaryEmailLink() {
@@ -411,59 +428,60 @@ export function AuthActions({
 
   return (
     <div className="mt-7 space-y-4">
-      <label className={labelClassName}>
-        <FormLabel required className={formLabelClassName}>Email</FormLabel>
-        <input
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          type="email"
-          required
-          aria-required="true"
-          autoComplete="email"
-          placeholder="you@example.com"
-          className={inputClassName}
-          aria-invalid={Boolean(error && !validEmail(normalizedEmail))}
-        />
-      </label>
-      <label className={labelClassName}>
-        <FormLabel required className={formLabelClassName}>Password</FormLabel>
-        <input
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          type="password"
-          required
-          aria-required="true"
-          autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-          className={inputClassName}
-        />
-      </label>
-      {mode === "sign-up" ? (
-        <>
-          <label className={labelClassName}>
-            <FormLabel required className={formLabelClassName}>Confirm password</FormLabel>
-            <input
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              type="password"
-              required
-              aria-required="true"
-              autoComplete="new-password"
-              className={inputClassName}
-            />
-          </label>
-          <div className={helperPanelClassName}>
-            Password requirements: at least 8 characters, one uppercase letter, one lowercase letter, and one number.
-          </div>
-        </>
-      ) : null}
-      <button
-        type="button"
-        onClick={() => void (mode === "sign-in" ? signInWithPassword() : signUpWithPassword())}
-        disabled={mode === "sign-in" ? !canLogIn : !canSignUp}
-        className="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {pending === "password-login" ? "Logging in..." : pending === "password-signup" ? "Creating..." : mode === "sign-in" ? "Log in" : "Create account"}
-      </button>
+      <form onSubmit={handlePasswordSubmit} className="space-y-4">
+        <label className={labelClassName}>
+          <FormLabel required className={formLabelClassName}>Email</FormLabel>
+          <input
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            type="email"
+            required
+            aria-required="true"
+            autoComplete="email"
+            placeholder="you@example.com"
+            className={inputClassName}
+            aria-invalid={Boolean(error && !validEmail(normalizedEmail))}
+          />
+        </label>
+        <label className={labelClassName}>
+          <FormLabel required className={formLabelClassName}>Password</FormLabel>
+          <input
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            type="password"
+            required
+            aria-required="true"
+            autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+            className={inputClassName}
+          />
+        </label>
+        {mode === "sign-up" ? (
+          <>
+            <label className={labelClassName}>
+              <FormLabel required className={formLabelClassName}>Confirm password</FormLabel>
+              <input
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                type="password"
+                required
+                aria-required="true"
+                autoComplete="new-password"
+                className={inputClassName}
+              />
+            </label>
+            <div className={helperPanelClassName}>
+              Password requirements: at least 8 characters, one uppercase letter, one lowercase letter, and one number.
+            </div>
+          </>
+        ) : null}
+        <button
+          type="submit"
+          disabled={mode === "sign-in" ? !canLogIn : !canSignUp}
+          className="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {pending === "password-login" ? "Logging in..." : pending === "password-signup" ? "Creating..." : mode === "sign-in" ? "Log in" : "Create account"}
+        </button>
+      </form>
       {error ? (
         <p className={errorClassName} role="alert" aria-live="assertive">
           {error}

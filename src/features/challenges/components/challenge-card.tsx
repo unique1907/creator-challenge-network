@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BusinessChallengeCover, formatBusinessChallengeHierarchy } from "@/components/ui/business-challenge-cover";
+import { LiveStatusBadge } from "@/components/ui/live-status-badge";
 import {
   accentClassName,
   formatDeadline,
@@ -31,12 +32,16 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
             imageClassName="p-2"
           />
         ) : null}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span
-            className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold capitalize leading-4 ${statusClassName(challenge.status)}`}
-          >
-            {challenge.publicStatusLabel ?? challenge.status}
-          </span>
+        <div className={`flex flex-wrap items-center gap-1.5 ${challenge.status === "open" ? "justify-end max-sm:justify-start" : ""}`}>
+          {challenge.status === "open" ? (
+            <LiveStatusBadge />
+          ) : (
+            <span
+              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold capitalize leading-4 ${statusClassName(challenge.status)}`}
+            >
+              {challenge.publicStatusLabel ?? challenge.status}
+            </span>
+          )}
         </div>
 
         {hierarchy.brand ? (

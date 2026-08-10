@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BusinessChallengeCover, formatBusinessChallengeHierarchy } from "@/components/ui/business-challenge-cover";
+import { LiveStatusBadge } from "@/components/ui/live-status-badge";
 import { formatUsdc } from "@/features/challenges/lib/challenge-utils";
 import type { Challenge } from "@/types/ccn";
 import { DeadlineCountdown } from "./deadline-countdown";
@@ -23,7 +24,7 @@ export function LandingChallengeCard({ challenge, currentTimeIso }: LandingChall
 
   return (
     <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md shadow-slate-200/70">
-      <div className="relative">
+      <div>
         <BusinessChallengeCover
           src={challenge.coverImageUrl}
           alt={challenge.coverImageAlt}
@@ -32,13 +33,13 @@ export function LandingChallengeCard({ challenge, currentTimeIso }: LandingChall
           className="aspect-[16/7] max-h-[120px] w-full border-0"
           imageClassName="p-2"
         />
-        <span className="absolute left-3 top-3 inline-flex rounded-md bg-emerald-500/95 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white shadow-sm">
-          LIVE
-        </span>
       </div>
 
       <div className="p-3.5">
-        {hierarchy.brand ? <p className="mb-1 truncate text-[11px] font-semibold text-slate-500">{hierarchy.brand}</p> : null}
+        <div className="mb-1 flex items-center justify-between gap-2 max-sm:justify-start">
+          {hierarchy.brand ? <p className="min-w-0 truncate text-[11px] font-semibold text-slate-500">{hierarchy.brand}</p> : <span />}
+          <LiveStatusBadge />
+        </div>
         <h3 className="line-clamp-2 text-[14px] font-semibold leading-5 text-slate-950">
           {hierarchy.title}
         </h3>

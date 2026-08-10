@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BusinessChallengeCover, formatBusinessChallengeHierarchy } from "@/components/ui/business-challenge-cover";
+import { LiveStatusBadge } from "@/components/ui/live-status-badge";
 import type { Challenge } from "@/types/ccn";
 import { formatDeadlineDateLabel } from "@/features/landing/lib/deadline-countdown";
 import { LandingIcon } from "./landing-icons";
@@ -110,9 +111,7 @@ export function FeaturedChallengeCard({ challenge }: { challenge?: Challenge | n
     <article className="rounded-xl border border-[#D9DEE7] bg-[#F3F4F6] p-5 shadow-xl shadow-slate-950/10">
       <div className="flex items-center justify-between gap-4">
         <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-violet-700">Featured challenge</p>
-        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
-          Live
-        </span>
+        <LiveStatusBadge />
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-[160px_1fr] sm:items-center">
