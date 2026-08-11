@@ -275,6 +275,7 @@ export function lifecycleStateFromDraft(draft: CreateChallengeDraftSummary, solu
     slug: draft.slug,
     submissionDeadline: draft.submissionDeadline,
     submittedCount: solutionCount,
+    configuredWinnerCount: draft.winnerCount,
     winnerFinalizationState: draft.winnerFinalizationState,
     winnerFinalizedAt: draft.winnerFinalizedAt,
     payoutConfirmedAt: draft.payoutConfirmedAt,

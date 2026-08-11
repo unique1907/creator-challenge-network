@@ -53,7 +53,7 @@ function actionLabelForRow(row: BrandDashboardCampaignRow) {
 function rowMetric(row: BrandDashboardCampaignRow) {
   if (row.status === "draft") return { label: "Progress", value: row.progressLabel ?? "Draft", detail: row.nextStep };
   if (row.status === "funding") return { label: "Funding", value: row.fundingStatusLabel, detail: row.requiredActionDescription };
-  if (row.status === "review") return { label: "Solutions", value: row.solutionsLabel, detail: row.rewardLabel };
+  if (row.status === "review") return { label: "Winners", value: row.rewardLabel, detail: row.requiredActionDescription };
   if (row.status === "winner-ready") return { label: "Selection", value: row.solutionsLabel, detail: row.requiredActionDescription };
   if (row.status === "settlement") return { label: "Payout", value: row.rewardLabel, detail: row.requiredActionDescription };
   if (row.status === "completed") return { label: "Outcome", value: "Completed", detail: row.fundingStatusLabel };

@@ -57,6 +57,7 @@ includes(publicEligibility, "publicStatusLabel: \"Closed — Not Enough Submissi
 includes(publicEligibility, "brandBucket: \"Closed\"", "Closed insufficient-submission records must not map to Needs Action.");
 
 includes(brandViewModel, "classification.lifecycle === \"closed-not-enough-submissions\"", "Brand rows must preserve the new lifecycle.");
+includes(brandViewModel, "configuredWinnerCount: draft.winnerCount", "Brand rows must pass the configured Top 1 / Top 3 winner count into shared lifecycle classification.");
 includes(brandViewModel, "row.status !== \"closed-not-enough-submissions\"", "Brand next action must exclude insufficient-submission closures.");
 includes(brandViewModel, "row.status === \"review\" && row.solutionCount > 0", "Brand solution activity must only count actionable evaluation rows.");
 includes(brandViewModel, "actionableSubmissionDraftIds", "Submission notifications must exclude non-actionable closed rows.");
