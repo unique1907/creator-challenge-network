@@ -477,6 +477,21 @@ async function requestJson<T>(url: string, body?: unknown, signal?: AbortSignal,
   return payload as T;
 }
 
+async function deleteJson<T>(url: string, body?: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const payload = (await response.json().catch(() => ({}))) as {
+    error?: SafeError;
+  };
+  if (!response.ok) {
+    throw payload.error ?? { message: "Delete request failed safely." };
+  }
+  return payload as T;
+}
+
 const initialDraftRequests = new Map<string, Promise<DraftResponse>>();
 
 function requestInitialDraft(url: string, cacheRequest: boolean) {
@@ -758,6 +773,8 @@ export function CreateChallengeWizard({
   const [status, setStatus] = useState(entryMode === "new" || entryMode === "smoke" ? "Preparing draft..." : "Loading saved draft...");
   const [error, setError] = useState<SafeError | null>(null);
   const [pending, setPending] = useState(entryMode === "new" || entryMode === "smoke");
+  const [deletePending, setDeletePending] = useState(false);
+  const [exitPending, setExitPending] = useState(false);
   const [dirty, setDirty] = useState(false);
   const lastBalanceSnapshotRef = useRef<BalanceSnapshot | null>(null);
   const balanceRequestRef = useRef(0);
@@ -954,6 +971,9 @@ export function CreateChallengeWizard({
         : status;
   const draftInitializationPending = Boolean(draft && !draft.challenge.id);
   const draftReadyForActions = Boolean(draft?.challenge.id ?? draftId);
+  const draftIsTransient = draft?.deployment.draftPersistenceStatus === "transient";
+  const draftActionPending = pending || deletePending || exitPending;
+  const deleteUnavailableReason = draft ? draftDeleteUnavailableReason(draft) : "Draft is still being prepared.";
   const blockingError: SafeError | null = error;
 
   function focusLaunchReadinessItem(itemId?: string) {
@@ -1136,6 +1156,31 @@ export function CreateChallengeWizard({
     });
   }
 
+  function draftDeleteUnavailableReason(targetDraft: CreateChallengeDraftState | null) {
+    if (!targetDraft?.challenge.id) return "Draft is still being prepared.";
+    if (targetDraft.deployment.publicationStatus !== "draft") return "Published challenges cannot be deleted.";
+    if (targetDraft.funding.escrowStatus !== "not-created") return "Prize pool escrow has already started.";
+    if (
+      targetDraft.funding.fundingStatus === "approval-pending" ||
+      targetDraft.funding.fundingStatus === "approved" ||
+      targetDraft.funding.fundingStatus === "funding-pending" ||
+      targetDraft.funding.fundingStatus === "funded" ||
+      targetDraft.funding.fundingStatus === "live"
+    ) {
+      return "Payment approval or funding has already started.";
+    }
+    if (
+      targetDraft.funding.transactionId ||
+      targetDraft.funding.transactionHash ||
+      targetDraft.funding.approvalTransactionId ||
+      targetDraft.funding.approvalTransactionHash ||
+      targetDraft.funding.fundingChallengeId
+    ) {
+      return "Payment evidence exists for this draft.";
+    }
+    return null;
+  }
+
   const loadPaymentAccount = useCallback(async (triggerSource: CreateChallengeTraceSource = "explicit-click") => {
     if (!draft?.challenge.id) return null;
     balanceAbortRef.current?.abort();
@@ -1221,13 +1266,14 @@ export function CreateChallengeWizard({
     setError(null);
     const submittedDraft = {
       ...draft,
-      deployment: { ...draft.deployment, currentStep: targetStep },
+      deployment: { ...draft.deployment, currentStep: targetStep, draftPersistenceStatus: "intentional" as const },
     };
     try {
       const payload = await requestJson<DraftResponse>("/api/create-challenge/draft", {
         draftId: draft.challenge.id ?? draftId,
         draft: submittedDraft,
         step: targetStep,
+        intentionalPersistence: true,
       });
       const preservedDraft = preserveEditableDraftState(payload.draft, submittedDraft, targetStep);
       setDraft(preservedDraft);
@@ -1278,6 +1324,52 @@ export function CreateChallengeWizard({
       };
       setDraft(steppedDraft);
       setLaunchReadiness(launchReadinessForDraft(steppedDraft));
+    }
+  }
+
+  async function deleteCurrentDraft(options: { confirm: boolean; redirectTo?: string; transientOnly?: boolean }) {
+    if (!draft?.challenge.id) return false;
+    if (options.transientOnly && !draftIsTransient) return false;
+    if (options.confirm) {
+      const unavailable = draftDeleteUnavailableReason(draft);
+      if (unavailable) {
+        setStatus(unavailable);
+        return false;
+      }
+      const confirmed = window.confirm("Delete this draft?\n\nThis only deletes the current unpublished draft and cannot be undone.");
+      if (!confirmed) return false;
+    }
+    setDeletePending(true);
+    setError(null);
+    try {
+      await deleteJson<{ deleted: boolean; draftId: string }>("/api/create-challenge/draft", {
+        draftId: draft.challenge.id,
+      });
+      setDirty(false);
+      if (options.redirectTo) {
+        window.location.assign(options.redirectTo);
+      }
+      return true;
+    } catch (requestError) {
+      showError(requestError, "RECONCILE");
+      return false;
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
+  async function exitToDashboard(event?: MouseEvent<HTMLAnchorElement>) {
+    event?.preventDefault();
+    if (exitPending) return;
+    setExitPending(true);
+    try {
+      if (draftIsTransient && draft?.challenge.id) {
+        const deleted = await deleteCurrentDraft({ confirm: false, redirectTo: "/dashboard", transientOnly: true });
+        if (deleted) return;
+      }
+      window.location.assign("/dashboard");
+    } finally {
+      setExitPending(false);
     }
   }
 
@@ -1713,6 +1805,10 @@ export function CreateChallengeWizard({
     setPending(true);
     setError(null);
     try {
+      if (draftIsTransient && draft?.challenge.id) {
+        const deleted = await deleteCurrentDraft({ confirm: false, transientOnly: true });
+        if (!deleted) return;
+      }
       const payload = await requestJson<DraftResponse>("/api/create-challenge/draft?new=1");
       setDraft(payload.draft);
       setDraftId(payload.draft.challenge.id ?? "");
@@ -1772,7 +1868,7 @@ export function CreateChallengeWizard({
     <main className="min-h-screen bg-[#030a1f] text-white">
       <header className="border-b border-white/10 bg-slate-950/70">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2.5 px-4 py-2.5 sm:px-5 lg:px-6">
-          <Link href="/dashboard" className="rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-200">
+          <Link href="/dashboard" onClick={exitToDashboard} className="rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-200">
             <CCNLogo size="md" priority />
           </Link>
           <div className="flex flex-wrap items-center gap-2">
@@ -1782,16 +1878,17 @@ export function CreateChallengeWizard({
             <button
               type="button"
               onClick={() => void startNewTestDraft()}
-              disabled={pending || draftInitializationPending}
+              disabled={draftActionPending || draftInitializationPending}
               className="rounded-md border border-cyan-200/40 px-3 py-1.5 text-[12px] font-bold text-cyan-100 disabled:opacity-50"
             >
               New Business Challenge
             </button>
             <Link
               href="/dashboard"
+              onClick={exitToDashboard}
               className="rounded-md border border-white/15 px-3 py-1.5 text-[12px] font-bold text-slate-200 transition hover:bg-white/10"
             >
-              Exit to Dashboard
+              {exitPending ? "Exiting..." : "Exit to Dashboard"}
             </Link>
           </div>
         </div>
@@ -1954,7 +2051,7 @@ export function CreateChallengeWizard({
               onClick={() => setStep(previousStep(step))}
               disabled={
                 step === "basics" ||
-                pending ||
+                draftActionPending ||
                 draft.funding.fundingStatus === "approval-pending" ||
                 draft.funding.fundingStatus === "funding-pending"
               }
@@ -1965,9 +2062,18 @@ export function CreateChallengeWizard({
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
+                onClick={() => void deleteCurrentDraft({ confirm: true, redirectTo: "/dashboard/campaigns" })}
+                disabled={draftActionPending || !draftReadyForActions || Boolean(deleteUnavailableReason)}
+                title={deleteUnavailableReason ?? "Delete this unpublished draft"}
+                className="rounded-md border border-red-300/35 px-3 py-1.5 text-[12px] font-bold text-red-100 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletePending ? "Deleting..." : "Delete Draft"}
+              </button>
+              <button
+                type="button"
                 onClick={() => void saveDraft()}
                 disabled={
-                  pending ||
+                  draftActionPending ||
                   !draftReadyForActions ||
                   draft.funding.fundingStatus === "approval-pending" ||
                   draft.funding.fundingStatus === "funding-pending" ||
@@ -1981,7 +2087,7 @@ export function CreateChallengeWizard({
                 <button
                   type="button"
                   onClick={() => void continueStep()}
-                  disabled={pending || !draftReadyForActions || prizeStepHasMismatch || prizeStepHasInsufficientBalance}
+                  disabled={draftActionPending || !draftReadyForActions || prizeStepHasMismatch || prizeStepHasInsufficientBalance}
                   className="rounded-md bg-gradient-to-r from-blue-500 to-violet-600 px-3 py-1.5 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Continue

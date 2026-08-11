@@ -9,6 +9,7 @@ import {
 } from "@/config/create-challenge-deadline-policy";
 import { demoCreateChallengeDraft } from "@/features/create-challenge/data/demo-draft";
 import { createSupabaseAdminClient } from "@/services/supabase/admin.server";
+import { countSubmittedEntriesForChallenge } from "@/services/submissions/submission-store.server";
 import type {
   CreateChallengeDraftState,
   CreateChallengeStepId,
@@ -100,6 +101,18 @@ export class DraftNotFoundError extends Error {
     super(`Create Challenge draft not found: ${draftId}`);
     this.name = "DraftNotFoundError";
     this.draftId = draftId;
+  }
+}
+
+export class DraftDeletionError extends Error {
+  readonly code: string;
+  readonly status: number;
+
+  constructor(message: string, code = "DRAFT_DELETE_NOT_ALLOWED", status = 409) {
+    super(message);
+    this.name = "DraftDeletionError";
+    this.code = code;
+    this.status = status;
   }
 }
 
@@ -684,6 +697,23 @@ function fundingRecordFromDraft(
   };
 }
 
+function withDraftPersistenceStatus(
+  draft: CreateChallengeDraftState,
+  status: NonNullable<CreateChallengeDraftState["deployment"]["draftPersistenceStatus"]>,
+): CreateChallengeDraftState {
+  return {
+    ...draft,
+    deployment: {
+      ...draft.deployment,
+      draftPersistenceStatus: status,
+    },
+  };
+}
+
+function isTransientCreateChallengeDraft(draft: CreateChallengeDraftState) {
+  return draft.deployment.draftPersistenceStatus === "transient";
+}
+
 function withFundingRecord(
   store: Store,
   draft: CreateChallengeDraftState,
@@ -1163,6 +1193,8 @@ export async function listCreateChallengeDrafts(input: { ccnAccountId?: string }
       )
     : null;
   return Object.values(store.drafts ?? {})
+    .map((draft) => sanitizeStoredDraft(draft))
+    .filter((draft) => !isTransientCreateChallengeDraft(draft))
     .filter((draft) => !allowedDraftIds || allowedDraftIds.has(draft.challenge.id ?? ""))
     .map((draft) => {
       const normalized = withDerivedValues(draft);
@@ -1212,12 +1244,13 @@ export async function listCreateChallengeDraftStates(input: { ccnAccountId?: str
 
   return Object.values(store.drafts ?? {})
     .map((draft) => sanitizeStoredDraft(draft))
+    .filter((draft) => !isTransientCreateChallengeDraft(draft))
     .filter((draft) => !allowedDraftIds || allowedDraftIds.has(draft.challenge.id ?? ""))
     .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
 }
 
 export async function createNewCreateChallengeDraft(input: { ccnAccountId?: string; brandName?: string | null } = {}) {
-  const draft = withInitialBrandName(createCleanDraft(), input.brandName);
+  const draft = withDraftPersistenceStatus(withInitialBrandName(createCleanDraft(), input.brandName), "transient");
   const draftId = draft.challenge.id ?? randomUUID();
   await updateStore((store) => withFundingRecord({
     ...store,
@@ -1231,7 +1264,7 @@ export async function createNewCreateChallengeDraft(input: { ccnAccountId?: stri
 }
 
 export async function createNewSmokeTestCreateChallengeDraft(input: { ccnAccountId?: string; brandName?: string | null } = {}) {
-  const draft = withInitialBrandName(createCleanSmokeTestDraft(), input.brandName);
+  const draft = withDraftPersistenceStatus(withInitialBrandName(createCleanSmokeTestDraft(), input.brandName), "transient");
   const draftId = draft.challenge.id ?? randomUUID();
   await updateStore((store) => withFundingRecord({
     ...store,
@@ -1276,6 +1309,134 @@ export async function getCreateChallengeDraftOwnerAccountId(draftId: string) {
 export async function getCreateChallengeDraftForAccount(draftId: string, ccnAccountId: string) {
   await assertCreateChallengeDraftOwner(draftId, ccnAccountId);
   return getCreateChallengeDraftStrict(draftId);
+}
+
+function draftScopedAttempt(input: {
+  draftId: string;
+  challengeId: string;
+  fundingIntentId: string;
+}) {
+  const challengeId = input.challengeId.toLowerCase();
+  return (attempt: {
+    draftId: string;
+    challengeId: string;
+    fundingIntentId: string;
+  }) =>
+    attempt.draftId === input.draftId &&
+    attempt.challengeId.toLowerCase() === challengeId &&
+    attempt.fundingIntentId === input.fundingIntentId;
+}
+
+function assertDraftDeleteAllowed(store: Store, draft: CreateChallengeDraftState, submittedCount: number) {
+  const normalized = withDerivedValues(draft);
+  const draftId = normalized.challenge.id ?? "";
+  const challengeId = normalized.challenge.challengeId ?? normalized.deployment.challengeId;
+  const fundingIntentId = normalized.funding.fundingIntentId;
+  const isDraftScope = draftScopedAttempt({ draftId, challengeId, fundingIntentId });
+  const allApprovalAttempts = Object.values(store.approvalAttempts ?? {}).flat();
+  const allFundingAttempts = Object.values(store.fundingAttempts ?? {}).flat();
+  const allWinnerAttempts = Object.values(store.winnerFinalizationAttempts ?? {});
+  const allVerifications = Object.values(store.onChainVerificationsByTxHash ?? {});
+
+  if (normalized.deployment.publicationStatus !== "draft") {
+    throw new DraftDeletionError("Only unpublished draft challenges can be deleted.");
+  }
+  if (normalized.funding.escrowStatus !== "not-created") {
+    throw new DraftDeletionError("Draft cannot be deleted after prize pool escrow starts.");
+  }
+  if (
+    normalized.funding.fundingStatus === "approval-pending" ||
+    normalized.funding.fundingStatus === "approved" ||
+    normalized.funding.fundingStatus === "funding-pending" ||
+    normalized.funding.fundingStatus === "funded" ||
+    normalized.funding.fundingStatus === "live"
+  ) {
+    throw new DraftDeletionError("Draft cannot be deleted after payment approval or funding starts.");
+  }
+  if (
+    normalized.funding.transactionId ||
+    normalized.funding.transactionHash ||
+    normalized.funding.approvalTransactionId ||
+    normalized.funding.approvalTransactionHash ||
+    normalized.funding.fundingChallengeId
+  ) {
+    throw new DraftDeletionError("Draft cannot be deleted because payment evidence exists.");
+  }
+  if (allApprovalAttempts.some(isDraftScope) || allFundingAttempts.some(isDraftScope)) {
+    throw new DraftDeletionError("Draft cannot be deleted because payment attempts exist.");
+  }
+  if (allWinnerAttempts.some(isDraftScope)) {
+    throw new DraftDeletionError("Draft cannot be deleted because winner selection evidence exists.");
+  }
+  if (allVerifications.some(isDraftScope)) {
+    throw new DraftDeletionError("Draft cannot be deleted because on-chain verification evidence exists.");
+  }
+  if (submittedCount > 0) {
+    throw new DraftDeletionError("Draft cannot be deleted because creator submissions exist.");
+  }
+}
+
+async function deleteSupabaseCreateChallengeDraftRows(input: {
+  draftId: string;
+  fundingRecordKeys: string[];
+}) {
+  if (LIFECYCLE_PERSISTENCE_ADAPTER !== "supabase") return;
+  const supabase = createSupabaseAdminClient();
+  const slugDelete = await supabase.from("ccn_public_slug_reservations").delete().eq("draft_id", input.draftId);
+  if (slugDelete.error) throw slugDelete.error;
+  if (input.fundingRecordKeys.length) {
+    const fundingDelete = await supabase
+      .from("ccn_challenge_funding_records")
+      .delete()
+      .in("record_key", input.fundingRecordKeys);
+    if (fundingDelete.error) throw fundingDelete.error;
+  }
+  const draftDelete = await supabase.from("ccn_challenge_drafts").delete().eq("draft_id", input.draftId);
+  if (draftDelete.error) throw draftDelete.error;
+}
+
+export async function deleteCreateChallengeDraft(
+  draftId: string,
+  input: { ccnAccountId?: string } = {},
+) {
+  if (!draftId) throw new DraftNotFoundError("missing-draft-id");
+  if (input.ccnAccountId) await assertCreateChallengeDraftOwner(draftId, input.ccnAccountId);
+  const store = await normalizeStore();
+  const draft = store.drafts?.[draftId];
+  if (!draft) throw new DraftNotFoundError(draftId);
+  const challengeId = draft.challenge.challengeId ?? draft.deployment.challengeId;
+  const submittedCount = challengeId ? await countSubmittedEntriesForChallenge(challengeId) : 0;
+  assertDraftDeleteAllowed(store, draft, submittedCount);
+  const fundingRecordKeys = Object.entries(store.fundingRecords ?? {})
+    .filter(([, record]) => record.draftId === draftId)
+    .map(([key]) => key);
+
+  await updateStore((current) => {
+    const currentDraft = current.drafts?.[draftId];
+    if (!currentDraft) throw new DraftNotFoundError(draftId);
+    assertDraftDeleteAllowed(current, currentDraft, submittedCount);
+    const nextDrafts = { ...(current.drafts ?? {}) };
+    delete nextDrafts[draftId];
+    const nextFundingRecords = { ...(current.fundingRecords ?? {}) };
+    Object.entries(nextFundingRecords).forEach(([key, record]) => {
+      if (record.draftId === draftId) delete nextFundingRecords[key];
+    });
+    const nextReservations = { ...(current.publicSlugReservations ?? {}) };
+    Object.entries(nextReservations).forEach(([slug, reservation]) => {
+      if (reservation.draftId === draftId) delete nextReservations[slug];
+    });
+    return {
+      ...current,
+      activeDraftId: current.activeDraftId === draftId ? undefined : current.activeDraftId,
+      drafts: nextDrafts,
+      fundingRecords: nextFundingRecords,
+      publicSlugReservations: nextReservations,
+    };
+  });
+
+  await deleteSupabaseCreateChallengeDraftRows({ draftId, fundingRecordKeys });
+
+  return { deleted: true, draftId };
 }
 
 export async function ensureCreateChallengeDraftPublicSlugReservation(
@@ -1386,7 +1547,7 @@ export async function listOnChainVerificationsForDraft(input: {
 export async function saveCreateChallengeDraft(
   draft: CreateChallengeDraftState,
   draftId?: string,
-  input: { ccnAccountId?: string } = {},
+  input: { ccnAccountId?: string; intentionalPersistence?: boolean } = {},
 ) {
   const targetDraftId = draftId || draft.challenge.id;
   if (!targetDraftId) throw new DraftNotFoundError("missing-draft-id");
@@ -1420,9 +1581,17 @@ export async function saveCreateChallengeDraft(
       },
       reviewRules: { ...current.reviewRules, ...draft.reviewRules },
       funding: { ...current.funding, ...draft.funding },
-      deployment: { ...current.deployment, ...draft.deployment },
+      deployment: {
+        ...current.deployment,
+        ...draft.deployment,
+        draftPersistenceStatus: input.intentionalPersistence
+          ? "intentional"
+          : current.deployment.draftPersistenceStatus ?? draft.deployment.draftPersistenceStatus,
+      },
     });
-    const reservation = await reservePublicSlug(store, merged);
+    const reservation = isTransientCreateChallengeDraft(merged)
+      ? { store, draft: merged }
+      : await reservePublicSlug(store, merged);
     normalized = reservation.draft;
     return withFundingRecord({
       ...reservation.store,

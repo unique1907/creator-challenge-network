@@ -8,6 +8,8 @@ import {
   assertCreateChallengeDraftOwner,
   createNewCreateChallengeDraft,
   createNewSmokeTestCreateChallengeDraft,
+  deleteCreateChallengeDraft,
+  DraftDeletionError,
   DraftNotFoundError,
   getCreateChallengeDraftForAccount,
   listCreateChallengeDrafts,
@@ -47,6 +49,12 @@ function createDraftPayload(draft: CreateChallengeDraftState, validation?: Creat
 function safeRouteError(error: unknown) {
   if (error instanceof DraftNotFoundError) {
     return NextResponse.json({ error: { message: error.message } }, { status: 404 });
+  }
+  if (error instanceof DraftDeletionError) {
+    return NextResponse.json(
+      { error: { message: error.message, code: error.code } },
+      { status: error.status },
+    );
   }
   if (error instanceof StoreCorruptionError) {
     return NextResponse.json(
@@ -111,13 +119,17 @@ export async function POST(request: Request) {
       draft: CreateChallengeDraftState;
       draftId?: string;
       step?: CreateChallengeStepId;
+      intentionalPersistence?: boolean;
     };
     const draftId = body.draftId || body.draft?.challenge?.id;
     if (!draftId) {
       return NextResponse.json({ error: { message: "draftId is required to save a draft." } }, { status: 400 });
     }
     await assertCreateChallengeDraftOwner(draftId, context.ccnAccountId);
-    const draft = await saveCreateChallengeDraft(body.draft, draftId, { ccnAccountId: context.ccnAccountId });
+    const draft = await saveCreateChallengeDraft(body.draft, draftId, {
+      ccnAccountId: context.ccnAccountId,
+      intentionalPersistence: body.intentionalPersistence === true,
+    });
     const deadlinePolicy = getCreateChallengeDeadlinePolicy({
       runtimeBlockchain: "ARC-TESTNET",
       chainId: ARC_TESTNET_CHAIN_ID,
@@ -127,6 +139,25 @@ export async function POST(request: Request) {
       ? validateCreateChallengeDraft(draft, body.step, { deadlinePolicy })
       : null;
     return NextResponse.json(createDraftPayload(draft, validation));
+  } catch (error) {
+    return safeRouteError(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const context = await requireBrandWorkspace({ allowTestContext: true });
+    const url = new URL(request.url);
+    let draftId = url.searchParams.get("draftId") ?? "";
+    if (!draftId) {
+      const body = (await request.json().catch(() => ({}))) as { draftId?: string };
+      draftId = body.draftId ?? "";
+    }
+    if (!draftId) {
+      return NextResponse.json({ error: { message: "draftId is required to delete a draft." } }, { status: 400 });
+    }
+    const result = await deleteCreateChallengeDraft(draftId, { ccnAccountId: context.ccnAccountId });
+    return NextResponse.json(result);
   } catch (error) {
     return safeRouteError(error);
   }

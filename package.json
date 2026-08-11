@@ -151,6 +151,7 @@
     "test:p0-brand-completed-post-settlement-propagation": "node scripts/verify-p0-brand-completed-post-settlement-propagation.mjs",
     "test:p0-creator-deadline-aware-ordering": "node scripts/verify-p0-creator-deadline-aware-ordering.mjs",
     "test:p0-business-domain-other-custom-value": "node scripts/verify-p0-business-domain-other-custom-value.mjs",
+    "test:p0-brand-draft-persistence-delete": "node scripts/verify-p0-brand-draft-persistence-delete.mjs",
     "test:p0-insufficient-submissions-terminal-state": "node scripts/verify-p0-insufficient-submissions-terminal-state.mjs",
     "test:p0-final-approved-plain-language-copy": "node scripts/verify-p0-final-approved-plain-language-copy.mjs"
   },

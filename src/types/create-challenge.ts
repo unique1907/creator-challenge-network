@@ -105,6 +105,7 @@ export type DeploymentState = {
   challengeId: string;
   publicationStatus: "draft" | "ready-to-publish" | "live";
   publishedAt?: string;
+  draftPersistenceStatus?: "transient" | "intentional";
 };
 
 export type CreateChallengeDraftState = {
